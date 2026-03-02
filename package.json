@@ -19,11 +19,15 @@
   "bin": {
     "better-skills": "./dist/cli.mjs"
   },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "dev": "bun run src/cli.ts",
     "build": "tsdown",
     "test": "bun test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "commander": "^13.1.0",

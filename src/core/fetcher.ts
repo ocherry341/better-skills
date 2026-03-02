@@ -1,9 +1,13 @@
 import { mkdir, readdir, rm, cp, stat } from "fs/promises";
 import { join, resolve } from "path";
 import { randomUUID } from "crypto";
+import { execFile } from "child_process";
+import { promisify } from "util";
 import { type SourceDescriptor, toGitUrl } from "./resolver.js";
 import { getTempPath } from "../utils/paths.js";
 import { hasSkillMd } from "../utils/skill-md.js";
+
+const execFileAsync = promisify(execFile);
 
 export interface FetchResult {
   /** Path to the fetched skill directory (in temp) */
@@ -14,18 +18,9 @@ export interface FetchResult {
 
 /** Execute a shell command and return stdout */
 async function exec(cmd: string[]): Promise<string> {
-  const proc = Bun.spawn(cmd, {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-
-  const exitCode = await proc.exited;
-  if (exitCode !== 0) {
-    const stderr = await new Response(proc.stderr).text();
-    throw new Error(`Command failed (${exitCode}): ${cmd.join(" ")}\n${stderr}`);
-  }
-
-  return await new Response(proc.stdout).text();
+  const [bin, ...args] = cmd;
+  const { stdout } = await execFileAsync(bin, args);
+  return stdout;
 }
 
 /** Shallow clone a git repo into a temp directory */
