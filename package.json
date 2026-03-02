@@ -17,7 +17,7 @@
     "dist"
   ],
   "bin": {
-    "better-skills": "./dist/cli.mjs"
+    "better-skills": "dist/cli.mjs"
   },
   "engines": {
     "node": ">=18"
@@ -37,5 +37,10 @@
     "@types/bun": "latest",
     "tsdown": "^0.21.0-beta.2"
   },
-  "keywords": ["skills", "better-skills", "cli", "content-addressable"]
+  "keywords": [
+    "skills",
+    "better-skills",
+    "cli",
+    "content-addressable"
+  ]
 }
