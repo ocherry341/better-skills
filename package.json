@@ -13,11 +13,15 @@
     "url": "https://github.com/ocherry341/better-skills/issues"
   },
   "homepage": "https://github.com/ocherry341/better-skills#readme",
+  "files": [
+    "dist"
+  ],
   "bin": {
-    "better-skills": "./src/cli.ts"
+    "better-skills": "./dist/cli.mjs"
   },
   "scripts": {
     "dev": "bun run src/cli.ts",
+    "build": "tsdown",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
   },
@@ -26,7 +30,8 @@
     "zod": "^3.24.0"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "tsdown": "^0.21.0-beta.2"
   },
   "keywords": ["skills", "better-skills", "cli", "content-addressable"]
 }
