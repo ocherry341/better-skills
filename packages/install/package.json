@@ -1,0 +1,7 @@
+{
+  "name": "@better-skills/install",
+  "private": true,
+  "scripts": {
+    "test": "bun test"
+  }
+}
