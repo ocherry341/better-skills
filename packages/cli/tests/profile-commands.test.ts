@@ -2,8 +2,8 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtemp, rm, mkdir, readdir, writeFile } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
-import { profileCreate, profileLs } from "../src/commands/profile.js";
-import { readProfile, getActiveProfileName } from "../src/core/profile.js";
+import { profileCreate, profileLs, profileShow } from "../src/commands/profile.js";
+import { type Profile, readProfile, writeProfile, getActiveProfileName, setActiveProfileName } from "../src/core/profile.js";
 
 describe("profile create", () => {
   let baseDir: string;
@@ -97,5 +97,44 @@ describe("profile ls", () => {
   test("returns empty when no profiles", async () => {
     const result = await profileLs({ profilesDir, activeFile });
     expect(result).toEqual([]);
+  });
+});
+
+describe("profile show", () => {
+  let baseDir: string;
+  let profilesDir: string;
+  let activeFile: string;
+  let skillsDir: string;
+
+  beforeEach(async () => {
+    baseDir = await mkdtemp(join(tmpdir(), "profile-show-"));
+    profilesDir = join(baseDir, "profiles");
+    activeFile = join(baseDir, "active-profile");
+    skillsDir = join(baseDir, "skills");
+    await mkdir(profilesDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    await rm(baseDir, { recursive: true, force: true });
+  });
+
+  test("shows skills in a profile", async () => {
+    const profile: Profile = {
+      name: "dev",
+      skills: [
+        { skillName: "brainstorming", hash: "abc", source: "obra/superpowers", addedAt: "2026-03-03T00:00:00.000Z" },
+        { skillName: "debugging", hash: "def", source: "obra/superpowers", addedAt: "2026-03-03T00:00:00.000Z" },
+      ],
+    };
+    await writeProfile(join(profilesDir, "dev.json"), profile);
+
+    const result = await profileShow("dev", { profilesDir });
+    expect(result.name).toBe("dev");
+    expect(result.skills.length).toBe(2);
+    expect(result.skills[0].skillName).toBe("brainstorming");
+  });
+
+  test("throws for nonexistent profile", async () => {
+    expect(profileShow("nope", { profilesDir })).rejects.toThrow();
   });
 });

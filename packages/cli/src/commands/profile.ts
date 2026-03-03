@@ -89,3 +89,18 @@ export async function profileLs(
     active: name === activeName,
   }));
 }
+
+export interface ProfileShowInternalOptions {
+  profilesDir: string;
+}
+
+/**
+ * Show details of a specific profile.
+ */
+export async function profileShow(
+  name: string,
+  opts: ProfileShowInternalOptions
+): Promise<Profile> {
+  const filePath = join(opts.profilesDir, `${name}.json`);
+  return readProfile(filePath);
+}
