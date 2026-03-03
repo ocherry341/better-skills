@@ -64,3 +64,28 @@ export async function profileCreate(
 
   console.log(`✓ Created profile '${name}' with ${skills.length} skill(s)`);
 }
+
+export interface ProfileLsInternalOptions {
+  profilesDir: string;
+  activeFile: string;
+}
+
+export interface ProfileListItem {
+  name: string;
+  active: boolean;
+}
+
+/**
+ * List all profiles, marking the active one.
+ */
+export async function profileLs(
+  opts: ProfileLsInternalOptions
+): Promise<ProfileListItem[]> {
+  const names = await listProfiles(opts.profilesDir);
+  const activeName = await getActiveProfileName(opts.activeFile);
+
+  return names.sort().map((name) => ({
+    name,
+    active: name === activeName,
+  }));
+}

@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtemp, rm, mkdir, readdir, writeFile } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
-import { profileCreate } from "../src/commands/profile.js";
+import { profileCreate, profileLs } from "../src/commands/profile.js";
 import { readProfile, getActiveProfileName } from "../src/core/profile.js";
 
 describe("profile create", () => {
@@ -61,5 +61,41 @@ describe("profile create", () => {
     expect(
       profileCreate("dup", { profilesDir, activeFile, skillsDir })
     ).rejects.toThrow(/already exists/);
+  });
+});
+
+describe("profile ls", () => {
+  let baseDir: string;
+  let profilesDir: string;
+  let activeFile: string;
+  let skillsDir: string;
+
+  beforeEach(async () => {
+    baseDir = await mkdtemp(join(tmpdir(), "profile-ls-"));
+    profilesDir = join(baseDir, "profiles");
+    activeFile = join(baseDir, "active-profile");
+    skillsDir = join(baseDir, "skills");
+    await mkdir(profilesDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    await rm(baseDir, { recursive: true, force: true });
+  });
+
+  test("lists profiles and marks active", async () => {
+    await profileCreate("alpha", { profilesDir, activeFile, skillsDir });
+    await profileCreate("beta", { profilesDir, activeFile, skillsDir });
+    // beta is now active (last created)
+
+    const result = await profileLs({ profilesDir, activeFile });
+    expect(result).toEqual([
+      { name: "alpha", active: false },
+      { name: "beta", active: true },
+    ]);
+  });
+
+  test("returns empty when no profiles", async () => {
+    const result = await profileLs({ profilesDir, activeFile });
+    expect(result).toEqual([]);
   });
 });
