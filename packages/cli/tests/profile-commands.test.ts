@@ -1,8 +1,8 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtemp, rm, mkdir, readdir, writeFile } from "fs/promises";
+import { mkdtemp, rm, mkdir, readdir, writeFile, readFile } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
-import { profileCreate, profileLs, profileShow } from "../src/commands/profile.js";
+import { profileCreate, profileLs, profileShow, profileUse } from "../src/commands/profile.js";
 import { type Profile, readProfile, writeProfile, getActiveProfileName, setActiveProfileName } from "../src/core/profile.js";
 
 describe("profile create", () => {
@@ -136,5 +136,103 @@ describe("profile show", () => {
 
   test("throws for nonexistent profile", async () => {
     expect(profileShow("nope", { profilesDir })).rejects.toThrow();
+  });
+});
+
+describe("profile use", () => {
+  let baseDir: string;
+  let profilesDir: string;
+  let activeFile: string;
+  let skillsDir: string;
+
+  beforeEach(async () => {
+    baseDir = await mkdtemp(join(tmpdir(), "profile-use-"));
+    profilesDir = join(baseDir, "profiles");
+    activeFile = join(baseDir, "active-profile");
+    skillsDir = join(baseDir, "skills");
+    await mkdir(profilesDir, { recursive: true });
+    await mkdir(skillsDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    await rm(baseDir, { recursive: true, force: true });
+  });
+
+  test("switches skills directory to match profile", async () => {
+    // Set up store with a skill
+    const storeDir = join(baseDir, "store", "abc123");
+    await mkdir(storeDir, { recursive: true });
+    await writeFile(
+      join(storeDir, "SKILL.md"),
+      "---\nname: test-skill\n---\n# Test"
+    );
+
+    // Create profile referencing that hash
+    const profile: Profile = {
+      name: "myprofile",
+      skills: [
+        { skillName: "test-skill", hash: "abc123", source: "test/repo", addedAt: "2026-03-03T00:00:00.000Z" },
+      ],
+    };
+    await writeProfile(join(profilesDir, "myprofile.json"), profile);
+
+    // Put a pre-existing skill in skillsDir (should be removed)
+    const oldSkill = join(skillsDir, "old-skill");
+    await mkdir(oldSkill, { recursive: true });
+    await writeFile(join(oldSkill, "SKILL.md"), "old");
+
+    // Switch to profile
+    await profileUse("myprofile", {
+      profilesDir,
+      activeFile,
+      skillsDir,
+      storePath: join(baseDir, "store"),
+      copy: true,
+    });
+
+    // old-skill should be gone, test-skill should be present
+    const entries = await readdir(skillsDir);
+    expect(entries).toEqual(["test-skill"]);
+
+    const content = await readFile(join(skillsDir, "test-skill", "SKILL.md"), "utf-8");
+    expect(content).toContain("test-skill");
+
+    // Active profile should be updated
+    const active = await getActiveProfileName(activeFile);
+    expect(active).toBe("myprofile");
+  });
+
+  test("throws for nonexistent profile", async () => {
+    expect(
+      profileUse("nope", {
+        profilesDir,
+        activeFile,
+        skillsDir,
+        storePath: join(baseDir, "store"),
+      })
+    ).rejects.toThrow();
+  });
+
+  test("warns about missing store entries", async () => {
+    // Profile references a hash not in store
+    const profile: Profile = {
+      name: "broken",
+      skills: [
+        { skillName: "ghost", hash: "nonexistent", source: "x/y", addedAt: "2026-03-03T00:00:00.000Z" },
+      ],
+    };
+    await writeProfile(join(profilesDir, "broken.json"), profile);
+
+    // Should not throw, but log a warning
+    await profileUse("broken", {
+      profilesDir,
+      activeFile,
+      skillsDir,
+      storePath: join(baseDir, "store"),
+    });
+
+    // Skills dir should be empty (the ghost skill wasn't linked)
+    const entries = await readdir(skillsDir);
+    expect(entries).toEqual([]);
   });
 });
