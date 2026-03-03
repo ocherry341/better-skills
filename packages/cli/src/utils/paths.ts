@@ -24,6 +24,21 @@ export function getSkillsPath(global: boolean, projectRoot?: string): string {
   return global ? getGlobalSkillsPath() : getProjectSkillsPath(projectRoot);
 }
 
+/** Directory containing all profile JSON files */
+export function getProfilesPath(): string {
+  return join(HOME, ".better-skills", "profiles");
+}
+
+/** Path to a specific profile's JSON file */
+export function getProfilePath(name: string): string {
+  return join(getProfilesPath(), `${name}.json`);
+}
+
+/** File that stores the name of the active profile */
+export function getActiveProfileFilePath(): string {
+  return join(HOME, ".better-skills", "active-profile");
+}
+
 /** Temp directory for git clones */
 export function getTempPath(): string {
   return join(HOME, ".better-skills", "tmp");
