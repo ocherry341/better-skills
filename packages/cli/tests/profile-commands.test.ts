@@ -4,6 +4,7 @@ import { join } from "path";
 import { tmpdir } from "os";
 import { profileCreate, profileLs, profileShow, profileUse } from "../src/commands/profile.js";
 import { type Profile, readProfile, writeProfile, getActiveProfileName, setActiveProfileName } from "../src/core/profile.js";
+import { addSkillToProfile } from "../src/commands/add.js";
 
 describe("profile create", () => {
   let baseDir: string;
@@ -234,5 +235,77 @@ describe("profile use", () => {
     // Skills dir should be empty (the ghost skill wasn't linked)
     const entries = await readdir(skillsDir);
     expect(entries).toEqual([]);
+  });
+});
+
+describe("add records to active profile", () => {
+  let baseDir: string;
+  let profilesDir: string;
+  let activeFile: string;
+
+  beforeEach(async () => {
+    baseDir = await mkdtemp(join(tmpdir(), "add-profile-"));
+    profilesDir = join(baseDir, "profiles");
+    activeFile = join(baseDir, "active-profile");
+    await mkdir(profilesDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    await rm(baseDir, { recursive: true, force: true });
+  });
+
+  test("appends skill to active profile", async () => {
+    // Create and activate a profile
+    const profile: Profile = { name: "dev", skills: [] };
+    await writeProfile(join(profilesDir, "dev.json"), profile);
+    await setActiveProfileName(activeFile, "dev");
+
+    await addSkillToProfile({
+      skillName: "brainstorming",
+      hash: "abc123",
+      source: "obra/superpowers",
+      profilesDir,
+      activeFile,
+    });
+
+    const updated = await readProfile(join(profilesDir, "dev.json"));
+    expect(updated.skills.length).toBe(1);
+    expect(updated.skills[0].skillName).toBe("brainstorming");
+    expect(updated.skills[0].hash).toBe("abc123");
+    expect(updated.skills[0].source).toBe("obra/superpowers");
+  });
+
+  test("replaces existing skill with same name", async () => {
+    const profile: Profile = {
+      name: "dev",
+      skills: [
+        { skillName: "brainstorming", hash: "old", source: "old/source", addedAt: "2026-01-01T00:00:00.000Z" },
+      ],
+    };
+    await writeProfile(join(profilesDir, "dev.json"), profile);
+    await setActiveProfileName(activeFile, "dev");
+
+    await addSkillToProfile({
+      skillName: "brainstorming",
+      hash: "new",
+      source: "new/source",
+      profilesDir,
+      activeFile,
+    });
+
+    const updated = await readProfile(join(profilesDir, "dev.json"));
+    expect(updated.skills.length).toBe(1);
+    expect(updated.skills[0].hash).toBe("new");
+  });
+
+  test("no-op when no active profile", async () => {
+    // Should not throw, just skip silently
+    await addSkillToProfile({
+      skillName: "brainstorming",
+      hash: "abc",
+      source: "x/y",
+      profilesDir,
+      activeFile,
+    });
   });
 });
