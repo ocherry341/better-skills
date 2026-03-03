@@ -1,8 +1,11 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { $ } from "bun";
 import { mkdtemp, rm, mkdir, writeFile } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
 import { status, type StatusEntry } from "../src/commands/status.js";
+
+const cli = join(import.meta.dir, "../src/cli.ts");
 
 describe("status", () => {
   let baseDir: string;
@@ -63,5 +66,12 @@ describe("status", () => {
 
     const entries = await status({ globalDir, projectDir });
     expect(entries.map((e) => e.name)).toEqual(["alpha", "beta", "zeta"]);
+  });
+});
+
+describe("status CLI", () => {
+  test("'status --help' shows command description", async () => {
+    const result = await $`bun run ${cli} status --help`.text();
+    expect(result).toContain("Show all active skills");
   });
 });

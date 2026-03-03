@@ -3,6 +3,7 @@ import { Command } from "commander";
 import { add } from "./commands/add.js";
 import { ls } from "./commands/ls.js";
 import { rm } from "./commands/rm.js";
+import { status, printStatus } from "./commands/status.js";
 import {
   profileCreate,
   profileLs,
@@ -71,6 +72,14 @@ program
   .option("-g, --global", "Remove from global skills directory")
   .action(async (name: string, opts) => {
     await rm(name, { global: opts.global });
+  });
+
+program
+  .command("status")
+  .description("Show all active skills with their source (global / project)")
+  .action(async () => {
+    const entries = await status();
+    printStatus(entries);
   });
 
 const profile = program
