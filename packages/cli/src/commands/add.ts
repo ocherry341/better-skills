@@ -3,7 +3,6 @@ import { fetch } from "../core/fetcher.js";
 import { hashDirectory } from "../core/hasher.js";
 import * as store from "../core/store.js";
 import { linkSkill } from "../core/linker.js";
-import * as lockfile from "../core/lockfile.js";
 import { getSkillsPath } from "../utils/paths.js";
 import { readSkillMd } from "../utils/skill-md.js";
 import { join, basename } from "path";
@@ -15,7 +14,7 @@ export interface AddOptions {
 }
 
 /**
- * Add a skill: Resolve → Fetch → Hash → Store → Link → Update lock
+ * Add a skill: Resolve → Fetch → Hash → Store → Link
  */
 export async function add(source: string, options: AddOptions = {}): Promise<void> {
   // 1. Resolve source
@@ -54,15 +53,6 @@ export async function add(source: string, options: AddOptions = {}): Promise<voi
     const targetDir = join(targetBase, skillName);
     console.log(`Linking to ${targetDir}...`);
     await linkSkill(store.getHashPath(hash), targetDir, { copy: options.copy });
-
-    // 7. Update lockfile
-    const lock = await lockfile.read();
-    const updated = lockfile.setSkill(lock, skillName, {
-      source: toSourceString(descriptor),
-      sourceType: descriptor.type,
-      computedHash: hash,
-    });
-    await lockfile.write(updated);
 
     console.log(`✓ Added ${skillName} (${hash.slice(0, 8)})`);
   } finally {
