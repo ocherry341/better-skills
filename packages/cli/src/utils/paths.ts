@@ -24,12 +24,6 @@ export function getSkillsPath(global: boolean, projectRoot?: string): string {
   return global ? getGlobalSkillsPath() : getProjectSkillsPath(projectRoot);
 }
 
-/** Lock file path (always project-local) */
-export function getLockfilePath(projectRoot?: string): string {
-  const root = projectRoot ?? process.cwd();
-  return join(root, "skills-lock.json");
-}
-
 /** Temp directory for git clones */
 export function getTempPath(): string {
   return join(HOME, ".better-skills", "tmp");
