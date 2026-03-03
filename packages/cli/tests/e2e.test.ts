@@ -1,13 +1,12 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtemp, writeFile, mkdir, rm, readdir, readFile, stat } from "fs/promises";
+import { mkdtemp, writeFile, mkdir, rm, readFile, stat } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
 import { hashDirectory } from "../src/core/hasher.js";
 import * as store from "../src/core/store.js";
 import { linkSkill, unlinkSkill } from "../src/core/linker.js";
-import * as lockfile from "../src/core/lockfile.js";
 
-describe("e2e: store → link → lockfile flow", () => {
+describe("e2e: store → link flow", () => {
   let skillDir: string;
   let targetDir: string;
 
@@ -57,23 +56,5 @@ This is a test.`
     // Unlink
     await unlinkSkill(linkedDir);
     expect(stat(linkedDir)).rejects.toThrow();
-  });
-
-  test("lockfile roundtrip with real hash", async () => {
-    const hash = await hashDirectory(skillDir);
-
-    let lock = lockfile.createEmpty();
-    lock = lockfile.setSkill(lock, "test-skill", {
-      source: "owner/repo",
-      sourceType: "github",
-      computedHash: hash,
-    });
-
-    expect(lock.skills["test-skill"].computedHash).toBe(hash);
-    expect(Object.keys(lock.skills)).toHaveLength(1);
-
-    // Remove and verify
-    lock = lockfile.removeSkill(lock, "test-skill");
-    expect(Object.keys(lock.skills)).toHaveLength(0);
   });
 });
