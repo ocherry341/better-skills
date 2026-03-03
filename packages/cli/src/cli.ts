@@ -40,6 +40,22 @@ program
   });
 
 program
+  .command("install <source>")
+  .alias("i")
+  .description("Add a skill from a source (github, git, or local path)")
+  .option("-g, --global", "Install to global skills directory")
+  .option("--copy", "Use file copy instead of hard links")
+  .option("-n, --name <name>", "Override the skill name")
+  .option("-y, --yes", "Skip confirmation prompts")
+  .action(async (source: string, opts) => {
+    await add(source, {
+      global: opts.global,
+      copy: opts.copy,
+      name: opts.name,
+    });
+  });
+
+program
   .command("ls")
   .alias("list")
   .description("List installed skills")
