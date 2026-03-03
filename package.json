@@ -1,46 +1,16 @@
 {
-  "name": "better-skills",
-  "version": "0.1.0",
-  "description": "A pnpm-inspired skills management CLI with content-addressable storage",
-  "type": "module",
-  "license": "MIT",
-  "author": "ocherry341",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/ocherry341/better-skills.git"
-  },
-  "bugs": {
-    "url": "https://github.com/ocherry341/better-skills/issues"
-  },
-  "homepage": "https://github.com/ocherry341/better-skills#readme",
-  "files": [
-    "dist"
-  ],
-  "bin": {
-    "better-skills": "dist/cli.mjs"
-  },
-  "engines": {
-    "node": ">=18"
-  },
+  "private": true,
+  "workspaces": ["packages/*"],
   "scripts": {
-    "dev": "bun run src/cli.ts",
-    "build": "tsdown",
-    "test": "bun test",
-    "typecheck": "tsc --noEmit",
-    "prepublishOnly": "npm run build"
-  },
-  "dependencies": {
-    "commander": "^13.1.0",
-    "zod": "^3.24.0"
+    "build": "bun run --filter 'better-skills' build",
+    "test": "bun run --filter '*' test",
+    "typecheck": "bun run --filter 'better-skills' typecheck",
+    "dev": "bun run --filter 'better-skills' dev",
+    "build:binary": "bun run scripts/build-binary.ts"
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "tsdown": "^0.21.0-beta.2"
-  },
-  "keywords": [
-    "skills",
-    "better-skills",
-    "cli",
-    "content-addressable"
-  ]
+    "tsdown": "^0.21.0-beta.2",
+    "typescript": "^5.8.0"
+  }
 }
