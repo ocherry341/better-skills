@@ -1,5 +1,6 @@
 import { unlinkSkill } from "../core/linker.js";
-import { getSkillsPath } from "../utils/paths.js";
+import { getSkillsPath, getProfilesPath, getActiveProfileFilePath } from "../utils/paths.js";
+import { readProfile, writeProfile, getActiveProfileName } from "../core/profile.js";
 import { stat } from "fs/promises";
 import { join } from "path";
 
@@ -27,4 +28,35 @@ export async function rm(name: string, options: RmOptions = {}): Promise<void> {
   await unlinkSkill(targetDir);
 
   console.log(`✓ Removed ${name}`);
+
+  // Remove from active profile
+  await removeSkillFromProfile({ skillName: name });
+}
+
+export interface RemoveFromProfileOptions {
+  skillName: string;
+  profilesDir?: string;
+  activeFile?: string;
+}
+
+/**
+ * Remove a skill entry from the active profile.
+ * No-op if no active profile exists.
+ */
+export async function removeSkillFromProfile(opts: RemoveFromProfileOptions): Promise<void> {
+  const activeFile = opts.activeFile ?? getActiveProfileFilePath();
+  const profilesDir = opts.profilesDir ?? getProfilesPath();
+  const activeName = await getActiveProfileName(activeFile);
+  if (!activeName) return;
+
+  const filePath = join(profilesDir, `${activeName}.json`);
+  let profile;
+  try {
+    profile = await readProfile(filePath);
+  } catch {
+    return;
+  }
+
+  profile.skills = profile.skills.filter((s) => s.skillName !== opts.skillName);
+  await writeProfile(filePath, profile);
 }

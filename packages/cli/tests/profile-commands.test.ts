@@ -5,6 +5,7 @@ import { tmpdir } from "os";
 import { profileCreate, profileLs, profileShow, profileUse } from "../src/commands/profile.js";
 import { type Profile, readProfile, writeProfile, getActiveProfileName, setActiveProfileName } from "../src/core/profile.js";
 import { addSkillToProfile } from "../src/commands/add.js";
+import { removeSkillFromProfile } from "../src/commands/rm.js";
 
 describe("profile create", () => {
   let baseDir: string;
@@ -304,6 +305,53 @@ describe("add records to active profile", () => {
       skillName: "brainstorming",
       hash: "abc",
       source: "x/y",
+      profilesDir,
+      activeFile,
+    });
+  });
+});
+
+describe("rm records to active profile", () => {
+  let baseDir: string;
+  let profilesDir: string;
+  let activeFile: string;
+
+  beforeEach(async () => {
+    baseDir = await mkdtemp(join(tmpdir(), "rm-profile-"));
+    profilesDir = join(baseDir, "profiles");
+    activeFile = join(baseDir, "active-profile");
+    await mkdir(profilesDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    await rm(baseDir, { recursive: true, force: true });
+  });
+
+  test("removes skill from active profile", async () => {
+    const profile: Profile = {
+      name: "dev",
+      skills: [
+        { skillName: "brainstorming", hash: "abc", source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
+        { skillName: "debugging", hash: "def", source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
+      ],
+    };
+    await writeProfile(join(profilesDir, "dev.json"), profile);
+    await setActiveProfileName(activeFile, "dev");
+
+    await removeSkillFromProfile({
+      skillName: "brainstorming",
+      profilesDir,
+      activeFile,
+    });
+
+    const updated = await readProfile(join(profilesDir, "dev.json"));
+    expect(updated.skills.length).toBe(1);
+    expect(updated.skills[0].skillName).toBe("debugging");
+  });
+
+  test("no-op when no active profile", async () => {
+    await removeSkillFromProfile({
+      skillName: "brainstorming",
       profilesDir,
       activeFile,
     });
