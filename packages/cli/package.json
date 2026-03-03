@@ -1,0 +1,41 @@
+{
+  "name": "better-skills",
+  "version": "0.1.0",
+  "description": "A pnpm-inspired skills management CLI with content-addressable storage",
+  "type": "module",
+  "license": "MIT",
+  "author": "ocherry341",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ocherry341/better-skills.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/ocherry341/better-skills/issues"
+  },
+  "homepage": "https://github.com/ocherry341/better-skills#readme",
+  "files": ["dist"],
+  "bin": {
+    "better-skills": "dist/cli.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "bun run src/cli.ts",
+    "build": "tsdown",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run build"
+  },
+  "dependencies": {
+    "commander": "^13.1.0",
+    "zod": "^3.24.0"
+  },
+  "keywords": [
+    "skills",
+    "better-skills",
+    "cli",
+    "content-addressable"
+  ]
+}
