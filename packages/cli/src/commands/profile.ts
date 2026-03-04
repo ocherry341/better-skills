@@ -246,6 +246,60 @@ export async function profileAdd(
   }
 }
 
+export interface ProfileRmInternalOptions {
+  profilesDir: string;
+  activeFile: string;
+  skillsDir: string;
+  profileName?: string;
+}
+
+/**
+ * Remove a skill from a specific profile.
+ * If the target profile is active, also unlinks from the global skills directory.
+ */
+export async function profileRm(
+  skillName: string,
+  opts: ProfileRmInternalOptions
+): Promise<void> {
+  // 1. Resolve target profile
+  const activeName = await getActiveProfileName(opts.activeFile);
+  const targetName = opts.profileName ?? activeName;
+  if (!targetName) {
+    throw new Error("No active profile. Specify --profile <name> or create a profile first.");
+  }
+
+  const filePath = join(opts.profilesDir, `${targetName}.json`);
+  const profile = await readProfile(filePath);
+
+  // 2. Check skill exists in profile
+  const exists = profile.skills.some((s) => s.skillName === skillName);
+  if (!exists) {
+    throw new Error(`Skill '${skillName}' not found in profile '${targetName}'.`);
+  }
+
+  // 3. Remove from profile
+  profile.skills = profile.skills.filter((s) => s.skillName !== skillName);
+  await writeProfile(filePath, profile);
+
+  // 4. Unlink if target is the active profile
+  const isActive = targetName === activeName;
+  if (isActive) {
+    const targetDir = join(opts.skillsDir, skillName);
+    try {
+      await stat(targetDir);
+      console.log(`Removing ${targetDir}...`);
+      await unlinkSkill(targetDir);
+    } catch {
+      // Skill dir doesn't exist on disk — already removed, just update profile
+    }
+  }
+
+  console.log(`✓ Removed ${skillName} from profile '${targetName}'`);
+  if (!isActive) {
+    console.log(`  (no unlink needed — '${targetName}' is not the active profile)`);
+  }
+}
+
 function deriveNameFromSource(desc: SourceDescriptor): string {
   switch (desc.type) {
     case "github":
