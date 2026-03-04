@@ -3,15 +3,19 @@ import { fetch } from "../core/fetcher.js";
 import { hashDirectory } from "../core/hasher.js";
 import * as store from "../core/store.js";
 import { linkSkill } from "../core/linker.js";
-import { getSkillsPath, getProfilesPath, getActiveProfileFilePath } from "../utils/paths.js";
+import { getSkillsPath, getProfilesPath, getActiveProfileFilePath, getRegistryPath } from "../utils/paths.js";
 import { readSkillMd } from "../utils/skill-md.js";
-import { readProfile, writeProfile, getActiveProfileName } from "../core/profile.js";
+import { readProfile, writeProfile, getActiveProfileName, setActiveProfileName } from "../core/profile.js";
+import { registerSkill, isManaged } from "../core/registry.js";
+import { stat } from "fs/promises";
 import { join, basename } from "path";
 
 export interface AddOptions {
   global?: boolean;
   copy?: boolean;
   name?: string;
+  force?: boolean;
+  registryPath?: string;
 }
 
 /**
@@ -49,15 +53,36 @@ export async function add(source: string, options: AddOptions = {}): Promise<voi
     console.log(`Storing ${hash.slice(0, 8)}...`);
     await store.store(hash, result.dir);
 
-    // 6. Link
+    // 6. Conflict detection (global only)
     const targetBase = getSkillsPath(options.global ?? false);
     const targetDir = join(targetBase, skillName);
+    const registryPath = options.registryPath ?? getRegistryPath();
+
+    if (options.global) {
+      const exists = await dirExists(targetDir);
+      if (exists) {
+        const managed = await isManaged(skillName, registryPath);
+        if (!managed && !options.force) {
+          throw new Error(
+            `Skill '${skillName}' exists but is not managed by better-skills. Use --force to overwrite.`
+          );
+        }
+      }
+    }
+
+    // 7. Link
     console.log(`Linking to ${targetDir}...`);
     await linkSkill(store.getHashPath(hash), targetDir, { copy: options.copy });
 
     console.log(`✓ Added ${skillName} (${hash.slice(0, 8)})`);
 
-    // 7. Record in active profile (only for global skills)
+    // 8. Register in registry (global only)
+    if (options.global) {
+      const sourceStr = toSourceString(descriptor);
+      await registerSkill(skillName, hash, sourceStr, registryPath, targetBase);
+    }
+
+    // 9. Record in active profile (only for global skills)
     await addSkillToProfile({
       skillName,
       hash,
@@ -80,15 +105,23 @@ export interface AddToProfileOptions {
 
 /**
  * Record a skill addition in the active profile.
- * No-op if no active profile exists.
+ * Auto-creates a "default" profile when no active profile exists.
  */
 export async function addSkillToProfile(opts: AddToProfileOptions): Promise<void> {
   if (!opts.global) return;
 
   const activeFile = opts.activeFile ?? getActiveProfileFilePath();
   const profilesDir = opts.profilesDir ?? getProfilesPath();
-  const activeName = await getActiveProfileName(activeFile);
-  if (!activeName) return;
+  let activeName = await getActiveProfileName(activeFile);
+
+  if (!activeName) {
+    // Auto-create default profile
+    activeName = "default";
+    const filePath = join(profilesDir, `${activeName}.json`);
+    await writeProfile(filePath, { name: activeName, skills: [] });
+    await setActiveProfileName(activeFile, activeName);
+    console.log("Created default profile.");
+  }
 
   const filePath = join(profilesDir, `${activeName}.json`);
   let profile;
@@ -108,6 +141,15 @@ export async function addSkillToProfile(opts: AddToProfileOptions): Promise<void
   });
 
   await writeProfile(filePath, profile);
+}
+
+async function dirExists(path: string): Promise<boolean> {
+  try {
+    const s = await stat(path);
+    return s.isDirectory();
+  } catch {
+    return false;
+  }
 }
 
 function deriveNameFromSource(desc: SourceDescriptor): string {

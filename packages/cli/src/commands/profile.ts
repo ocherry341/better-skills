@@ -10,6 +10,7 @@ import {
   getActiveProfileName,
   setActiveProfileName,
 } from "../core/profile.js";
+import { isManaged, registerSkill, unregisterSkill } from "../core/registry.js";
 import { hashDirectory } from "../core/hasher.js";
 import { resolve as resolveSource, toSourceString, type SourceDescriptor } from "../core/resolver.js";
 import { fetch } from "../core/fetcher.js";
@@ -116,10 +117,11 @@ export interface ProfileUseInternalOptions {
   skillsDir: string;
   storePath: string;
   copy?: boolean;
+  registryPath?: string;
 }
 
 /**
- * Switch to a profile: clear skills dir, re-link all skills from store.
+ * Switch to a profile: clear managed skills, preserve unmanaged, re-link from store.
  */
 export async function profileUse(
   name: string,
@@ -128,12 +130,17 @@ export async function profileUse(
   const filePath = join(opts.profilesDir, `${name}.json`);
   const profile = await readProfile(filePath);
 
-  // Clear existing skills directory
+  // Clear only managed skills; preserve unmanaged
   try {
     const existing = await readdir(opts.skillsDir, { withFileTypes: true });
     for (const entry of existing) {
-      if (entry.isDirectory()) {
+      if (!entry.isDirectory()) continue;
+      const managed = await isManaged(entry.name, opts.registryPath);
+      if (managed) {
         await unlinkSkill(join(opts.skillsDir, entry.name));
+        await unregisterSkill(entry.name, opts.registryPath, opts.skillsDir);
+      } else {
+        console.warn(`⚠ Skipping unmanaged skill '${entry.name}'`);
       }
     }
   } catch {
@@ -142,7 +149,7 @@ export async function profileUse(
 
   await fsMkdir(opts.skillsDir, { recursive: true });
 
-  // Link each skill from store
+  // Link each skill from store and register
   for (const skill of profile.skills) {
     const storeDir = join(opts.storePath, skill.hash);
     try {
@@ -153,6 +160,7 @@ export async function profileUse(
     }
     const targetDir = join(opts.skillsDir, skill.skillName);
     await linkSkill(storeDir, targetDir, { copy: opts.copy });
+    await registerSkill(skill.skillName, skill.hash, skill.source, opts.registryPath, opts.skillsDir);
   }
 
   // Update active profile
@@ -169,6 +177,7 @@ export interface ProfileAddInternalOptions {
   profileName?: string;
   copy?: boolean;
   name?: string;
+  registryPath?: string;
 }
 
 /**
@@ -228,13 +237,14 @@ export async function profileAdd(
     });
     await writeProfile(filePath, profile);
 
-    // 7. Link if target is the active profile
+    // 7. Link if target is the active profile + register
     const isActive = targetName === activeName;
     if (isActive) {
       const targetDir = join(opts.skillsDir, skillName);
       console.log(`Linking to ${targetDir}...`);
       const storeDir = store.getHashPath(hash);
       await linkSkill(storeDir, targetDir, { copy: opts.copy });
+      await registerSkill(skillName, hash, toSourceString(descriptor), opts.registryPath, opts.skillsDir);
     }
 
     console.log(`✓ Added ${skillName} (${hash.slice(0, 8)}) to profile '${targetName}'`);
@@ -251,6 +261,7 @@ export interface ProfileRmInternalOptions {
   activeFile: string;
   skillsDir: string;
   profileName?: string;
+  registryPath?: string;
 }
 
 /**
@@ -281,7 +292,7 @@ export async function profileRm(
   profile.skills = profile.skills.filter((s) => s.skillName !== skillName);
   await writeProfile(filePath, profile);
 
-  // 4. Unlink if target is the active profile
+  // 4. Unlink + unregister if target is the active profile
   const isActive = targetName === activeName;
   if (isActive) {
     const targetDir = join(opts.skillsDir, skillName);
@@ -289,6 +300,7 @@ export async function profileRm(
       await stat(targetDir);
       console.log(`Removing ${targetDir}...`);
       await unlinkSkill(targetDir);
+      await unregisterSkill(skillName, opts.registryPath, opts.skillsDir);
     } catch {
       // Skill dir doesn't exist on disk — already removed, just update profile
     }

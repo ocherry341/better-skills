@@ -6,6 +6,7 @@ import { profileCreate, profileLs, profileShow, profileUse, profileAdd, profileR
 import { type Profile, readProfile, writeProfile, getActiveProfileName, setActiveProfileName } from "../src/core/profile.js";
 import { addSkillToProfile } from "../src/commands/add.js";
 import { removeSkillFromProfile } from "../src/commands/rm.js";
+import { registerSkill } from "../src/core/registry.js";
 
 describe("profile create", () => {
   let baseDir: string;
@@ -178,10 +179,12 @@ describe("profile use", () => {
     };
     await writeProfile(join(profilesDir, "myprofile.json"), profile);
 
-    // Put a pre-existing skill in skillsDir (should be removed)
+    // Put a pre-existing managed skill in skillsDir (should be removed)
     const oldSkill = join(skillsDir, "old-skill");
     await mkdir(oldSkill, { recursive: true });
     await writeFile(join(oldSkill, "SKILL.md"), "old");
+    const registryPath = join(baseDir, "registry.json");
+    await registerSkill("old-skill", "oldhash", "old/source", registryPath, skillsDir);
 
     // Switch to profile
     await profileUse("myprofile", {
@@ -190,6 +193,7 @@ describe("profile use", () => {
       skillsDir,
       storePath: join(baseDir, "store"),
       copy: true,
+      registryPath,
     });
 
     // old-skill should be gone, test-skill should be present

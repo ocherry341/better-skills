@@ -39,6 +39,11 @@ export function getActiveProfileFilePath(): string {
   return join(HOME, ".better-skills", "active-profile");
 }
 
+/** Registry file tracking managed global skills */
+export function getRegistryPath(): string {
+  return join(HOME, ".better-skills", "registry.json");
+}
+
 /** Temp directory for git clones */
 export function getTempPath(): string {
   return join(HOME, ".better-skills", "tmp");

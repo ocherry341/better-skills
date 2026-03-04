@@ -32,12 +32,14 @@ program
   .option("-g, --global", "Install to global skills directory")
   .option("--copy", "Use file copy instead of hard links")
   .option("-n, --name <name>", "Override the skill name")
+  .option("-f, --force", "Overwrite unmanaged skills")
   .option("-y, --yes", "Skip confirmation prompts")
   .action(async (source: string, opts) => {
     await add(source, {
       global: opts.global,
       copy: opts.copy,
       name: opts.name,
+      force: opts.force,
     });
   });
 
@@ -48,12 +50,14 @@ program
   .option("-g, --global", "Install to global skills directory")
   .option("--copy", "Use file copy instead of hard links")
   .option("-n, --name <name>", "Override the skill name")
+  .option("-f, --force", "Overwrite unmanaged skills")
   .option("-y, --yes", "Skip confirmation prompts")
   .action(async (source: string, opts) => {
     await add(source, {
       global: opts.global,
       copy: opts.copy,
       name: opts.name,
+      force: opts.force,
     });
   });
 
