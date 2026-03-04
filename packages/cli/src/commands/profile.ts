@@ -1,5 +1,5 @@
 import { stat, readdir, mkdir as fsMkdir } from "fs/promises";
-import { join } from "path";
+import { join, basename } from "path";
 import { linkSkill, unlinkSkill } from "../core/linker.js";
 import {
   type Profile,
@@ -11,6 +11,10 @@ import {
   setActiveProfileName,
 } from "../core/profile.js";
 import { hashDirectory } from "../core/hasher.js";
+import { resolve as resolveSource, toSourceString, type SourceDescriptor } from "../core/resolver.js";
+import { fetch } from "../core/fetcher.js";
+import * as store from "../core/store.js";
+import { readSkillMd } from "../utils/skill-md.js";
 
 export interface ProfileCreateInternalOptions {
   profilesDir: string;
@@ -155,4 +159,105 @@ export async function profileUse(
   await setActiveProfileName(opts.activeFile, name);
 
   console.log(`✓ Switched to profile '${name}' (${profile.skills.length} skill(s))`);
+}
+
+export interface ProfileAddInternalOptions {
+  profilesDir: string;
+  activeFile: string;
+  skillsDir: string;
+  storePath: string;
+  profileName?: string;
+  copy?: boolean;
+  name?: string;
+}
+
+/**
+ * Add a skill to a specific profile.
+ * If the target profile is active, also links to the global skills directory.
+ */
+export async function profileAdd(
+  source: string,
+  opts: ProfileAddInternalOptions
+): Promise<void> {
+  // 1. Resolve target profile
+  const activeName = await getActiveProfileName(opts.activeFile);
+  const targetName = opts.profileName ?? activeName;
+  if (!targetName) {
+    throw new Error("No active profile. Specify --profile <name> or create a profile first.");
+  }
+
+  const filePath = join(opts.profilesDir, `${targetName}.json`);
+  const profile = await readProfile(filePath);
+
+  // 2. Resolve → Fetch → Hash → Store
+  console.log(`Resolving ${source}...`);
+  const descriptor = resolveSource(source);
+
+  console.log(`Fetching from ${descriptor.type} source...`);
+  const result = await fetch(descriptor);
+
+  try {
+    // 3. Determine skill name
+    let skillName: string;
+    if (opts.name) {
+      skillName = opts.name;
+    } else {
+      try {
+        const meta = await readSkillMd(result.dir);
+        skillName = meta.name;
+      } catch {
+        skillName = deriveNameFromSource(descriptor);
+      }
+    }
+
+    // 4. Hash
+    console.log(`Hashing ${skillName}...`);
+    const hash = await hashDirectory(result.dir);
+
+    // 5. Store
+    console.log(`Storing ${hash.slice(0, 8)}...`);
+    await store.store(hash, result.dir);
+
+    // 6. Record in profile
+    profile.skills = profile.skills.filter((s) => s.skillName !== skillName);
+    profile.skills.push({
+      skillName,
+      hash,
+      source: toSourceString(descriptor),
+      addedAt: new Date().toISOString(),
+    });
+    await writeProfile(filePath, profile);
+
+    // 7. Link if target is the active profile
+    const isActive = targetName === activeName;
+    if (isActive) {
+      const targetDir = join(opts.skillsDir, skillName);
+      console.log(`Linking to ${targetDir}...`);
+      const storeDir = store.getHashPath(hash);
+      await linkSkill(storeDir, targetDir, { copy: opts.copy });
+    }
+
+    console.log(`✓ Added ${skillName} (${hash.slice(0, 8)}) to profile '${targetName}'`);
+    if (!isActive) {
+      console.log(`  (not linked — '${targetName}' is not the active profile)`);
+    }
+  } finally {
+    await result.cleanup();
+  }
+}
+
+function deriveNameFromSource(desc: SourceDescriptor): string {
+  switch (desc.type) {
+    case "github":
+      if (desc.subdir) {
+        return basename(desc.subdir);
+      }
+      return desc.repo;
+    case "git": {
+      const match = desc.url.match(/\/([^/]+?)(?:\.git)?$/);
+      return match?.[1] ?? "unnamed-skill";
+    }
+    case "local":
+      return basename(desc.path);
+  }
 }
