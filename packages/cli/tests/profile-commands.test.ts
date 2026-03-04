@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtemp, rm, mkdir, readdir, writeFile, readFile } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
-import { profileCreate, profileLs, profileShow, profileUse } from "../src/commands/profile.js";
+import { profileCreate, profileLs, profileShow, profileUse, profileAdd, profileRm } from "../src/commands/profile.js";
 import { type Profile, readProfile, writeProfile, getActiveProfileName, setActiveProfileName } from "../src/core/profile.js";
 import { addSkillToProfile } from "../src/commands/add.js";
 import { removeSkillFromProfile } from "../src/commands/rm.js";
@@ -473,5 +473,148 @@ describe("rm respects profile scope constraint", () => {
 
     const updated = await readProfile(join(profilesDir, "dev.json"));
     expect(updated.skills.length).toBe(1);
+  });
+});
+
+describe("profile add", () => {
+  let baseDir: string;
+  let profilesDir: string;
+  let activeFile: string;
+  let skillsDir: string;
+  let storePath: string;
+  let localSkillDir: string;
+
+  beforeEach(async () => {
+    baseDir = await mkdtemp(join(tmpdir(), "profile-add-"));
+    profilesDir = join(baseDir, "profiles");
+    activeFile = join(baseDir, "active-profile");
+    skillsDir = join(baseDir, "skills");
+    storePath = join(baseDir, "store");
+    localSkillDir = join(baseDir, "local-skill");
+    await mkdir(profilesDir, { recursive: true });
+    await mkdir(skillsDir, { recursive: true });
+    await mkdir(storePath, { recursive: true });
+
+    // Create a local skill source
+    await mkdir(localSkillDir, { recursive: true });
+    await writeFile(
+      join(localSkillDir, "SKILL.md"),
+      "---\nname: test-skill\n---\n# Test Skill"
+    );
+  });
+
+  afterEach(async () => {
+    await rm(baseDir, { recursive: true, force: true });
+  });
+
+  test("adds skill to active profile and links", async () => {
+    // Create and activate profile
+    const profile: Profile = { name: "dev", skills: [] };
+    await writeProfile(join(profilesDir, "dev.json"), profile);
+    await setActiveProfileName(activeFile, "dev");
+
+    await profileAdd(localSkillDir, {
+      profilesDir,
+      activeFile,
+      skillsDir,
+      storePath,
+    });
+
+    // Profile should have the skill
+    const updated = await readProfile(join(profilesDir, "dev.json"));
+    expect(updated.skills.length).toBe(1);
+    expect(updated.skills[0].skillName).toBe("test-skill");
+
+    // Skill should be linked
+    const entries = await readdir(skillsDir);
+    expect(entries).toContain("test-skill");
+  });
+
+  test("adds skill to non-active profile without linking", async () => {
+    // Create two profiles, activate "dev"
+    const devProfile: Profile = { name: "dev", skills: [] };
+    const workProfile: Profile = { name: "work", skills: [] };
+    await writeProfile(join(profilesDir, "dev.json"), devProfile);
+    await writeProfile(join(profilesDir, "work.json"), workProfile);
+    await setActiveProfileName(activeFile, "dev");
+
+    await profileAdd(localSkillDir, {
+      profilesDir,
+      activeFile,
+      skillsDir,
+      storePath,
+      profileName: "work",
+    });
+
+    // Work profile should have the skill
+    const updated = await readProfile(join(profilesDir, "work.json"));
+    expect(updated.skills.length).toBe(1);
+    expect(updated.skills[0].skillName).toBe("test-skill");
+
+    // Skill should NOT be linked (work is not active)
+    const entries = await readdir(skillsDir);
+    expect(entries).not.toContain("test-skill");
+  });
+
+  test("replaces existing skill in profile", async () => {
+    const profile: Profile = {
+      name: "dev",
+      skills: [
+        { skillName: "test-skill", hash: "old-hash", source: "old", addedAt: "2026-01-01T00:00:00.000Z" },
+      ],
+    };
+    await writeProfile(join(profilesDir, "dev.json"), profile);
+    await setActiveProfileName(activeFile, "dev");
+
+    await profileAdd(localSkillDir, {
+      profilesDir,
+      activeFile,
+      skillsDir,
+      storePath,
+    });
+
+    const updated = await readProfile(join(profilesDir, "dev.json"));
+    expect(updated.skills.length).toBe(1);
+    expect(updated.skills[0].hash).not.toBe("old-hash");
+  });
+
+  test("throws when no profile specified and no active profile", async () => {
+    expect(
+      profileAdd(localSkillDir, {
+        profilesDir,
+        activeFile,
+        skillsDir,
+        storePath,
+      })
+    ).rejects.toThrow(/No active profile/);
+  });
+
+  test("throws when target profile does not exist", async () => {
+    expect(
+      profileAdd(localSkillDir, {
+        profilesDir,
+        activeFile,
+        skillsDir,
+        storePath,
+        profileName: "nonexistent",
+      })
+    ).rejects.toThrow();
+  });
+
+  test("respects --name override", async () => {
+    const profile: Profile = { name: "dev", skills: [] };
+    await writeProfile(join(profilesDir, "dev.json"), profile);
+    await setActiveProfileName(activeFile, "dev");
+
+    await profileAdd(localSkillDir, {
+      profilesDir,
+      activeFile,
+      skillsDir,
+      storePath,
+      name: "custom-name",
+    });
+
+    const updated = await readProfile(join(profilesDir, "dev.json"));
+    expect(updated.skills[0].skillName).toBe("custom-name");
   });
 });
