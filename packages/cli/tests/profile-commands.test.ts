@@ -618,3 +618,135 @@ describe("profile add", () => {
     expect(updated.skills[0].skillName).toBe("custom-name");
   });
 });
+
+describe("profile rm", () => {
+  let baseDir: string;
+  let profilesDir: string;
+  let activeFile: string;
+  let skillsDir: string;
+
+  beforeEach(async () => {
+    baseDir = await mkdtemp(join(tmpdir(), "profile-rm-cmd-"));
+    profilesDir = join(baseDir, "profiles");
+    activeFile = join(baseDir, "active-profile");
+    skillsDir = join(baseDir, "skills");
+    await mkdir(profilesDir, { recursive: true });
+    await mkdir(skillsDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    await rm(baseDir, { recursive: true, force: true });
+  });
+
+  test("removes skill from active profile and unlinks", async () => {
+    const profile: Profile = {
+      name: "dev",
+      skills: [
+        { skillName: "brainstorming", hash: "abc", source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
+        { skillName: "debugging", hash: "def", source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
+      ],
+    };
+    await writeProfile(join(profilesDir, "dev.json"), profile);
+    await setActiveProfileName(activeFile, "dev");
+
+    // Create linked skill on disk
+    const skillDir = join(skillsDir, "brainstorming");
+    await mkdir(skillDir, { recursive: true });
+    await writeFile(join(skillDir, "SKILL.md"), "# Brainstorming");
+
+    await profileRm("brainstorming", {
+      profilesDir,
+      activeFile,
+      skillsDir,
+    });
+
+    // Profile should have only debugging
+    const updated = await readProfile(join(profilesDir, "dev.json"));
+    expect(updated.skills.length).toBe(1);
+    expect(updated.skills[0].skillName).toBe("debugging");
+
+    // Skill should be unlinked
+    const entries = await readdir(skillsDir);
+    expect(entries).not.toContain("brainstorming");
+  });
+
+  test("removes skill from non-active profile without unlinking", async () => {
+    const devProfile: Profile = { name: "dev", skills: [] };
+    const workProfile: Profile = {
+      name: "work",
+      skills: [
+        { skillName: "brainstorming", hash: "abc", source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
+      ],
+    };
+    await writeProfile(join(profilesDir, "dev.json"), devProfile);
+    await writeProfile(join(profilesDir, "work.json"), workProfile);
+    await setActiveProfileName(activeFile, "dev");
+
+    await profileRm("brainstorming", {
+      profilesDir,
+      activeFile,
+      skillsDir,
+      profileName: "work",
+    });
+
+    // Work profile should be empty
+    const updated = await readProfile(join(profilesDir, "work.json"));
+    expect(updated.skills.length).toBe(0);
+  });
+
+  test("throws when skill not in profile", async () => {
+    const profile: Profile = { name: "dev", skills: [] };
+    await writeProfile(join(profilesDir, "dev.json"), profile);
+    await setActiveProfileName(activeFile, "dev");
+
+    expect(
+      profileRm("nonexistent", {
+        profilesDir,
+        activeFile,
+        skillsDir,
+      })
+    ).rejects.toThrow(/not found in profile/);
+  });
+
+  test("throws when no profile specified and no active profile", async () => {
+    expect(
+      profileRm("brainstorming", {
+        profilesDir,
+        activeFile,
+        skillsDir,
+      })
+    ).rejects.toThrow(/No active profile/);
+  });
+
+  test("throws when target profile does not exist", async () => {
+    expect(
+      profileRm("brainstorming", {
+        profilesDir,
+        activeFile,
+        skillsDir,
+        profileName: "nonexistent",
+      })
+    ).rejects.toThrow();
+  });
+
+  test("handles skill missing on disk gracefully when active", async () => {
+    const profile: Profile = {
+      name: "dev",
+      skills: [
+        { skillName: "ghost", hash: "abc", source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
+      ],
+    };
+    await writeProfile(join(profilesDir, "dev.json"), profile);
+    await setActiveProfileName(activeFile, "dev");
+
+    // Skill not on disk — should not throw
+    await profileRm("ghost", {
+      profilesDir,
+      activeFile,
+      skillsDir,
+    });
+
+    const updated = await readProfile(join(profilesDir, "dev.json"));
+    expect(updated.skills.length).toBe(0);
+  });
+});
