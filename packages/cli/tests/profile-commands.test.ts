@@ -265,6 +265,7 @@ describe("add records to active profile", () => {
       skillName: "brainstorming",
       hash: "abc123",
       source: "obra/superpowers",
+      global: true,
       profilesDir,
       activeFile,
     });
@@ -290,6 +291,7 @@ describe("add records to active profile", () => {
       skillName: "brainstorming",
       hash: "new",
       source: "new/source",
+      global: true,
       profilesDir,
       activeFile,
     });
@@ -305,9 +307,64 @@ describe("add records to active profile", () => {
       skillName: "brainstorming",
       hash: "abc",
       source: "x/y",
+      global: true,
       profilesDir,
       activeFile,
     });
+  });
+});
+
+describe("add respects profile scope constraint", () => {
+  let baseDir: string;
+  let profilesDir: string;
+  let activeFile: string;
+
+  beforeEach(async () => {
+    baseDir = await mkdtemp(join(tmpdir(), "add-scope-"));
+    profilesDir = join(baseDir, "profiles");
+    activeFile = join(baseDir, "active-profile");
+    await mkdir(profilesDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    await rm(baseDir, { recursive: true, force: true });
+  });
+
+  test("records to profile when global is true", async () => {
+    const profile: Profile = { name: "dev", skills: [] };
+    await writeProfile(join(profilesDir, "dev.json"), profile);
+    await setActiveProfileName(activeFile, "dev");
+
+    await addSkillToProfile({
+      skillName: "brainstorming",
+      hash: "abc123",
+      source: "obra/superpowers",
+      global: true,
+      profilesDir,
+      activeFile,
+    });
+
+    const updated = await readProfile(join(profilesDir, "dev.json"));
+    expect(updated.skills.length).toBe(1);
+    expect(updated.skills[0].skillName).toBe("brainstorming");
+  });
+
+  test("skips profile when global is false (project-level)", async () => {
+    const profile: Profile = { name: "dev", skills: [] };
+    await writeProfile(join(profilesDir, "dev.json"), profile);
+    await setActiveProfileName(activeFile, "dev");
+
+    await addSkillToProfile({
+      skillName: "local-skill",
+      hash: "xyz789",
+      source: "./local",
+      global: false,
+      profilesDir,
+      activeFile,
+    });
+
+    const updated = await readProfile(join(profilesDir, "dev.json"));
+    expect(updated.skills.length).toBe(0);
   });
 });
 
@@ -340,6 +397,7 @@ describe("rm records to active profile", () => {
 
     await removeSkillFromProfile({
       skillName: "brainstorming",
+      global: true,
       profilesDir,
       activeFile,
     });
@@ -352,8 +410,68 @@ describe("rm records to active profile", () => {
   test("no-op when no active profile", async () => {
     await removeSkillFromProfile({
       skillName: "brainstorming",
+      global: true,
       profilesDir,
       activeFile,
     });
+  });
+});
+
+describe("rm respects profile scope constraint", () => {
+  let baseDir: string;
+  let profilesDir: string;
+  let activeFile: string;
+
+  beforeEach(async () => {
+    baseDir = await mkdtemp(join(tmpdir(), "rm-scope-"));
+    profilesDir = join(baseDir, "profiles");
+    activeFile = join(baseDir, "active-profile");
+    await mkdir(profilesDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    await rm(baseDir, { recursive: true, force: true });
+  });
+
+  test("removes from profile when global is true", async () => {
+    const profile: Profile = {
+      name: "dev",
+      skills: [
+        { skillName: "brainstorming", hash: "abc", source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
+      ],
+    };
+    await writeProfile(join(profilesDir, "dev.json"), profile);
+    await setActiveProfileName(activeFile, "dev");
+
+    await removeSkillFromProfile({
+      skillName: "brainstorming",
+      global: true,
+      profilesDir,
+      activeFile,
+    });
+
+    const updated = await readProfile(join(profilesDir, "dev.json"));
+    expect(updated.skills.length).toBe(0);
+  });
+
+  test("skips profile when global is false (project-level)", async () => {
+    const profile: Profile = {
+      name: "dev",
+      skills: [
+        { skillName: "brainstorming", hash: "abc", source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
+      ],
+    };
+    await writeProfile(join(profilesDir, "dev.json"), profile);
+    await setActiveProfileName(activeFile, "dev");
+
+    await removeSkillFromProfile({
+      skillName: "brainstorming",
+      global: false,
+      profilesDir,
+      activeFile,
+    });
+
+    const updated = await readProfile(join(profilesDir, "dev.json"));
+    expect(updated.skills.length).toBe(1);
   });
 });

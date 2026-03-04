@@ -57,11 +57,12 @@ export async function add(source: string, options: AddOptions = {}): Promise<voi
 
     console.log(`✓ Added ${skillName} (${hash.slice(0, 8)})`);
 
-    // 7. Record in active profile
+    // 7. Record in active profile (only for global skills)
     await addSkillToProfile({
       skillName,
       hash,
       source: toSourceString(descriptor),
+      global: options.global ?? false,
     });
   } finally {
     await result.cleanup();
@@ -72,6 +73,7 @@ export interface AddToProfileOptions {
   skillName: string;
   hash: string;
   source: string;
+  global: boolean;
   profilesDir?: string;
   activeFile?: string;
 }
@@ -81,6 +83,8 @@ export interface AddToProfileOptions {
  * No-op if no active profile exists.
  */
 export async function addSkillToProfile(opts: AddToProfileOptions): Promise<void> {
+  if (!opts.global) return;
+
   const activeFile = opts.activeFile ?? getActiveProfileFilePath();
   const profilesDir = opts.profilesDir ?? getProfilesPath();
   const activeName = await getActiveProfileName(activeFile);

@@ -29,12 +29,13 @@ export async function rm(name: string, options: RmOptions = {}): Promise<void> {
 
   console.log(`✓ Removed ${name}`);
 
-  // Remove from active profile
-  await removeSkillFromProfile({ skillName: name });
+  // Remove from active profile (only for global skills)
+  await removeSkillFromProfile({ skillName: name, global: options.global ?? false });
 }
 
 export interface RemoveFromProfileOptions {
   skillName: string;
+  global: boolean;
   profilesDir?: string;
   activeFile?: string;
 }
@@ -44,6 +45,8 @@ export interface RemoveFromProfileOptions {
  * No-op if no active profile exists.
  */
 export async function removeSkillFromProfile(opts: RemoveFromProfileOptions): Promise<void> {
+  if (!opts.global) return;
+
   const activeFile = opts.activeFile ?? getActiveProfileFilePath();
   const profilesDir = opts.profilesDir ?? getProfilesPath();
   const activeName = await getActiveProfileName(activeFile);
