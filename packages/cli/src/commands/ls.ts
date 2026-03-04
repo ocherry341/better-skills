@@ -1,36 +1,66 @@
-import { getSkillsPath } from "../utils/paths.js";
 import { readdir } from "fs/promises";
+import { getGlobalSkillsPath, getProjectSkillsPath } from "../utils/paths.js";
+
+export interface LsEntry {
+  name: string;
+  global: boolean;
+  project: boolean;
+}
 
 export interface LsOptions {
-  global?: boolean;
+  globalDir?: string;
+  projectDir?: string;
+}
+
+async function listDirNames(dir: string): Promise<Set<string>> {
+  try {
+    const entries = await readdir(dir, { withFileTypes: true });
+    return new Set(entries.filter((e) => e.isDirectory()).map((e) => e.name));
+  } catch {
+    return new Set();
+  }
 }
 
 /**
- * List installed skills by scanning the skills directory.
+ * Collect active skills from both global and project directories.
+ * Returns a sorted list of LsEntry objects.
  */
-export async function ls(options: LsOptions = {}): Promise<void> {
-  const targetBase = getSkillsPath(options.global ?? false);
+export async function ls(options: LsOptions = {}): Promise<LsEntry[]> {
+  const globalDir = options.globalDir ?? getGlobalSkillsPath();
+  const projectDir = options.projectDir ?? getProjectSkillsPath();
 
-  let entries: string[];
-  try {
-    const dirEntries = await readdir(targetBase, { withFileTypes: true });
-    entries = dirEntries.filter((e) => e.isDirectory()).map((e) => e.name);
-  } catch {
-    entries = [];
-  }
+  const globalNames = await listDirNames(globalDir);
+  const projectNames = await listDirNames(projectDir);
 
+  const allNames = new Set([...globalNames, ...projectNames]);
+  if (allNames.size === 0) return [];
+
+  const entries: LsEntry[] = [...allNames].sort().map((name) => ({
+    name,
+    global: globalNames.has(name),
+    project: projectNames.has(name),
+  }));
+
+  return entries;
+}
+
+/**
+ * Print the ls table to stdout.
+ */
+export function printLs(entries: LsEntry[]): void {
   if (entries.length === 0) {
-    console.log("No skills installed.");
+    console.log("No active skills.");
     return;
   }
 
   console.log("");
-  console.log(`${"Name".padEnd(30)} ${"Location"}`);
-  console.log("-".repeat(70));
+  console.log(`${"Name".padEnd(30)} ${"Global".padEnd(10)} ${"Project"}`);
+  console.log("-".repeat(50));
 
-  for (const name of entries.sort()) {
-    const fullPath = `${targetBase}/${name}`;
-    console.log(`${name.padEnd(30)} ${fullPath}`);
+  for (const entry of entries) {
+    const globalMark = entry.global ? "✓" : "-";
+    const projectMark = entry.project ? "✓" : "-";
+    console.log(`${entry.name.padEnd(30)} ${globalMark.padEnd(10)} ${projectMark}`);
   }
   console.log("");
 }

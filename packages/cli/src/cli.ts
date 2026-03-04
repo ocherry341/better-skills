@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import { add } from "./commands/add.js";
-import { ls } from "./commands/ls.js";
 import { rm } from "./commands/rm.js";
-import { status, printStatus } from "./commands/status.js";
+import { ls, printLs } from "./commands/ls.js";
 import {
   profileCreate,
   profileLs,
@@ -57,15 +56,6 @@ program
   });
 
 program
-  .command("ls")
-  .alias("list")
-  .description("List installed skills")
-  .option("-g, --global", "List global skills")
-  .action(async (opts) => {
-    await ls({ global: opts.global });
-  });
-
-program
   .command("rm <name>")
   .alias("remove")
   .description("Remove a skill")
@@ -75,11 +65,12 @@ program
   });
 
 program
-  .command("status")
+  .command("list")
+  .alias("ls")
   .description("Show all active skills with their source (global / project)")
   .action(async () => {
-    const entries = await status();
-    printStatus(entries);
+    const entries = await ls();
+    printLs(entries);
   });
 
 const profile = program

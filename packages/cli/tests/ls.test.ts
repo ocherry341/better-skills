@@ -3,17 +3,17 @@ import { $ } from "bun";
 import { mkdtemp, rm, mkdir, writeFile } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
-import { status, type StatusEntry } from "../src/commands/status.js";
+import { ls, type LsEntry } from "../src/commands/ls.js";
 
 const cli = join(import.meta.dir, "../src/cli.ts");
 
-describe("status", () => {
+describe("ls", () => {
   let baseDir: string;
   let globalDir: string;
   let projectDir: string;
 
   beforeEach(async () => {
-    baseDir = await mkdtemp(join(tmpdir(), "status-test-"));
+    baseDir = await mkdtemp(join(tmpdir(), "ls-test-"));
     globalDir = join(baseDir, "global-skills");
     projectDir = join(baseDir, "project-skills");
   });
@@ -23,7 +23,7 @@ describe("status", () => {
   });
 
   test("returns empty array when no skills installed", async () => {
-    const entries = await status({ globalDir, projectDir });
+    const entries = await ls({ globalDir, projectDir });
     expect(entries).toEqual([]);
   });
 
@@ -31,7 +31,7 @@ describe("status", () => {
     await mkdir(join(globalDir, "my-skill"), { recursive: true });
     await writeFile(join(globalDir, "my-skill", "SKILL.md"), "---\nname: my-skill\n---\n");
 
-    const entries = await status({ globalDir, projectDir });
+    const entries = await ls({ globalDir, projectDir });
     expect(entries).toEqual([
       { name: "my-skill", global: true, project: false },
     ]);
@@ -41,7 +41,7 @@ describe("status", () => {
     await mkdir(join(projectDir, "local-skill"), { recursive: true });
     await writeFile(join(projectDir, "local-skill", "SKILL.md"), "---\nname: local-skill\n---\n");
 
-    const entries = await status({ globalDir, projectDir });
+    const entries = await ls({ globalDir, projectDir });
     expect(entries).toEqual([
       { name: "local-skill", global: false, project: true },
     ]);
@@ -53,7 +53,7 @@ describe("status", () => {
     await mkdir(join(projectDir, "shared-skill"), { recursive: true });
     await writeFile(join(projectDir, "shared-skill", "SKILL.md"), "---\nname: shared-skill\n---\n");
 
-    const entries = await status({ globalDir, projectDir });
+    const entries = await ls({ globalDir, projectDir });
     expect(entries).toEqual([
       { name: "shared-skill", global: true, project: true },
     ]);
@@ -64,14 +64,19 @@ describe("status", () => {
     await mkdir(join(globalDir, "alpha"), { recursive: true });
     await mkdir(join(projectDir, "beta"), { recursive: true });
 
-    const entries = await status({ globalDir, projectDir });
+    const entries = await ls({ globalDir, projectDir });
     expect(entries.map((e) => e.name)).toEqual(["alpha", "beta", "zeta"]);
   });
 });
 
-describe("status CLI", () => {
-  test("'status --help' shows command description", async () => {
-    const result = await $`bun run ${cli} status --help`.text();
+describe("list CLI", () => {
+  test("'list --help' shows command description", async () => {
+    const result = await $`bun run ${cli} list --help`.text();
+    expect(result).toContain("Show all active skills");
+  });
+
+  test("'ls --help' works as alias", async () => {
+    const result = await $`bun run ${cli} ls --help`.text();
     expect(result).toContain("Show all active skills");
   });
 });
