@@ -8,6 +8,8 @@ import {
   profileLs,
   profileShow,
   profileUse,
+  profileAdd,
+  profileRm,
 } from "./commands/profile.js";
 import { getActiveProfileName } from "./core/profile.js";
 import {
@@ -147,6 +149,38 @@ profile
       skillsDir: getGlobalSkillsPath(),
       storePath: getStorePath(),
       copy: opts.copy,
+    });
+  });
+
+profile
+  .command("add <source>")
+  .description("Add a skill to a profile")
+  .option("-p, --profile <name>", "Target profile (defaults to active)")
+  .option("--copy", "Use file copy instead of hard links")
+  .option("-n, --name <name>", "Override the skill name")
+  .action(async (source: string, opts) => {
+    await profileAdd(source, {
+      profilesDir: getProfilesPath(),
+      activeFile: getActiveProfileFilePath(),
+      skillsDir: getGlobalSkillsPath(),
+      storePath: getStorePath(),
+      profileName: opts.profile,
+      copy: opts.copy,
+      name: opts.name,
+    });
+  });
+
+profile
+  .command("rm <skill-name>")
+  .alias("remove")
+  .description("Remove a skill from a profile")
+  .option("-p, --profile <name>", "Target profile (defaults to active)")
+  .action(async (skillName: string, opts) => {
+    await profileRm(skillName, {
+      profilesDir: getProfilesPath(),
+      activeFile: getActiveProfileFilePath(),
+      skillsDir: getGlobalSkillsPath(),
+      profileName: opts.profile,
     });
   });
 
