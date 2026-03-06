@@ -37,8 +37,8 @@ export async function readConfig(configPath?: string): Promise<Config> {
     const parsed = JSON.parse(raw);
     if (parsed && Array.isArray(parsed.clients)) {
       // Filter to valid client IDs only
-      const valid = parsed.clients.filter(
-        (c: unknown) => typeof c === "string" && c in CLIENT_REGISTRY
+      const valid: string[] = parsed.clients.filter(
+        (c: unknown): c is string => typeof c === "string" && c in CLIENT_REGISTRY
       );
       return { clients: [...new Set(valid)] };
     }

@@ -5,6 +5,7 @@ import { Command } from "commander";
 const require = createRequire(import.meta.url);
 const { version } = require("../package.json");
 import { add } from "./commands/add.js";
+import { clientAdd, clientRm, clientLs } from "./commands/client.js";
 import { rm } from "./commands/rm.js";
 import { ls, printLs } from "./commands/ls.js";
 import { migrate } from "./commands/migrate.js";
@@ -25,6 +26,8 @@ import {
   getActiveProfileFilePath,
   getGlobalSkillsPath,
   getStorePath,
+  getConfigPath,
+  getRegistryPath,
 } from "./utils/paths.js";
 
 const program = new Command();
@@ -92,6 +95,49 @@ program
   .description("Migrate unmanaged global skills to better-skills management")
   .action(async () => {
     await migrate();
+  });
+
+const client = program
+  .command("client")
+  .description("Manage multi-client skill directories");
+
+client
+  .command("add <clients...>")
+  .description("Enable client(s) for skill syncing")
+  .action(async (clients: string[]) => {
+    await clientAdd(clients, {
+      configPath: getConfigPath(),
+      registryPath: getRegistryPath(),
+      storePath: getStorePath(),
+      skillsDir: getGlobalSkillsPath(),
+    });
+  });
+
+client
+  .command("rm <clients...>")
+  .alias("remove")
+  .description("Disable client(s) and remove linked skills")
+  .action(async (clients: string[]) => {
+    await clientRm(clients, {
+      configPath: getConfigPath(),
+      registryPath: getRegistryPath(),
+      skillsDir: getGlobalSkillsPath(),
+    });
+  });
+
+client
+  .command("ls")
+  .alias("list")
+  .description("Show all supported clients and their status")
+  .action(async () => {
+    const items = await clientLs({ configPath: getConfigPath() });
+    console.log("");
+    console.log("  agents".padEnd(14) + getGlobalSkillsPath().padEnd(38) + "(always enabled)");
+    for (const item of items) {
+      const marker = item.enabled ? "* " : "  ";
+      console.log(marker + item.id.padEnd(12) + item.path);
+    }
+    console.log("");
   });
 
 const profile = program
