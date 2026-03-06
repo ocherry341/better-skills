@@ -44,6 +44,11 @@ export function getRegistryPath(): string {
   return join(HOME, ".better-skills", "registry.json");
 }
 
+/** Global config file */
+export function getConfigPath(): string {
+  return join(HOME, ".better-skills", "config.json");
+}
+
 /** Temp directory for git clones */
 export function getTempPath(): string {
   return join(HOME, ".better-skills", "tmp");
