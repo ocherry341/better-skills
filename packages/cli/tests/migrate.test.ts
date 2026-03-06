@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtemp, rm, mkdir, writeFile, readdir, readFile } from "fs/promises";
+import { mkdtemp, rm, mkdir, writeFile, readdir, readFile, stat } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
 import { migrate } from "../src/commands/migrate.js";
@@ -155,8 +155,9 @@ describe("migrate command", () => {
     const reg = await readRegistry(registryPath);
     expect(reg.skills["my-skill"].hash).toBe(hashBefore);
 
-    // Store should have the content
-    expect(await store.has(hashBefore)).toBe(true);
+    // Store should have the content (check temp storeDir directly, not global path)
+    const s = await stat(join(storeDir, hashBefore));
+    expect(s.isDirectory()).toBe(true);
   });
 
   test("no skills directory: prints message and exits", async () => {
