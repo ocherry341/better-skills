@@ -222,6 +222,7 @@ profile
       skillsDir: getGlobalSkillsPath(),
       storePath: getStorePath(),
       copy: opts.copy,
+      configPath: getConfigPath(),
     });
   });
 

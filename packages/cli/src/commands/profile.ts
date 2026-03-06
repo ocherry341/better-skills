@@ -1,6 +1,7 @@
 import { stat, readdir, mkdir as fsMkdir, unlink } from "fs/promises";
 import { join, basename } from "path";
-import { linkSkill, unlinkSkill } from "../core/linker.js";
+import { linkSkill, unlinkSkill, linkToClients, unlinkFromClients } from "../core/linker.js";
+import { resolveClientDirs } from "../core/clients.js";
 import {
   type Profile,
   type ProfileSkillEntry,
@@ -118,6 +119,7 @@ export interface ProfileUseInternalOptions {
   storePath: string;
   copy?: boolean;
   registryPath?: string;
+  configPath?: string;
 }
 
 /**
@@ -130,7 +132,10 @@ export async function profileUse(
   const filePath = join(opts.profilesDir, `${name}.json`);
   const profile = await readProfile(filePath);
 
-  // Clear only managed skills; preserve unmanaged
+  // Resolve enabled client dirs
+  const clientDirs = await resolveClientDirs(opts.configPath);
+
+  // Clear only managed skills from agents dir; preserve unmanaged
   try {
     const existing = await readdir(opts.skillsDir, { withFileTypes: true });
     for (const entry of existing) {
@@ -138,6 +143,10 @@ export async function profileUse(
       const managed = await isManaged(entry.name, opts.registryPath);
       if (managed) {
         await unlinkSkill(join(opts.skillsDir, entry.name));
+        // Also clear from client dirs
+        if (clientDirs.length > 0) {
+          await unlinkFromClients(entry.name, clientDirs);
+        }
       } else {
         console.warn(`⚠ Skipping unmanaged skill '${entry.name}'`);
       }
@@ -159,6 +168,10 @@ export async function profileUse(
     }
     const targetDir = join(opts.skillsDir, skill.skillName);
     await linkSkill(storeDir, targetDir, { copy: opts.copy });
+    // Also link to client dirs
+    if (clientDirs.length > 0) {
+      await linkToClients(skill.skillName, storeDir, clientDirs, { copy: opts.copy });
+    }
     await registerSkill(skill.skillName, skill.hash, skill.source, opts.registryPath, opts.storePath);
   }
 
