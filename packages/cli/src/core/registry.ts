@@ -1,6 +1,6 @@
 import { readFile, writeFile, mkdir, stat } from "fs/promises";
 import { dirname, join } from "path";
-import { getRegistryPath, getGlobalSkillsPath } from "../utils/paths.js";
+import { getRegistryPath, getStorePath } from "../utils/paths.js";
 
 export interface RegistryEntry {
   hash: string;
@@ -39,24 +39,24 @@ export async function readRegistry(
 
 /**
  * Write the registry to disk.
- * Cleans entries where the skill directory no longer exists on disk.
+ * Cleans entries where the hash no longer exists in the store.
  */
 export async function writeRegistry(
   registry: Registry,
   registryPath?: string,
-  skillsDir?: string
+  storePath?: string
 ): Promise<void> {
   const filePath = registryPath ?? getRegistryPath();
-  const skillsBase = skillsDir ?? getGlobalSkillsPath();
+  const storeBase = storePath ?? getStorePath();
 
-  // Clean stale entries (directory missing on disk)
+  // Clean stale entries (hash missing from store)
   const cleaned: Record<string, RegistryEntry> = {};
   for (const [name, entry] of Object.entries(registry.skills)) {
     try {
-      await stat(join(skillsBase, name));
+      await stat(join(storeBase, entry.hash));
       cleaned[name] = entry;
     } catch {
-      // Directory missing, skip entry
+      // Hash missing from store, skip entry
     }
   }
 
@@ -75,11 +75,11 @@ export async function registerSkill(
   hash: string,
   source: string,
   registryPath?: string,
-  skillsDir?: string
+  storePath?: string
 ): Promise<void> {
   const registry = await readRegistry(registryPath);
   registry.skills[name] = { hash, source };
-  await writeRegistry(registry, registryPath, skillsDir);
+  await writeRegistry(registry, registryPath, storePath);
 }
 
 /**
@@ -88,11 +88,11 @@ export async function registerSkill(
 export async function unregisterSkill(
   name: string,
   registryPath?: string,
-  skillsDir?: string
+  storePath?: string
 ): Promise<void> {
   const registry = await readRegistry(registryPath);
   delete registry.skills[name];
-  await writeRegistry(registry, registryPath, skillsDir);
+  await writeRegistry(registry, registryPath, storePath);
 }
 
 /**

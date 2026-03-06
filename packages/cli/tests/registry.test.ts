@@ -13,13 +13,13 @@ import {
 describe("registry", () => {
   let baseDir: string;
   let registryPath: string;
-  let skillsDir: string;
+  let storeDir: string;
 
   beforeEach(async () => {
     baseDir = await mkdtemp(join(tmpdir(), "registry-test-"));
     registryPath = join(baseDir, "registry.json");
-    skillsDir = join(baseDir, "skills");
-    await mkdir(skillsDir, { recursive: true });
+    storeDir = join(baseDir, "store");
+    await mkdir(storeDir, { recursive: true });
   });
 
   afterEach(async () => {
@@ -63,25 +63,25 @@ describe("registry", () => {
           "my-skill": { hash: "abc123", source: "owner/repo" },
         },
       };
-      // Create skill directory so it's not cleaned as stale
-      await mkdir(join(skillsDir, "my-skill"), { recursive: true });
+      // Create store hash directory so it's not cleaned as stale
+      await mkdir(join(storeDir, "abc123"), { recursive: true });
 
-      await writeRegistry(reg, registryPath, skillsDir);
+      await writeRegistry(reg, registryPath, storeDir);
       const loaded = await readRegistry(registryPath);
       expect(loaded).toEqual(reg);
     });
 
-    test("cleans stale entries where directory is missing", async () => {
+    test("cleans stale entries where hash is missing from store", async () => {
       const reg = {
         skills: {
           "exists": { hash: "aaa", source: "a/b" },
           "gone": { hash: "bbb", source: "c/d" },
         },
       };
-      // Only create directory for "exists"
-      await mkdir(join(skillsDir, "exists"), { recursive: true });
+      // Only create store directory for hash "aaa"
+      await mkdir(join(storeDir, "aaa"), { recursive: true });
 
-      await writeRegistry(reg, registryPath, skillsDir);
+      await writeRegistry(reg, registryPath, storeDir);
       const loaded = await readRegistry(registryPath);
       expect(loaded.skills).toHaveProperty("exists");
       expect(loaded.skills).not.toHaveProperty("gone");
@@ -89,7 +89,7 @@ describe("registry", () => {
 
     test("creates parent directories", async () => {
       const nestedPath = join(baseDir, "nested", "dir", "registry.json");
-      await writeRegistry({ skills: {} }, nestedPath, skillsDir);
+      await writeRegistry({ skills: {} }, nestedPath, storeDir);
       const loaded = await readRegistry(nestedPath);
       expect(loaded).toEqual({ skills: {} });
     });
@@ -97,8 +97,8 @@ describe("registry", () => {
 
   describe("registerSkill", () => {
     test("adds skill to registry", async () => {
-      await mkdir(join(skillsDir, "my-skill"), { recursive: true });
-      await registerSkill("my-skill", "abc123", "owner/repo", registryPath, skillsDir);
+      await mkdir(join(storeDir, "abc123"), { recursive: true });
+      await registerSkill("my-skill", "abc123", "owner/repo", registryPath, storeDir);
 
       const reg = await readRegistry(registryPath);
       expect(reg.skills["my-skill"]).toEqual({
@@ -108,9 +108,10 @@ describe("registry", () => {
     });
 
     test("overwrites existing entry", async () => {
-      await mkdir(join(skillsDir, "my-skill"), { recursive: true });
-      await registerSkill("my-skill", "abc123", "owner/repo", registryPath, skillsDir);
-      await registerSkill("my-skill", "def456", "owner/repo2", registryPath, skillsDir);
+      await mkdir(join(storeDir, "abc123"), { recursive: true });
+      await mkdir(join(storeDir, "def456"), { recursive: true });
+      await registerSkill("my-skill", "abc123", "owner/repo", registryPath, storeDir);
+      await registerSkill("my-skill", "def456", "owner/repo2", registryPath, storeDir);
 
       const reg = await readRegistry(registryPath);
       expect(reg.skills["my-skill"]).toEqual({
@@ -122,16 +123,16 @@ describe("registry", () => {
 
   describe("unregisterSkill", () => {
     test("removes skill from registry", async () => {
-      await mkdir(join(skillsDir, "my-skill"), { recursive: true });
-      await registerSkill("my-skill", "abc123", "owner/repo", registryPath, skillsDir);
-      await unregisterSkill("my-skill", registryPath, skillsDir);
+      await mkdir(join(storeDir, "abc123"), { recursive: true });
+      await registerSkill("my-skill", "abc123", "owner/repo", registryPath, storeDir);
+      await unregisterSkill("my-skill", registryPath, storeDir);
 
       const reg = await readRegistry(registryPath);
       expect(reg.skills).not.toHaveProperty("my-skill");
     });
 
     test("no-ops for nonexistent skill", async () => {
-      await unregisterSkill("nonexistent", registryPath, skillsDir);
+      await unregisterSkill("nonexistent", registryPath, storeDir);
       const reg = await readRegistry(registryPath);
       expect(reg).toEqual({ skills: {} });
     });
@@ -139,8 +140,8 @@ describe("registry", () => {
 
   describe("isManaged", () => {
     test("returns true for registered skill", async () => {
-      await mkdir(join(skillsDir, "my-skill"), { recursive: true });
-      await registerSkill("my-skill", "abc123", "owner/repo", registryPath, skillsDir);
+      await mkdir(join(storeDir, "abc123"), { recursive: true });
+      await registerSkill("my-skill", "abc123", "owner/repo", registryPath, storeDir);
 
       expect(await isManaged("my-skill", registryPath)).toBe(true);
     });
