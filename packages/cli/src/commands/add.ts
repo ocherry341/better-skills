@@ -3,7 +3,7 @@ import { fetch } from "../core/fetcher.js";
 import { hashDirectory } from "../core/hasher.js";
 import * as store from "../core/store.js";
 import { linkSkill } from "../core/linker.js";
-import { getSkillsPath, getProfilesPath, getActiveProfileFilePath, getRegistryPath } from "../utils/paths.js";
+import { getSkillsPath, getProfilesPath, getActiveProfileFilePath, getRegistryPath, getStorePath } from "../utils/paths.js";
 import { readSkillMd } from "../utils/skill-md.js";
 import { readProfile, writeProfile, getActiveProfileName, setActiveProfileName } from "../core/profile.js";
 import { registerSkill, isManaged } from "../core/registry.js";
@@ -79,7 +79,7 @@ export async function add(source: string, options: AddOptions = {}): Promise<voi
     // 8. Register in registry (global only)
     if (options.global) {
       const sourceStr = toSourceString(descriptor);
-      await registerSkill(skillName, hash, sourceStr, registryPath, targetBase);
+      await registerSkill(skillName, hash, sourceStr, registryPath, getStorePath());
     }
 
     // 9. Record in active profile (only for global skills)

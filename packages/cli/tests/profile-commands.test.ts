@@ -184,7 +184,10 @@ describe("profile use", () => {
     await mkdir(oldSkill, { recursive: true });
     await writeFile(join(oldSkill, "SKILL.md"), "old");
     const registryPath = join(baseDir, "registry.json");
-    await registerSkill("old-skill", "oldhash", "old/source", registryPath, skillsDir);
+    const storePath = join(baseDir, "store");
+    // store/oldhash needs to exist for registry not to purge it
+    await mkdir(join(storePath, "oldhash"), { recursive: true });
+    await registerSkill("old-skill", "oldhash", "old/source", registryPath, storePath);
 
     // Switch to profile
     await profileUse("myprofile", {

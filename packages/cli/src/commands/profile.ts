@@ -160,7 +160,7 @@ export async function profileUse(
     }
     const targetDir = join(opts.skillsDir, skill.skillName);
     await linkSkill(storeDir, targetDir, { copy: opts.copy });
-    await registerSkill(skill.skillName, skill.hash, skill.source, opts.registryPath, opts.skillsDir);
+    await registerSkill(skill.skillName, skill.hash, skill.source, opts.registryPath, opts.storePath);
   }
 
   // Update active profile
@@ -244,7 +244,7 @@ export async function profileAdd(
       console.log(`Linking to ${targetDir}...`);
       const storeDir = store.getHashPath(hash);
       await linkSkill(storeDir, targetDir, { copy: opts.copy });
-      await registerSkill(skillName, hash, toSourceString(descriptor), opts.registryPath, opts.skillsDir);
+      await registerSkill(skillName, hash, toSourceString(descriptor), opts.registryPath, opts.storePath);
     }
 
     console.log(`✓ Added ${skillName} (${hash.slice(0, 8)}) to profile '${targetName}'`);
