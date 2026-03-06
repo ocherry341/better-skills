@@ -41,7 +41,7 @@ async function gitClone(url: string, dest: string): Promise<void> {
  * A skill directory is one that contains a SKILL.md file.
  * Returns paths relative to the search root.
  */
-async function discoverSkills(dir: string): Promise<string[]> {
+export async function discoverSkills(dir: string): Promise<string[]> {
   const skills: string[] = [];
 
   // Check if the root itself is a skill
