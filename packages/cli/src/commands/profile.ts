@@ -190,6 +190,7 @@ export interface ProfileAddInternalOptions {
   copy?: boolean;
   name?: string;
   registryPath?: string;
+  configPath?: string;
 }
 
 /**
@@ -257,6 +258,11 @@ export async function profileAdd(
       const storeDir = store.getHashPath(hash);
       await linkSkill(storeDir, targetDir, { copy: opts.copy });
       await registerSkill(skillName, hash, toSourceString(descriptor), opts.registryPath, opts.storePath);
+      // Link to client dirs
+      const clientDirs = await resolveClientDirs(opts.configPath);
+      if (clientDirs.length > 0) {
+        await linkToClients(skillName, storeDir, clientDirs, { copy: opts.copy });
+      }
     }
 
     console.log(`✓ Added ${skillName} (${hash.slice(0, 8)}) to profile '${targetName}'`);
@@ -274,6 +280,7 @@ export interface ProfileRmInternalOptions {
   skillsDir: string;
   profileName?: string;
   registryPath?: string;
+  configPath?: string;
 }
 
 /**
@@ -314,6 +321,11 @@ export async function profileRm(
       await unlinkSkill(targetDir);
     } catch {
       // Skill dir doesn't exist on disk — already removed, just update profile
+    }
+    // Unlink from client dirs
+    const clientDirs = await resolveClientDirs(opts.configPath);
+    if (clientDirs.length > 0) {
+      await unlinkFromClients(skillName, clientDirs);
     }
   }
 

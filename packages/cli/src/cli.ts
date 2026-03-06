@@ -241,6 +241,7 @@ profile
       profileName: opts.profile,
       copy: opts.copy,
       name: opts.name,
+      configPath: getConfigPath(),
     });
   });
 
@@ -255,6 +256,7 @@ profile
       activeFile: getActiveProfileFilePath(),
       skillsDir: getGlobalSkillsPath(),
       profileName: opts.profile,
+      configPath: getConfigPath(),
     });
   });
 
