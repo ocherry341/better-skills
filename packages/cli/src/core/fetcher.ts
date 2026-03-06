@@ -60,6 +60,25 @@ export async function discoverSkills(dir: string): Promise<string[]> {
     }
   }
 
+  if (skills.length > 0) {
+    return skills;
+  }
+
+  // Check skills/<name>/SKILL.md pattern
+  const skillsDir = join(dir, "skills");
+  try {
+    const skillEntries = await readdir(skillsDir, { withFileTypes: true });
+    for (const entry of skillEntries) {
+      if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+      const subdir = join(skillsDir, entry.name);
+      if (await hasSkillMd(subdir)) {
+        skills.push(subdir);
+      }
+    }
+  } catch {
+    // skills/ directory doesn't exist, skip
+  }
+
   return skills;
 }
 
