@@ -45,12 +45,16 @@ program
   .option("-n, --name <name>", "Override the skill name")
   .option("-f, --force", "Overwrite unmanaged skills")
   .option("-y, --yes", "Skip confirmation prompts")
+  .option("--clients <clients>", "Link to specific clients only (comma-separated)")
+  .option("--no-clients", "Skip linking to client directories")
   .action(async (source: string, opts) => {
     await add(source, {
       global: opts.global,
       copy: opts.copy,
       name: opts.name,
       force: opts.force,
+      clients: typeof opts.clients === "string" ? opts.clients.split(",") : undefined,
+      noClients: opts.clients === false,
     });
   });
 
@@ -63,12 +67,16 @@ program
   .option("-n, --name <name>", "Override the skill name")
   .option("-f, --force", "Overwrite unmanaged skills")
   .option("-y, --yes", "Skip confirmation prompts")
+  .option("--clients <clients>", "Link to specific clients only (comma-separated)")
+  .option("--no-clients", "Skip linking to client directories")
   .action(async (source: string, opts) => {
     await add(source, {
       global: opts.global,
       copy: opts.copy,
       name: opts.name,
       force: opts.force,
+      clients: typeof opts.clients === "string" ? opts.clients.split(",") : undefined,
+      noClients: opts.clients === false,
     });
   });
 

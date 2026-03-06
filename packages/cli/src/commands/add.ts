@@ -2,7 +2,8 @@ import { resolve, toSourceString, type SourceDescriptor } from "../core/resolver
 import { fetch } from "../core/fetcher.js";
 import { hashDirectory } from "../core/hasher.js";
 import * as store from "../core/store.js";
-import { linkSkill } from "../core/linker.js";
+import { linkSkill, linkToClients } from "../core/linker.js";
+import { resolveClientDirs, getClientSkillsDir } from "../core/clients.js";
 import { getSkillsPath, getProfilesPath, getActiveProfileFilePath, getRegistryPath, getStorePath } from "../utils/paths.js";
 import { readSkillMd } from "../utils/skill-md.js";
 import { readProfile, writeProfile, getActiveProfileName, setActiveProfileName } from "../core/profile.js";
@@ -16,6 +17,12 @@ export interface AddOptions {
   name?: string;
   force?: boolean;
   registryPath?: string;
+  /** Override which clients to link to (undefined = use config) */
+  clients?: string[];
+  /** Skip all client linking */
+  noClients?: boolean;
+  /** Path to config file (for testing) */
+  configPath?: string;
 }
 
 /**
@@ -73,6 +80,19 @@ export async function add(source: string, options: AddOptions = {}): Promise<voi
     // 7. Link
     console.log(`Linking to ${targetDir}...`);
     await linkSkill(store.getHashPath(hash), targetDir, { copy: options.copy });
+
+    // 7b. Link to client directories (global only)
+    if (options.global && !options.noClients) {
+      let clientDirs: string[];
+      if (options.clients?.length) {
+        clientDirs = options.clients.map((c) => getClientSkillsDir(c));
+      } else {
+        clientDirs = await resolveClientDirs(options.configPath);
+      }
+      if (clientDirs.length > 0) {
+        await linkToClients(skillName, store.getHashPath(hash), clientDirs, { copy: options.copy });
+      }
+    }
 
     console.log(`✓ Added ${skillName} (${hash.slice(0, 8)})`);
 
