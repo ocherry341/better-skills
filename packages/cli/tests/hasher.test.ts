@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { hashDirectory } from "../src/core/hasher.js";
-import { mkdtemp, writeFile, mkdir, rm } from "fs/promises";
+import { mkdtemp, writeFile, mkdir, rm, symlink } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
 
@@ -69,6 +69,34 @@ describe("hasher", () => {
 
   test("empty directory throws", async () => {
     expect(hashDirectory(tempDir)).rejects.toThrow();
+  });
+
+  test("skips symlinks to directories", async () => {
+    await writeFile(join(tempDir, "real.txt"), "content");
+    const subdir = join(tempDir, "realdir");
+    await mkdir(subdir, { recursive: true });
+    await writeFile(join(subdir, "nested.txt"), "nested");
+    await symlink(subdir, join(tempDir, "link-to-dir"));
+
+    const hashWithLink = await hashDirectory(tempDir);
+
+    // Remove the symlink — hash should stay the same (symlinks are skipped)
+    await rm(join(tempDir, "link-to-dir"));
+    const hashWithout = await hashDirectory(tempDir);
+
+    expect(hashWithLink).toBe(hashWithout);
+  });
+
+  test("skips symlinks to files", async () => {
+    await writeFile(join(tempDir, "real.txt"), "content");
+    await symlink(join(tempDir, "real.txt"), join(tempDir, "link-to-file"));
+
+    const hashWithLink = await hashDirectory(tempDir);
+
+    await rm(join(tempDir, "link-to-file"));
+    const hashWithout = await hashDirectory(tempDir);
+
+    expect(hashWithLink).toBe(hashWithout);
   });
 
   test("skips hidden directories", async () => {

@@ -1,5 +1,9 @@
 #!/usr/bin/env node
+import { createRequire } from "node:module";
 import { Command } from "commander";
+
+const require = createRequire(import.meta.url);
+const { version } = require("../package.json");
 import { add } from "./commands/add.js";
 import { rm } from "./commands/rm.js";
 import { ls, printLs } from "./commands/ls.js";
@@ -28,7 +32,7 @@ const program = new Command();
 program
   .name("better-skills")
   .description("A pnpm-inspired skills management CLI with content-addressable storage")
-  .version("0.1.0");
+  .version(version);
 
 program
   .command("add <source>")
@@ -262,4 +266,7 @@ profile
     });
   });
 
-program.parse();
+program.parseAsync().catch((err: Error) => {
+  console.error(err.message);
+  process.exit(1);
+});

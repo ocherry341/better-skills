@@ -11,6 +11,7 @@ async function collectFiles(dir: string, base?: string): Promise<string[]> {
   const files: string[] = [];
 
   for (const entry of entries) {
+    if (entry.isSymbolicLink()) continue;
     const fullPath = join(dir, entry.name);
     if (entry.isDirectory()) {
       // Skip hidden dirs like .git

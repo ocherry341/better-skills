@@ -25,7 +25,15 @@ async function exec(cmd: string[]): Promise<string> {
 
 /** Shallow clone a git repo into a temp directory */
 async function gitClone(url: string, dest: string): Promise<void> {
-  await exec(["git", "clone", "--depth", "1", url, dest]);
+  try {
+    await exec(["git", "clone", "--depth", "1", url, dest]);
+  } catch (err: any) {
+    const stderr = err.stderr ?? "";
+    if (stderr.includes("not found")) {
+      throw new Error(`Failed to clone repository: ${url}\nRepository not found. Check the URL and your access permissions.`);
+    }
+    throw new Error(`Failed to clone repository: ${url}\n${stderr.trim() || err.message}`);
+  }
 }
 
 /**
