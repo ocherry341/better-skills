@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtemp, rm, mkdir, readdir, writeFile, readFile } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
-import { profileCreate, profileLs, profileShow, profileUse, profileAdd, profileRm, profileDelete } from "../src/commands/profile.js";
+import { profileCreate, profileLs, profileShow, profileUse, profileAdd, profileRm, profileDelete, profileRename } from "../src/commands/profile.js";
 import { type Profile, readProfile, writeProfile, getActiveProfileName, setActiveProfileName } from "../src/core/profile.js";
 import { addSkillToProfile } from "../src/commands/add.js";
 import { removeSkillFromProfile } from "../src/commands/rm.js";
@@ -872,6 +872,81 @@ describe("profile delete", () => {
   test("throws for nonexistent profile", async () => {
     expect(
       profileDelete("nope", { profilesDir, activeFile })
+    ).rejects.toThrow();
+  });
+});
+
+describe("profile rename", () => {
+  let baseDir: string;
+  let profilesDir: string;
+  let activeFile: string;
+
+  beforeEach(async () => {
+    baseDir = await mkdtemp(join(tmpdir(), "profile-rename-"));
+    profilesDir = join(baseDir, "profiles");
+    activeFile = join(baseDir, "active-profile");
+    await mkdir(profilesDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    await rm(baseDir, { recursive: true, force: true });
+  });
+
+  test("renames profile file and updates name field", async () => {
+    const profile: Profile = {
+      name: "old",
+      skills: [
+        { skillName: "brainstorming", hash: "abc", source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
+      ],
+    };
+    await writeProfile(join(profilesDir, "old.json"), profile);
+
+    await profileRename("old", "new-name", { profilesDir, activeFile });
+
+    const names = await readdir(profilesDir);
+    expect(names).toContain("new-name.json");
+    expect(names).not.toContain("old.json");
+
+    const renamed = await readProfile(join(profilesDir, "new-name.json"));
+    expect(renamed.name).toBe("new-name");
+    expect(renamed.skills.length).toBe(1);
+    expect(renamed.skills[0].skillName).toBe("brainstorming");
+  });
+
+  test("updates active-profile marker when renaming active profile", async () => {
+    const profile: Profile = { name: "dev", skills: [] };
+    await writeProfile(join(profilesDir, "dev.json"), profile);
+    await setActiveProfileName(activeFile, "dev");
+
+    await profileRename("dev", "development", { profilesDir, activeFile });
+
+    const active = await getActiveProfileName(activeFile);
+    expect(active).toBe("development");
+  });
+
+  test("does not change active marker when renaming non-active profile", async () => {
+    const profile: Profile = { name: "work", skills: [] };
+    await writeProfile(join(profilesDir, "work.json"), profile);
+    await setActiveProfileName(activeFile, "dev");
+
+    await profileRename("work", "job", { profilesDir, activeFile });
+
+    const active = await getActiveProfileName(activeFile);
+    expect(active).toBe("dev");
+  });
+
+  test("refuses if target name already exists", async () => {
+    await writeProfile(join(profilesDir, "a.json"), { name: "a", skills: [] });
+    await writeProfile(join(profilesDir, "b.json"), { name: "b", skills: [] });
+
+    expect(
+      profileRename("a", "b", { profilesDir, activeFile })
+    ).rejects.toThrow(/already exists/);
+  });
+
+  test("throws for nonexistent source profile", async () => {
+    expect(
+      profileRename("nope", "new", { profilesDir, activeFile })
     ).rejects.toThrow();
   });
 });

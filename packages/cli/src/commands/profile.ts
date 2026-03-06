@@ -337,6 +337,48 @@ export async function profileDelete(
   console.log(`✓ Deleted profile '${name}'`);
 }
 
+export interface ProfileRenameInternalOptions {
+  profilesDir: string;
+  activeFile: string;
+}
+
+/**
+ * Rename a profile. Updates active-profile marker if renaming the active profile.
+ */
+export async function profileRename(
+  oldName: string,
+  newName: string,
+  opts: ProfileRenameInternalOptions
+): Promise<void> {
+  const oldPath = join(opts.profilesDir, `${oldName}.json`);
+  const newPath = join(opts.profilesDir, `${newName}.json`);
+
+  // Validate old exists
+  const profile = await readProfile(oldPath);
+
+  // Validate new does not exist
+  try {
+    await stat(newPath);
+    throw new Error(`Profile '${newName}' already exists.`);
+  } catch (err: any) {
+    if (err.message?.includes("already exists")) throw err;
+    // File doesn't exist — good
+  }
+
+  // Write new, delete old
+  profile.name = newName;
+  await writeProfile(newPath, profile);
+  await unlink(oldPath);
+
+  // Update active marker if needed
+  const activeName = await getActiveProfileName(opts.activeFile);
+  if (oldName === activeName) {
+    await setActiveProfileName(opts.activeFile, newName);
+  }
+
+  console.log(`✓ Renamed profile '${oldName}' → '${newName}'`);
+}
+
 function deriveNameFromSource(desc: SourceDescriptor): string {
   switch (desc.type) {
     case "github":
