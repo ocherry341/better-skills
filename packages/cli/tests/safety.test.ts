@@ -41,7 +41,8 @@ describe("add -g conflict detection", () => {
 
     const targetDir = join(skillsDir, "my-skill");
     await linkSkill(store.getHashPath(hash), targetDir, { copy: true });
-    await registerSkill("my-skill", hash, "local:/path", registryPath, skillsDir);
+    await mkdir(join(storeDir, hash), { recursive: true });
+    await registerSkill("my-skill", hash, "local:/path", registryPath, storeDir);
 
     // Skill should exist on disk
     const entries = await readdir(skillsDir);
@@ -60,7 +61,8 @@ describe("add -g conflict detection", () => {
     await store.store(hash1, localSkillDir);
     const targetDir = join(skillsDir, "my-skill");
     await linkSkill(store.getHashPath(hash1), targetDir, { copy: true });
-    await registerSkill("my-skill", hash1, "local:/path1", registryPath, skillsDir);
+    await mkdir(join(storeDir, hash1), { recursive: true });
+    await registerSkill("my-skill", hash1, "local:/path1", registryPath, storeDir);
 
     // Modify skill content
     await writeFile(join(localSkillDir, "extra.txt"), "new content");
@@ -72,7 +74,8 @@ describe("add -g conflict detection", () => {
 
     // Overwrite
     await linkSkill(store.getHashPath(hash2), targetDir, { copy: true });
-    await registerSkill("my-skill", hash2, "local:/path2", registryPath, skillsDir);
+    await mkdir(join(storeDir, hash2), { recursive: true });
+    await registerSkill("my-skill", hash2, "local:/path2", registryPath, storeDir);
 
     // Registry should reflect updated hash and source
     const reg = await readRegistry(registryPath);
@@ -114,7 +117,8 @@ describe("add -g conflict detection", () => {
     const hash = await hashDirectory(localSkillDir);
     await store.store(hash, localSkillDir);
     await linkSkill(store.getHashPath(hash), unmanagedDir, { copy: true });
-    await registerSkill("my-skill", hash, "local:/path", registryPath, skillsDir);
+    await mkdir(join(storeDir, hash), { recursive: true });
+    await registerSkill("my-skill", hash, "local:/path", registryPath, storeDir);
 
     // Now managed
     expect(await isManaged("my-skill", registryPath)).toBe(true);
@@ -167,7 +171,8 @@ describe("profile use preserves unmanaged skills", () => {
     const managedSkill = join(skillsDir, "old-managed");
     await mkdir(managedSkill, { recursive: true });
     await writeFile(join(managedSkill, "SKILL.md"), "old managed");
-    await registerSkill("old-managed", "oldhash", "old/source", registryPath, skillsDir);
+    await mkdir(join(storeBase, "oldhash"), { recursive: true });
+    await registerSkill("old-managed", "oldhash", "old/source", registryPath, storeBase);
 
     // Put an unmanaged skill in skillsDir (should be preserved)
     const unmanagedSkill = join(skillsDir, "user-skill");
@@ -196,8 +201,8 @@ describe("profile use preserves unmanaged skills", () => {
     // Verify new-skill is registered
     expect(await isManaged("new-skill", registryPath)).toBe(true);
 
-    // Verify old-managed is unregistered
-    expect(await isManaged("old-managed", registryPath)).toBe(false);
+    // Verify old-managed persists in registry (lockfile behavior)
+    expect(await isManaged("old-managed", registryPath)).toBe(true);
   });
 });
 
