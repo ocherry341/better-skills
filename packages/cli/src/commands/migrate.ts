@@ -106,4 +106,17 @@ export async function migrate(options: MigrateOptions = {}): Promise<void> {
   }
 
   console.log(`\nMigrated ${migrated} skill${migrated !== 1 ? "s" : ""}.`);
+
+  // Sync to enabled client directories
+  const { resolveClientDirs } = await import("../core/clients.js");
+  const { linkToClients } = await import("../core/linker.js");
+  const clientDirs = await resolveClientDirs();
+  if (clientDirs.length > 0) {
+    const registry = await readRegistry(registryPath);
+    for (const [name, entry] of Object.entries(registry.skills)) {
+      const storeDir = join(storePath, entry.hash);
+      await linkToClients(name, storeDir, clientDirs);
+    }
+    console.log(`Synced ${Object.keys(registry.skills).length} skill(s) to ${clientDirs.length} client dir(s).`);
+  }
 }
