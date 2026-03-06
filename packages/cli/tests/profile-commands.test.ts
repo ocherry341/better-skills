@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtemp, rm, mkdir, readdir, writeFile, readFile } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
-import { profileCreate, profileLs, profileShow, profileUse, profileAdd, profileRm } from "../src/commands/profile.js";
+import { profileCreate, profileLs, profileShow, profileUse, profileAdd, profileRm, profileDelete } from "../src/commands/profile.js";
 import { type Profile, readProfile, writeProfile, getActiveProfileName, setActiveProfileName } from "../src/core/profile.js";
 import { addSkillToProfile } from "../src/commands/add.js";
 import { removeSkillFromProfile } from "../src/commands/rm.js";
@@ -828,5 +828,50 @@ describe("profile rm", () => {
 
     const updated = await readProfile(join(profilesDir, "dev.json"));
     expect(updated.skills.length).toBe(0);
+  });
+});
+
+describe("profile delete", () => {
+  let baseDir: string;
+  let profilesDir: string;
+  let activeFile: string;
+
+  beforeEach(async () => {
+    baseDir = await mkdtemp(join(tmpdir(), "profile-delete-"));
+    profilesDir = join(baseDir, "profiles");
+    activeFile = join(baseDir, "active-profile");
+    await mkdir(profilesDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    await rm(baseDir, { recursive: true, force: true });
+  });
+
+  test("deletes profile JSON file", async () => {
+    const profile: Profile = { name: "work", skills: [] };
+    await writeProfile(join(profilesDir, "work.json"), profile);
+    // Set a different profile as active
+    await setActiveProfileName(activeFile, "dev");
+
+    await profileDelete("work", { profilesDir, activeFile });
+
+    const names = await readdir(profilesDir);
+    expect(names).not.toContain("work.json");
+  });
+
+  test("refuses to delete active profile", async () => {
+    const profile: Profile = { name: "dev", skills: [] };
+    await writeProfile(join(profilesDir, "dev.json"), profile);
+    await setActiveProfileName(activeFile, "dev");
+
+    expect(
+      profileDelete("dev", { profilesDir, activeFile })
+    ).rejects.toThrow(/Cannot delete active profile/);
+  });
+
+  test("throws for nonexistent profile", async () => {
+    expect(
+      profileDelete("nope", { profilesDir, activeFile })
+    ).rejects.toThrow();
   });
 });

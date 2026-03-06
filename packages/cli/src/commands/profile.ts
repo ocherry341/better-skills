@@ -1,4 +1,4 @@
-import { stat, readdir, mkdir as fsMkdir } from "fs/promises";
+import { stat, readdir, mkdir as fsMkdir, unlink } from "fs/promises";
 import { join, basename } from "path";
 import { linkSkill, unlinkSkill } from "../core/linker.js";
 import {
@@ -308,6 +308,33 @@ export async function profileRm(
   if (!isActive) {
     console.log(`  (no unlink needed — '${targetName}' is not the active profile)`);
   }
+}
+
+export interface ProfileDeleteInternalOptions {
+  profilesDir: string;
+  activeFile: string;
+}
+
+/**
+ * Delete a profile. Refuses to delete the active profile.
+ */
+export async function profileDelete(
+  name: string,
+  opts: ProfileDeleteInternalOptions
+): Promise<void> {
+  const filePath = join(opts.profilesDir, `${name}.json`);
+
+  // Validate profile exists
+  await readProfile(filePath);
+
+  // Refuse if active
+  const activeName = await getActiveProfileName(opts.activeFile);
+  if (name === activeName) {
+    throw new Error(`Cannot delete active profile '${name}'. Switch to another profile first with 'profile use'.`);
+  }
+
+  await unlink(filePath);
+  console.log(`✓ Deleted profile '${name}'`);
 }
 
 function deriveNameFromSource(desc: SourceDescriptor): string {
