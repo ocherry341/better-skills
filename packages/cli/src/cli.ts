@@ -3,6 +3,7 @@ import { Command } from "commander";
 import { add } from "./commands/add.js";
 import { rm } from "./commands/rm.js";
 import { ls, printLs } from "./commands/ls.js";
+import { migrate } from "./commands/migrate.js";
 import {
   profileCreate,
   profileLs,
@@ -77,6 +78,13 @@ program
   .action(async () => {
     const entries = await ls();
     printLs(entries);
+  });
+
+program
+  .command("migrate")
+  .description("Migrate unmanaged global skills to better-skills management")
+  .action(async () => {
+    await migrate();
   });
 
 const profile = program
