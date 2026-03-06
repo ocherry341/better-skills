@@ -1,4 +1,5 @@
-import { unlinkSkill } from "../core/linker.js";
+import { unlinkSkill, unlinkFromClients } from "../core/linker.js";
+import { resolveClientDirs } from "../core/clients.js";
 import { getSkillsPath, getProfilesPath, getActiveProfileFilePath } from "../utils/paths.js";
 import { readProfile, writeProfile, getActiveProfileName } from "../core/profile.js";
 import { stat } from "fs/promises";
@@ -26,6 +27,14 @@ export async function rm(name: string, options: RmOptions = {}): Promise<void> {
   // Remove the linked directory
   console.log(`Removing ${targetDir}...`);
   await unlinkSkill(targetDir);
+
+  // Remove from client directories (global only)
+  if (options.global) {
+    const clientDirs = await resolveClientDirs();
+    if (clientDirs.length > 0) {
+      await unlinkFromClients(name, clientDirs);
+    }
+  }
 
   console.log(`✓ Removed ${name}`);
 
