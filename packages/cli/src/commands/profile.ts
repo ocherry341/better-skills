@@ -379,6 +379,42 @@ export async function profileRename(
   console.log(`✓ Renamed profile '${oldName}' → '${newName}'`);
 }
 
+export interface ProfileCloneInternalOptions {
+  profilesDir: string;
+}
+
+/**
+ * Clone a profile as a new profile with the same skills.
+ */
+export async function profileClone(
+  sourceName: string,
+  targetName: string,
+  opts: ProfileCloneInternalOptions
+): Promise<void> {
+  const sourcePath = join(opts.profilesDir, `${sourceName}.json`);
+  const targetPath = join(opts.profilesDir, `${targetName}.json`);
+
+  // Validate source exists
+  const source = await readProfile(sourcePath);
+
+  // Validate target does not exist
+  try {
+    await stat(targetPath);
+    throw new Error(`Profile '${targetName}' already exists.`);
+  } catch (err: any) {
+    if (err.message?.includes("already exists")) throw err;
+    // File doesn't exist — good
+  }
+
+  const clone: Profile = {
+    name: targetName,
+    skills: source.skills.map((s) => ({ ...s })),
+  };
+  await writeProfile(targetPath, clone);
+
+  console.log(`✓ Cloned profile '${sourceName}' → '${targetName}'`);
+}
+
 function deriveNameFromSource(desc: SourceDescriptor): string {
   switch (desc.type) {
     case "github":

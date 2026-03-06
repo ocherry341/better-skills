@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtemp, rm, mkdir, readdir, writeFile, readFile } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
-import { profileCreate, profileLs, profileShow, profileUse, profileAdd, profileRm, profileDelete, profileRename } from "../src/commands/profile.js";
+import { profileCreate, profileLs, profileShow, profileUse, profileAdd, profileRm, profileDelete, profileRename, profileClone } from "../src/commands/profile.js";
 import { type Profile, readProfile, writeProfile, getActiveProfileName, setActiveProfileName } from "../src/core/profile.js";
 import { addSkillToProfile } from "../src/commands/add.js";
 import { removeSkillFromProfile } from "../src/commands/rm.js";
@@ -947,6 +947,75 @@ describe("profile rename", () => {
   test("throws for nonexistent source profile", async () => {
     expect(
       profileRename("nope", "new", { profilesDir, activeFile })
+    ).rejects.toThrow();
+  });
+});
+
+describe("profile clone", () => {
+  let baseDir: string;
+  let profilesDir: string;
+  let activeFile: string;
+
+  beforeEach(async () => {
+    baseDir = await mkdtemp(join(tmpdir(), "profile-clone-"));
+    profilesDir = join(baseDir, "profiles");
+    activeFile = join(baseDir, "active-profile");
+    await mkdir(profilesDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    await rm(baseDir, { recursive: true, force: true });
+  });
+
+  test("creates copy with new name and same skills", async () => {
+    const profile: Profile = {
+      name: "dev",
+      skills: [
+        { skillName: "brainstorming", hash: "abc", source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
+        { skillName: "debugging", hash: "def", source: "a/b", addedAt: "2026-01-02T00:00:00.000Z" },
+      ],
+    };
+    await writeProfile(join(profilesDir, "dev.json"), profile);
+
+    await profileClone("dev", "dev-copy", { profilesDir });
+
+    // Source unchanged
+    const source = await readProfile(join(profilesDir, "dev.json"));
+    expect(source.name).toBe("dev");
+    expect(source.skills.length).toBe(2);
+
+    // Clone has same skills but different name
+    const clone = await readProfile(join(profilesDir, "dev-copy.json"));
+    expect(clone.name).toBe("dev-copy");
+    expect(clone.skills.length).toBe(2);
+    expect(clone.skills[0].skillName).toBe("brainstorming");
+    expect(clone.skills[0].hash).toBe("abc");
+    expect(clone.skills[1].skillName).toBe("debugging");
+  });
+
+  test("does not change active profile", async () => {
+    const profile: Profile = { name: "dev", skills: [] };
+    await writeProfile(join(profilesDir, "dev.json"), profile);
+    await setActiveProfileName(activeFile, "dev");
+
+    await profileClone("dev", "dev-copy", { profilesDir });
+
+    const active = await getActiveProfileName(activeFile);
+    expect(active).toBe("dev");
+  });
+
+  test("refuses if target already exists", async () => {
+    await writeProfile(join(profilesDir, "a.json"), { name: "a", skills: [] });
+    await writeProfile(join(profilesDir, "b.json"), { name: "b", skills: [] });
+
+    expect(
+      profileClone("a", "b", { profilesDir })
+    ).rejects.toThrow(/already exists/);
+  });
+
+  test("throws for nonexistent source profile", async () => {
+    expect(
+      profileClone("nope", "copy", { profilesDir })
     ).rejects.toThrow();
   });
 });
