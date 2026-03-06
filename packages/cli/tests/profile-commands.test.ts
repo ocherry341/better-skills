@@ -211,6 +211,46 @@ describe("profile use", () => {
     expect(active).toBe("myprofile");
   });
 
+  test("registry entries persist after profile switch", async () => {
+    const storePath = join(baseDir, "store");
+    const registryPath = join(baseDir, "registry.json");
+
+    // Set up store with two skills
+    await mkdir(join(storePath, "hash-a"), { recursive: true });
+    await writeFile(join(storePath, "hash-a", "SKILL.md"), "# Skill A");
+    await mkdir(join(storePath, "hash-b"), { recursive: true });
+    await writeFile(join(storePath, "hash-b", "SKILL.md"), "# Skill B");
+
+    // Profile alpha has skill-a, profile beta has skill-b
+    const alpha: Profile = {
+      name: "alpha",
+      skills: [{ skillName: "skill-a", hash: "hash-a", source: "a/repo", addedAt: "2026-01-01T00:00:00.000Z" }],
+    };
+    const beta: Profile = {
+      name: "beta",
+      skills: [{ skillName: "skill-b", hash: "hash-b", source: "b/repo", addedAt: "2026-01-01T00:00:00.000Z" }],
+    };
+    await writeProfile(join(profilesDir, "alpha.json"), alpha);
+    await writeProfile(join(profilesDir, "beta.json"), beta);
+
+    // Switch to alpha first
+    await profileUse("alpha", {
+      profilesDir, activeFile, skillsDir,
+      storePath, copy: true, registryPath,
+    });
+
+    // Switch to beta
+    await profileUse("beta", {
+      profilesDir, activeFile, skillsDir,
+      storePath, copy: true, registryPath,
+    });
+
+    // Registry should contain BOTH skills (lockfile behavior)
+    const reg = JSON.parse(await readFile(registryPath, "utf-8"));
+    expect(reg.skills).toHaveProperty("skill-a");
+    expect(reg.skills).toHaveProperty("skill-b");
+  });
+
   test("throws for nonexistent profile", async () => {
     expect(
       profileUse("nope", {
@@ -734,6 +774,39 @@ describe("profile rm", () => {
         profileName: "nonexistent",
       })
     ).rejects.toThrow();
+  });
+
+  test("registry entry persists after removing skill from active profile", async () => {
+    const storePath = join(baseDir, "store");
+    const registryPath = join(baseDir, "registry.json");
+
+    // Set up store
+    await mkdir(join(storePath, "abc"), { recursive: true });
+
+    // Register the skill in registry
+    await registerSkill("brainstorming", "abc", "x/y", registryPath, storePath);
+
+    const profile: Profile = {
+      name: "dev",
+      skills: [
+        { skillName: "brainstorming", hash: "abc", source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
+      ],
+    };
+    await writeProfile(join(profilesDir, "dev.json"), profile);
+    await setActiveProfileName(activeFile, "dev");
+
+    // Create linked skill on disk
+    const skillDir = join(skillsDir, "brainstorming");
+    await mkdir(skillDir, { recursive: true });
+    await writeFile(join(skillDir, "SKILL.md"), "# Brainstorming");
+
+    await profileRm("brainstorming", {
+      profilesDir, activeFile, skillsDir, registryPath,
+    });
+
+    // Registry should still have the entry
+    const reg = JSON.parse(await readFile(registryPath, "utf-8"));
+    expect(reg.skills).toHaveProperty("brainstorming");
   });
 
   test("handles skill missing on disk gracefully when active", async () => {

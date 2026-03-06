@@ -1,13 +1,11 @@
 import { unlinkSkill } from "../core/linker.js";
-import { getSkillsPath, getProfilesPath, getActiveProfileFilePath, getRegistryPath } from "../utils/paths.js";
+import { getSkillsPath, getProfilesPath, getActiveProfileFilePath } from "../utils/paths.js";
 import { readProfile, writeProfile, getActiveProfileName } from "../core/profile.js";
-import { unregisterSkill } from "../core/registry.js";
 import { stat } from "fs/promises";
 import { join } from "path";
 
 export interface RmOptions {
   global?: boolean;
-  registryPath?: string;
 }
 
 /**
@@ -28,12 +26,6 @@ export async function rm(name: string, options: RmOptions = {}): Promise<void> {
   // Remove the linked directory
   console.log(`Removing ${targetDir}...`);
   await unlinkSkill(targetDir);
-
-  // Unregister from registry (global only)
-  if (options.global) {
-    const registryPath = options.registryPath ?? getRegistryPath();
-    await unregisterSkill(name, registryPath, targetBase);
-  }
 
   console.log(`✓ Removed ${name}`);
 

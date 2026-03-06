@@ -10,7 +10,7 @@ import {
   getActiveProfileName,
   setActiveProfileName,
 } from "../core/profile.js";
-import { isManaged, registerSkill, unregisterSkill } from "../core/registry.js";
+import { isManaged, registerSkill } from "../core/registry.js";
 import { hashDirectory } from "../core/hasher.js";
 import { resolve as resolveSource, toSourceString, type SourceDescriptor } from "../core/resolver.js";
 import { fetch } from "../core/fetcher.js";
@@ -138,7 +138,6 @@ export async function profileUse(
       const managed = await isManaged(entry.name, opts.registryPath);
       if (managed) {
         await unlinkSkill(join(opts.skillsDir, entry.name));
-        await unregisterSkill(entry.name, opts.registryPath, opts.skillsDir);
       } else {
         console.warn(`⚠ Skipping unmanaged skill '${entry.name}'`);
       }
@@ -300,7 +299,6 @@ export async function profileRm(
       await stat(targetDir);
       console.log(`Removing ${targetDir}...`);
       await unlinkSkill(targetDir);
-      await unregisterSkill(skillName, opts.registryPath, opts.skillsDir);
     } catch {
       // Skill dir doesn't exist on disk — already removed, just update profile
     }
