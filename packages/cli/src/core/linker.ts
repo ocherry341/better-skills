@@ -83,3 +83,33 @@ export async function linkSkill(
 export async function unlinkSkill(targetDir: string): Promise<void> {
   await rm(targetDir, { recursive: true, force: true });
 }
+
+/**
+ * Link a skill from store to multiple client directories.
+ * Each client dir gets: {clientDir}/{skillName}/
+ */
+export async function linkToClients(
+  skillName: string,
+  storeDir: string,
+  clientDirs: string[],
+  options: LinkOptions = {}
+): Promise<void> {
+  for (const dir of clientDirs) {
+    await mkdir(dir, { recursive: true });
+    const targetDir = join(dir, skillName);
+    await linkSkill(storeDir, targetDir, options);
+  }
+}
+
+/**
+ * Remove a skill from multiple client directories.
+ */
+export async function unlinkFromClients(
+  skillName: string,
+  clientDirs: string[]
+): Promise<void> {
+  for (const dir of clientDirs) {
+    const targetDir = join(dir, skillName);
+    await unlinkSkill(targetDir);
+  }
+}
