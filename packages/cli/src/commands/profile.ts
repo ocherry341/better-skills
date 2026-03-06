@@ -1,4 +1,4 @@
-import { stat, readdir, mkdir as fsMkdir } from "fs/promises";
+import { stat, readdir, mkdir as fsMkdir, unlink } from "fs/promises";
 import { join, basename } from "path";
 import { linkSkill, unlinkSkill } from "../core/linker.js";
 import {
@@ -308,6 +308,111 @@ export async function profileRm(
   if (!isActive) {
     console.log(`  (no unlink needed — '${targetName}' is not the active profile)`);
   }
+}
+
+export interface ProfileDeleteInternalOptions {
+  profilesDir: string;
+  activeFile: string;
+}
+
+/**
+ * Delete a profile. Refuses to delete the active profile.
+ */
+export async function profileDelete(
+  name: string,
+  opts: ProfileDeleteInternalOptions
+): Promise<void> {
+  const filePath = join(opts.profilesDir, `${name}.json`);
+
+  // Validate profile exists
+  await readProfile(filePath);
+
+  // Refuse if active
+  const activeName = await getActiveProfileName(opts.activeFile);
+  if (name === activeName) {
+    throw new Error(`Cannot delete active profile '${name}'. Switch to another profile first with 'profile use'.`);
+  }
+
+  await unlink(filePath);
+  console.log(`✓ Deleted profile '${name}'`);
+}
+
+export interface ProfileRenameInternalOptions {
+  profilesDir: string;
+  activeFile: string;
+}
+
+/**
+ * Rename a profile. Updates active-profile marker if renaming the active profile.
+ */
+export async function profileRename(
+  oldName: string,
+  newName: string,
+  opts: ProfileRenameInternalOptions
+): Promise<void> {
+  const oldPath = join(opts.profilesDir, `${oldName}.json`);
+  const newPath = join(opts.profilesDir, `${newName}.json`);
+
+  // Validate old exists
+  const profile = await readProfile(oldPath);
+
+  // Validate new does not exist
+  try {
+    await stat(newPath);
+    throw new Error(`Profile '${newName}' already exists.`);
+  } catch (err: any) {
+    if (err.message?.includes("already exists")) throw err;
+    // File doesn't exist — good
+  }
+
+  // Write new, delete old
+  profile.name = newName;
+  await writeProfile(newPath, profile);
+  await unlink(oldPath);
+
+  // Update active marker if needed
+  const activeName = await getActiveProfileName(opts.activeFile);
+  if (oldName === activeName) {
+    await setActiveProfileName(opts.activeFile, newName);
+  }
+
+  console.log(`✓ Renamed profile '${oldName}' → '${newName}'`);
+}
+
+export interface ProfileCloneInternalOptions {
+  profilesDir: string;
+}
+
+/**
+ * Clone a profile as a new profile with the same skills.
+ */
+export async function profileClone(
+  sourceName: string,
+  targetName: string,
+  opts: ProfileCloneInternalOptions
+): Promise<void> {
+  const sourcePath = join(opts.profilesDir, `${sourceName}.json`);
+  const targetPath = join(opts.profilesDir, `${targetName}.json`);
+
+  // Validate source exists
+  const source = await readProfile(sourcePath);
+
+  // Validate target does not exist
+  try {
+    await stat(targetPath);
+    throw new Error(`Profile '${targetName}' already exists.`);
+  } catch (err: any) {
+    if (err.message?.includes("already exists")) throw err;
+    // File doesn't exist — good
+  }
+
+  const clone: Profile = {
+    name: targetName,
+    skills: source.skills.map((s) => ({ ...s })),
+  };
+  await writeProfile(targetPath, clone);
+
+  console.log(`✓ Cloned profile '${sourceName}' → '${targetName}'`);
 }
 
 function deriveNameFromSource(desc: SourceDescriptor): string {
