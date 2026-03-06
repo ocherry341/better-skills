@@ -29,7 +29,7 @@ Thumbs.db
 .worktrees
 .ref
 docs/plans
-docs/*
+docs
 skills-lock.json
 
 
