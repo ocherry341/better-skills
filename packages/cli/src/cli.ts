@@ -11,6 +11,9 @@ import {
   profileUse,
   profileAdd,
   profileRm,
+  profileDelete,
+  profileRename,
+  profileClone,
 } from "./commands/profile.js";
 import { getActiveProfileName } from "./core/profile.js";
 import {
@@ -193,6 +196,69 @@ profile
       activeFile: getActiveProfileFilePath(),
       skillsDir: getGlobalSkillsPath(),
       profileName: opts.profile,
+    });
+  });
+
+profile
+  .command("delete [name]")
+  .description("Delete a profile (cannot delete active profile)")
+  .option("-p, --profile <name>", "Profile to delete")
+  .action(async (name: string | undefined, opts) => {
+    const target = opts.profile ?? name;
+    if (!target) {
+      console.error("Specify a profile name: better-skills profile delete <name>");
+      process.exit(1);
+    }
+    await profileDelete(target, {
+      profilesDir: getProfilesPath(),
+      activeFile: getActiveProfileFilePath(),
+    });
+  });
+
+profile
+  .command("rename [old] [new]")
+  .description("Rename a profile")
+  .option("-p, --profile <name>", "Profile to rename")
+  .action(async (old: string | undefined, newName: string | undefined, opts) => {
+    let oldName: string;
+    let targetName: string;
+    if (opts.profile) {
+      oldName = opts.profile;
+      targetName = old!;
+    } else {
+      oldName = old!;
+      targetName = newName!;
+    }
+    if (!oldName || !targetName) {
+      console.error("Usage: better-skills profile rename <old> <new>");
+      process.exit(1);
+    }
+    await profileRename(oldName, targetName, {
+      profilesDir: getProfilesPath(),
+      activeFile: getActiveProfileFilePath(),
+    });
+  });
+
+profile
+  .command("clone [source] [target]")
+  .description("Clone a profile as a new profile")
+  .option("-p, --profile <name>", "Source profile to clone")
+  .action(async (source: string | undefined, target: string | undefined, opts) => {
+    let sourceName: string;
+    let targetName: string;
+    if (opts.profile) {
+      sourceName = opts.profile;
+      targetName = source!;
+    } else {
+      sourceName = source!;
+      targetName = target!;
+    }
+    if (!sourceName || !targetName) {
+      console.error("Usage: better-skills profile clone <source> <target>");
+      process.exit(1);
+    }
+    await profileClone(sourceName, targetName, {
+      profilesDir: getProfilesPath(),
     });
   });
 
