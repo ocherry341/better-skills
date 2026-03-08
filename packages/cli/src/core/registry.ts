@@ -68,7 +68,7 @@ export async function writeRegistry(
 }
 
 /**
- * Register a skill as managed by better-skills.
+ * Register a skill as managed by bsk.
  */
 export async function registerSkill(
   name: string,
@@ -83,7 +83,7 @@ export async function registerSkill(
 }
 
 /**
- * Unregister a skill (no longer managed by better-skills).
+ * Unregister a skill (no longer managed by bsk).
  */
 export async function unregisterSkill(
   name: string,
@@ -96,7 +96,7 @@ export async function unregisterSkill(
 }
 
 /**
- * Check if a skill directory is managed by better-skills.
+ * Check if a skill directory is managed by bsk.
  */
 export async function isManaged(
   name: string,

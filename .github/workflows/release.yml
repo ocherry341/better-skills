@@ -37,16 +37,16 @@ jobs:
         include:
           - os: ubuntu-latest
             target: bun-linux-x64
-            asset: better-skills-linux-x64
+            asset: bsk-linux-x64
           - os: ubuntu-latest
             target: bun-linux-arm64
-            asset: better-skills-linux-arm64
+            asset: bsk-linux-arm64
           - os: macos-latest
             target: bun-darwin-x64
-            asset: better-skills-darwin-x64
+            asset: bsk-darwin-x64
           - os: macos-latest
             target: bun-darwin-arm64
-            asset: better-skills-darwin-arm64
+            asset: bsk-darwin-arm64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -79,7 +79,7 @@ jobs:
       - name: Create GitHub Release
         run: |
           gh release create ${{ github.ref_name }} \
-            artifacts/better-skills-* \
+            artifacts/bsk-* \
             packages/install/install.sh \
             --title "${{ github.ref_name }}" \
             --generate-notes

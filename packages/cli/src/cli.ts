@@ -33,7 +33,7 @@ import {
 const program = new Command();
 
 program
-  .name("better-skills")
+  .name("bsk")
   .description("A pnpm-inspired skills management CLI with content-addressable storage")
   .version(version);
 
@@ -100,7 +100,7 @@ program
 
 program
   .command("migrate")
-  .description("Migrate unmanaged global skills to better-skills management")
+  .description("Migrate unmanaged global skills to bsk management")
   .action(async () => {
     await migrate();
   });
@@ -175,7 +175,7 @@ profile
       activeFile: getActiveProfileFilePath(),
     });
     if (items.length === 0) {
-      console.log("No profiles found. Create one with: better-skills profile create <name>");
+      console.log("No profiles found. Create one with: bsk profile create <name>");
       return;
     }
     console.log("");
@@ -267,7 +267,7 @@ profile
   .action(async (name: string | undefined, opts) => {
     const target = opts.profile ?? name;
     if (!target) {
-      console.error("Specify a profile name: better-skills profile delete <name>");
+      console.error("Specify a profile name: bsk profile delete <name>");
       process.exit(1);
     }
     await profileDelete(target, {
@@ -291,7 +291,7 @@ profile
       targetName = newName!;
     }
     if (!oldName || !targetName) {
-      console.error("Usage: better-skills profile rename <old> <new>");
+      console.error("Usage: bsk profile rename <old> <new>");
       process.exit(1);
     }
     await profileRename(oldName, targetName, {
@@ -315,7 +315,7 @@ profile
       targetName = target!;
     }
     if (!sourceName || !targetName) {
-      console.error("Usage: better-skills profile clone <source> <target>");
+      console.error("Usage: bsk profile clone <source> <target>");
       process.exit(1);
     }
     await profileClone(sourceName, targetName, {

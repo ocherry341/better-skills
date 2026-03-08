@@ -21,7 +21,7 @@ export interface MigrateOptions {
 }
 
 /**
- * Migrate unmanaged skills in ~/.agents/skills/ to better-skills management.
+ * Migrate unmanaged skills in ~/.agents/skills/ to bsk management.
  */
 export async function migrate(options: MigrateOptions = {}): Promise<void> {
   const skillsDir = options.skillsDir ?? getGlobalSkillsPath();
@@ -60,7 +60,7 @@ export async function migrate(options: MigrateOptions = {}): Promise<void> {
   const unmanaged = skillNames.filter((name) => !(name in registry.skills));
 
   if (unmanaged.length === 0) {
-    console.log("All skills are already managed by better-skills.");
+    console.log("All skills are already managed by bsk.");
     return;
   }
 

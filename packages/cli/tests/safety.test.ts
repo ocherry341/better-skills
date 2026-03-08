@@ -97,8 +97,8 @@ describe("add -g conflict detection", () => {
     expect(await isManaged("my-skill", registryPath)).toBe(false);
 
     // The add command would throw here (simulating the check)
-    const error = `Skill 'my-skill' exists but is not managed by better-skills. Use --force to overwrite.`;
-    expect(error).toContain("not managed by better-skills");
+    const error = `Skill 'my-skill' exists but is not managed by bsk. Use --force to overwrite.`;
+    expect(error).toContain("not managed by bsk");
 
     // User content should still be intact
     const content = await readFile(join(unmanagedDir, "README.md"), "utf-8");

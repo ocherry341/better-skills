@@ -24,7 +24,7 @@ Tests use Bun's built-in test runner (`bun:test`). The test command filters to t
 
 ## Architecture
 
-**better-skills** is a pnpm-inspired CLI for managing Agent skills (`.agents/skills/` directories) with content-addressable storage.
+**better-skills** (`bsk`) is a pnpm-inspired CLI for managing Agent skills (`.agents/skills/` directories) with content-addressable storage.
 
 ### Key paths
 

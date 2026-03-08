@@ -3,7 +3,7 @@ set -euo pipefail
 
 REPO="ocherry341/better-skills"
 INSTALL_DIR="${BETTER_SKILLS_INSTALL_DIR:-$HOME/.better-skills/bin}"
-BINARY_NAME="better-skills"
+BINARY_NAME="bsk"
 
 # Detect platform
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')

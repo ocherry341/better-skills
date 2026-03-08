@@ -16,7 +16,7 @@
   "homepage": "https://github.com/ocherry341/better-skills#readme",
   "files": ["dist"],
   "bin": {
-    "better-skills": "dist/cli.mjs"
+    "bsk": "dist/cli.mjs"
   },
   "engines": {
     "node": ">=18"

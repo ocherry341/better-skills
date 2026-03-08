@@ -2,10 +2,10 @@ import { $ } from "bun";
 import { mkdir } from "fs/promises";
 
 const targets = [
-  { bun: "bun-linux-x64", name: "better-skills-linux-x64" },
-  { bun: "bun-linux-arm64", name: "better-skills-linux-arm64" },
-  { bun: "bun-darwin-x64", name: "better-skills-darwin-x64" },
-  { bun: "bun-darwin-arm64", name: "better-skills-darwin-arm64" },
+  { bun: "bun-linux-x64", name: "bsk-linux-x64" },
+  { bun: "bun-linux-arm64", name: "bsk-linux-arm64" },
+  { bun: "bun-darwin-x64", name: "bsk-darwin-x64" },
+  { bun: "bun-darwin-arm64", name: "bsk-darwin-arm64" },
 ] as const;
 
 const outDir = "dist-binary";

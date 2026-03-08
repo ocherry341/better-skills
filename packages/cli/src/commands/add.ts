@@ -71,7 +71,7 @@ export async function add(source: string, options: AddOptions = {}): Promise<voi
         const managed = await isManaged(skillName, registryPath);
         if (!managed && !options.force) {
           throw new Error(
-            `Skill '${skillName}' exists but is not managed by better-skills. Use --force to overwrite.`
+            `Skill '${skillName}' exists but is not managed by bsk. Use --force to overwrite.`
           );
         }
       }
