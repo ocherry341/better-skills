@@ -5,6 +5,7 @@ on:
     tags: ["v*"]
 
 permissions:
+  id-token: write
   contents: write
 
 jobs:
@@ -28,8 +29,6 @@ jobs:
       - name: Publish to npm
         run: npm publish --access public
         working-directory: packages/cli
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   build-binaries:
     strategy:
