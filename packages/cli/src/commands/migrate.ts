@@ -1,8 +1,9 @@
-import { readdir, stat, mkdir } from "fs/promises";
+import { readdir, stat } from "fs/promises";
 import { join } from "path";
 import { hashDirectory } from "../core/hasher.js";
-import { linkSkill, cpRecursive } from "../core/linker.js";
+import { linkSkill } from "../core/linker.js";
 import { readRegistry, registerSkill } from "../core/registry.js";
+import { store as storeSkill } from "../core/store.js";
 import {
   getGlobalSkillsPath,
   getRegistryPath,
@@ -73,14 +74,8 @@ export async function migrate(options: MigrateOptions = {}): Promise<void> {
       // Hash
       const hash = await hashDirectory(skillDir);
 
-      // Store (use storePath directly for testability)
-      const hashPath = join(storePath, hash);
-      try {
-        await stat(hashPath);
-      } catch {
-        await mkdir(hashPath, { recursive: true });
-        await cpRecursive(skillDir, hashPath);
-      }
+      // Store with integrity verification
+      const hashPath = await storeSkill(hash, skillDir, storePath);
 
       // Re-link from store
       await linkSkill(hashPath, skillDir);
