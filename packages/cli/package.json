@@ -1,6 +1,6 @@
 {
   "name": "better-skills",
-  "version": "0.6.0",
+  "version": "0.6.2",
   "description": "A pnpm-inspired skills management CLI with content-addressable storage",
   "type": "module",
   "license": "MIT",
@@ -14,7 +14,9 @@
     "url": "https://github.com/ocherry341/better-skills/issues"
   },
   "homepage": "https://github.com/ocherry341/better-skills#readme",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "bin": {
     "bsk": "dist/cli.mjs"
   },
