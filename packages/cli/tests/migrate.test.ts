@@ -184,4 +184,35 @@ describe("migrate command", () => {
     const reg = await readRegistry(registryPath);
     expect(reg.skills["managed"].source).toBe("owner/repo");
   });
+
+  test("re-copies store when existing store entry is incomplete", async () => {
+    // Create a skill with two files
+    const skill1 = join(skillsDir, "multi-file-skill");
+    await mkdir(skill1, { recursive: true });
+    await writeFile(join(skill1, "SKILL.md"), "---\nname: multi-file-skill\n---\n# S");
+    await writeFile(join(skill1, "data.txt"), "important data");
+
+    // Compute the expected hash
+    const expectedHash = await hashDirectory(skill1);
+
+    // Simulate interrupted migration: create store dir with only one file
+    const hashPath = join(storeDir, expectedHash);
+    await mkdir(hashPath, { recursive: true });
+    await writeFile(join(hashPath, "SKILL.md"), "---\nname: multi-file-skill\n---\n# S");
+    // data.txt is intentionally missing — simulates interrupted copy
+
+    await migrate(opts());
+
+    // Skill should still have BOTH files after migration
+    const entries = (await readdir(skill1)).sort();
+    expect(entries).toEqual(["SKILL.md", "data.txt"]);
+
+    // Content should be intact
+    const content = await readFile(join(skill1, "data.txt"), "utf-8");
+    expect(content).toBe("important data");
+
+    // Store should now have both files too
+    const storeEntries = (await readdir(hashPath)).sort();
+    expect(storeEntries).toEqual(["SKILL.md", "data.txt"]);
+  });
 });
