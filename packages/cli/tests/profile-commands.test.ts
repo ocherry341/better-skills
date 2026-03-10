@@ -671,6 +671,72 @@ describe("profile add", () => {
     const updated = await readProfile(join(profilesDir, "dev.json"));
     expect(updated.skills[0].skillName).toBe("custom-name");
   });
+
+  test("adds skill from registry with @latest (default)", async () => {
+    const registryPath = join(baseDir, "registry.json");
+    await mkdir(join(storePath, "hash1"), { recursive: true });
+    await writeFile(join(storePath, "hash1", "SKILL.md"), "# v1");
+    await mkdir(join(storePath, "hash2"), { recursive: true });
+    await writeFile(join(storePath, "hash2", "SKILL.md"), "# v2");
+    await registerSkill("my-skill", "hash1", "owner/repo", registryPath, storePath);
+    await registerSkill("my-skill", "hash2", "owner/repo", registryPath, storePath);
+
+    const profile: Profile = { name: "dev", skills: [] };
+    await writeProfile(join(profilesDir, "dev.json"), profile);
+    await setActiveProfileName(activeFile, "dev");
+
+    await profileAdd("my-skill", {
+      profilesDir, activeFile, skillsDir, storePath,
+      registryPath,
+    });
+
+    const updated = await readProfile(join(profilesDir, "dev.json"));
+    expect(updated.skills[0].v).toBe(2); // latest
+  });
+
+  test("adds skill from registry with @v1", async () => {
+    const registryPath = join(baseDir, "registry.json");
+    await mkdir(join(storePath, "hash1"), { recursive: true });
+    await writeFile(join(storePath, "hash1", "SKILL.md"), "# v1");
+    await mkdir(join(storePath, "hash2"), { recursive: true });
+    await writeFile(join(storePath, "hash2", "SKILL.md"), "# v2");
+    await registerSkill("my-skill", "hash1", "owner/repo", registryPath, storePath);
+    await registerSkill("my-skill", "hash2", "owner/repo", registryPath, storePath);
+
+    const profile: Profile = { name: "dev", skills: [] };
+    await writeProfile(join(profilesDir, "dev.json"), profile);
+    await setActiveProfileName(activeFile, "dev");
+
+    await profileAdd("my-skill@v1", {
+      profilesDir, activeFile, skillsDir, storePath,
+      registryPath,
+    });
+
+    const updated = await readProfile(join(profilesDir, "dev.json"));
+    expect(updated.skills[0].v).toBe(1);
+  });
+
+  test("adds skill from registry with @previous", async () => {
+    const registryPath = join(baseDir, "registry.json");
+    await mkdir(join(storePath, "hash1"), { recursive: true });
+    await writeFile(join(storePath, "hash1", "SKILL.md"), "# v1");
+    await mkdir(join(storePath, "hash2"), { recursive: true });
+    await writeFile(join(storePath, "hash2", "SKILL.md"), "# v2");
+    await registerSkill("my-skill", "hash1", "owner/repo", registryPath, storePath);
+    await registerSkill("my-skill", "hash2", "owner/repo", registryPath, storePath);
+
+    const profile: Profile = { name: "dev", skills: [] };
+    await writeProfile(join(profilesDir, "dev.json"), profile);
+    await setActiveProfileName(activeFile, "dev");
+
+    await profileAdd("my-skill@previous", {
+      profilesDir, activeFile, skillsDir, storePath,
+      registryPath,
+    });
+
+    const updated = await readProfile(join(profilesDir, "dev.json"));
+    expect(updated.skills[0].v).toBe(1);
+  });
 });
 
 describe("profile rm", () => {

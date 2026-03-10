@@ -11,7 +11,7 @@ import {
   getActiveProfileName,
   setActiveProfileName,
 } from "../core/profile.js";
-import { isManaged, registerSkill, readRegistry } from "../core/registry.js";
+import { isManaged, registerSkill, readRegistry, resolveVersion } from "../core/registry.js";
 import { hashDirectory } from "../core/hasher.js";
 import { resolve as resolveSource, toSourceString, type SourceDescriptor } from "../core/resolver.js";
 import { fetch } from "../core/fetcher.js";
@@ -202,8 +202,26 @@ export interface ProfileAddInternalOptions {
 }
 
 /**
+ * Parse a source that may contain a version specifier: "skill-name@version"
+ * Returns { skillName, versionSpec } if it's a registry reference, null otherwise.
+ */
+function parseRegistryRef(source: string): { skillName: string; versionSpec: string } | null {
+  // If source contains / or . or starts with http, it's a fetch source, not a registry ref
+  if (source.includes("/") || source.startsWith(".") || source.startsWith("http")) {
+    return null;
+  }
+  const atIdx = source.indexOf("@");
+  if (atIdx > 0) {
+    return { skillName: source.slice(0, atIdx), versionSpec: source.slice(atIdx + 1) };
+  }
+  // Bare name without @: could be a registry skill with @latest
+  return { skillName: source, versionSpec: "latest" };
+}
+
+/**
  * Add a skill to a specific profile.
  * If the target profile is active, also links to the global skills directory.
+ * Supports version specifiers: "skill-name@latest", "skill-name@v2", "skill-name@previous"
  */
 export async function profileAdd(
   source: string,
@@ -219,7 +237,47 @@ export async function profileAdd(
   const filePath = join(opts.profilesDir, `${targetName}.json`);
   const profile = await readProfile(filePath);
 
-  // 2. Resolve → Fetch → Hash → Store
+  // 2. Try to resolve as registry reference first
+  const ref = parseRegistryRef(source);
+  if (ref) {
+    const registry = await readRegistry(opts.registryPath);
+    if (registry.skills[ref.skillName]) {
+      const version = resolveVersion(registry, ref.skillName, ref.versionSpec);
+      if (!version) {
+        throw new Error(`Version '${ref.versionSpec}' not found for skill '${ref.skillName}'.`);
+      }
+
+      const skillName = opts.name ?? ref.skillName;
+      profile.skills = profile.skills.filter((s) => s.skillName !== skillName);
+      profile.skills.push({
+        skillName,
+        v: version.v,
+        source: version.source,
+        addedAt: new Date().toISOString(),
+      });
+      await writeProfile(filePath, profile);
+
+      // Link if active
+      const isActive = targetName === activeName;
+      if (isActive) {
+        const storeDir = join(opts.storePath, version.hash);
+        const targetDir = join(opts.skillsDir, skillName);
+        await linkSkill(storeDir, targetDir, { copy: opts.copy });
+        const clientDirs = await resolveClientDirs(opts.configPath);
+        if (clientDirs.length > 0) {
+          await linkToClients(skillName, storeDir, clientDirs, { copy: opts.copy });
+        }
+      }
+
+      console.log(`✓ Added ${skillName} v${version.v} (${version.hash.slice(0, 8)}) to profile '${targetName}'`);
+      if (!isActive) {
+        console.log(`  (not linked — '${targetName}' is not the active profile)`);
+      }
+      return;
+    }
+  }
+
+  // 3. Fall through to fetch path for external sources
   console.log(`Resolving ${source}...`);
   const descriptor = resolveSource(source);
 
