@@ -2,14 +2,14 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtemp, rm, mkdir, writeFile, readdir, readFile, stat } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
-import { migrate } from "../src/commands/migrate.js";
+import { save } from "../src/commands/save.js";
 import { readRegistry, isManaged, registerSkill } from "../src/core/registry.js";
 import { hashDirectory } from "../src/core/hasher.js";
 import { readProfile, getActiveProfileName, writeProfile, setActiveProfileName } from "../src/core/profile.js";
 import * as store from "../src/core/store.js";
 import { linkSkill } from "../src/core/linker.js";
 
-describe("migrate command", () => {
+describe("migrate command (via save)", () => {
   let baseDir: string;
   let skillsDir: string;
   let registryPath: string;
@@ -53,7 +53,7 @@ describe("migrate command", () => {
     await mkdir(skill2, { recursive: true });
     await writeFile(join(skill2, "SKILL.md"), "---\nname: skill-b\n---\n# B");
 
-    await migrate(opts());
+    await save(opts());
 
     // Both should be managed
     expect(await isManaged("skill-a", registryPath)).toBe(true);
@@ -61,17 +61,17 @@ describe("migrate command", () => {
 
     // Registry should have source "local"
     const reg = await readRegistry(registryPath);
-    expect(reg.skills["skill-a"].source).toBe("local");
-    expect(reg.skills["skill-b"].source).toBe("local");
+    expect(reg.skills["skill-a"].versions[0].source).toBe("local");
+    expect(reg.skills["skill-b"].versions[0].source).toBe("local");
 
     // Hashes should be in the store
     const hash1 = await hashDirectory(skill1);
     const hash2 = await hashDirectory(skill2);
-    expect(reg.skills["skill-a"].hash).toBe(hash1);
-    expect(reg.skills["skill-b"].hash).toBe(hash2);
+    expect(reg.skills["skill-a"].versions[0].hash).toBe(hash1);
+    expect(reg.skills["skill-b"].versions[0].hash).toBe(hash2);
   });
 
-  test("skips already managed skills", async () => {
+  test("skips already managed skills with same hash", async () => {
     // Create a managed skill
     const skill1 = join(skillsDir, "managed-skill");
     await mkdir(skill1, { recursive: true });
@@ -86,14 +86,14 @@ describe("migrate command", () => {
     await mkdir(skill2, { recursive: true });
     await writeFile(join(skill2, "SKILL.md"), "---\nname: new-skill\n---\n# N");
 
-    await migrate(opts());
+    await save(opts());
 
-    // Managed skill should keep original source
+    // Managed skill should keep original source (v1)
     const reg = await readRegistry(registryPath);
-    expect(reg.skills["managed-skill"].source).toBe("owner/repo");
+    expect(reg.skills["managed-skill"].versions[0].source).toBe("owner/repo");
 
-    // New skill should be migrated with "local" source
-    expect(reg.skills["new-skill"].source).toBe("local");
+    // New skill should be saved with "local" source
+    expect(reg.skills["new-skill"].versions[0].source).toBe("local");
   });
 
   test("creates default profile when none exists", async () => {
@@ -103,16 +103,17 @@ describe("migrate command", () => {
 
     expect(await getActiveProfileName(activeFile)).toBeNull();
 
-    await migrate(opts());
+    await save(opts());
 
     // Default profile should be created and active
     expect(await getActiveProfileName(activeFile)).toBe("default");
 
-    // Profile should contain the migrated skill
+    // Profile should contain the saved skill
     const profile = await readProfile(join(profilesDir, "default.json"));
     expect(profile.name).toBe("default");
     expect(profile.skills).toHaveLength(1);
     expect(profile.skills[0].skillName).toBe("my-skill");
+    expect(profile.skills[0].v).toBe(1);
     expect(profile.skills[0].source).toBe("local");
   });
 
@@ -125,7 +126,7 @@ describe("migrate command", () => {
     await mkdir(skill1, { recursive: true });
     await writeFile(join(skill1, "SKILL.md"), "---\nname: my-skill\n---\n# S");
 
-    await migrate(opts());
+    await save(opts());
 
     // Should use existing profile, not create default
     expect(await getActiveProfileName(activeFile)).toBe("work");
@@ -133,16 +134,17 @@ describe("migrate command", () => {
     const profile = await readProfile(join(profilesDir, "work.json"));
     expect(profile.skills).toHaveLength(1);
     expect(profile.skills[0].skillName).toBe("my-skill");
+    expect(profile.skills[0].v).toBe(1);
   });
 
-  test("re-links files from store after migration", async () => {
+  test("re-links files from store after save", async () => {
     const skill1 = join(skillsDir, "my-skill");
     await mkdir(skill1, { recursive: true });
     await writeFile(join(skill1, "SKILL.md"), "---\nname: my-skill\n---\n# Skill");
 
     const hashBefore = await hashDirectory(skill1);
 
-    await migrate(opts());
+    await save(opts());
 
     // Skill should still exist on disk with same content
     const entries = await readdir(skill1);
@@ -153,9 +155,9 @@ describe("migrate command", () => {
 
     // Hash should match store entry
     const reg = await readRegistry(registryPath);
-    expect(reg.skills["my-skill"].hash).toBe(hashBefore);
+    expect(reg.skills["my-skill"].versions[0].hash).toBe(hashBefore);
 
-    // Store should have the content (check temp storeDir directly, not global path)
+    // Store should have the content
     const s = await stat(join(storeDir, hashBefore));
     expect(s.isDirectory()).toBe(true);
   });
@@ -163,15 +165,15 @@ describe("migrate command", () => {
   test("no skills directory: prints message and exits", async () => {
     await rm(skillsDir, { recursive: true, force: true });
     // Should not throw
-    await migrate(opts());
+    await save(opts());
   });
 
   test("empty skills directory: prints message and exits", async () => {
     // skillsDir exists but is empty
-    await migrate(opts());
+    await save(opts());
   });
 
-  test("all managed: prints message and exits", async () => {
+  test("all managed with same hash: prints up-to-date message", async () => {
     const skill1 = join(skillsDir, "managed");
     await mkdir(skill1, { recursive: true });
     await writeFile(join(skill1, "SKILL.md"), "---\nname: managed\n---\n# M");
@@ -179,10 +181,11 @@ describe("migrate command", () => {
     await mkdir(join(storeDir, hash), { recursive: true });
     await registerSkill("managed", hash, "owner/repo", registryPath, storeDir);
 
-    // Should not throw, and should not modify the registry
-    await migrate(opts());
+    // Should not throw, and should not add a new version
+    await save(opts());
     const reg = await readRegistry(registryPath);
-    expect(reg.skills["managed"].source).toBe("owner/repo");
+    expect(reg.skills["managed"].versions).toHaveLength(1);
+    expect(reg.skills["managed"].versions[0].source).toBe("owner/repo");
   });
 
   test("re-copies store when existing store entry is incomplete", async () => {
@@ -201,9 +204,9 @@ describe("migrate command", () => {
     await writeFile(join(hashPath, "SKILL.md"), "---\nname: multi-file-skill\n---\n# S");
     // data.txt is intentionally missing — simulates interrupted copy
 
-    await migrate(opts());
+    await save(opts());
 
-    // Skill should still have BOTH files after migration
+    // Skill should still have BOTH files after save
     const entries = (await readdir(skill1)).sort();
     expect(entries).toEqual(["SKILL.md", "data.txt"]);
 
