@@ -1,11 +1,12 @@
-import { stat } from "fs/promises";
-import { join } from "path";
+import { lstat, mkdir, readlink, stat, symlink } from "fs/promises";
+import { dirname, join } from "path";
 import {
   CLIENT_REGISTRY,
   VALID_CLIENT_IDS,
   readConfig,
   writeConfig,
   getClientSkillsDir,
+  getClientProjectSubdir,
 } from "../core/clients.js";
 import { readRegistry } from "../core/registry.js";
 import { linkToClients, unlinkFromClients } from "../core/linker.js";
@@ -17,6 +18,8 @@ export interface ClientAddOptions {
   skillsDir: string;
   /** Override client->dir mapping for testing */
   clientDirOverrides?: Record<string, string>;
+  /** Project root for creating project-level symlinks. If provided, creates .<client>/skills → ../.agents/skills */
+  projectRoot?: string;
 }
 
 /**
@@ -56,6 +59,43 @@ export async function clientAdd(
       } catch {
         // Hash missing from store, skip
       }
+    }
+  }
+
+  // Create project-level symlinks
+  if (opts.projectRoot) {
+    for (const id of clientIds) {
+      const subdir = getClientProjectSubdir(id);
+      if (!subdir) continue;
+
+      const symlinkPath = join(opts.projectRoot, subdir);
+      const agentsSkillsDir = join(opts.projectRoot, ".agents", "skills");
+
+      // Ensure .agents/skills exists
+      await mkdir(agentsSkillsDir, { recursive: true });
+
+      // Check if target already exists
+      try {
+        const st = await lstat(symlinkPath);
+        if (st.isSymbolicLink()) {
+          // Already a symlink — check if it points to the right place
+          const existing = await readlink(symlinkPath);
+          if (existing === join("..", ".agents", "skills")) {
+            continue; // Correct symlink already exists
+          }
+        }
+        if (st.isDirectory()) {
+          console.warn(`  ⚠ ${subdir} already exists as a directory, skipping symlink`);
+          continue;
+        }
+      } catch {
+        // Does not exist — good, we'll create it
+      }
+
+      // Create parent directory (e.g. .claude/)
+      await mkdir(dirname(symlinkPath), { recursive: true });
+      await symlink(join("..", ".agents", "skills"), symlinkPath);
+      console.log(`  Symlinked ${subdir} → .agents/skills`);
     }
   }
 

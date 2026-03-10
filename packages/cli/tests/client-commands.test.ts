@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtemp, rm, writeFile, mkdir, readFile, stat } from "fs/promises";
+import { mkdtemp, rm, writeFile, mkdir, readFile, stat, lstat, readlink } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
 import { clientAdd, clientRm, clientLs } from "../src/commands/client.js";
@@ -105,6 +105,128 @@ describe("client commands", () => {
           skillsDir,
         })
       ).rejects.toThrow("always enabled");
+    });
+
+    test("creates project-level symlink for client with projectSubdir", async () => {
+      const projectDir = join(baseDir, "my-project");
+      const agentsSkills = join(projectDir, ".agents", "skills");
+      await mkdir(agentsSkills, { recursive: true });
+
+      await clientAdd(["claude"], {
+        configPath,
+        registryPath,
+        storePath: storeDir,
+        skillsDir,
+        projectRoot: projectDir,
+      });
+
+      const symlinkPath = join(projectDir, ".claude", "skills");
+      const linkStat = await lstat(symlinkPath);
+      expect(linkStat.isSymbolicLink()).toBe(true);
+
+      const target = await readlink(symlinkPath);
+      expect(target).toBe(join("..", ".agents", "skills"));
+    });
+
+    test("creates .agents/skills if it does not exist", async () => {
+      const projectDir = join(baseDir, "my-project");
+      await mkdir(projectDir, { recursive: true });
+
+      await clientAdd(["claude"], {
+        configPath,
+        registryPath,
+        storePath: storeDir,
+        skillsDir,
+        projectRoot: projectDir,
+      });
+
+      const agentsSkills = join(projectDir, ".agents", "skills");
+      const s = await stat(agentsSkills);
+      expect(s.isDirectory()).toBe(true);
+    });
+
+    test("skips symlink if target already exists as real directory", async () => {
+      const projectDir = join(baseDir, "my-project");
+      const claudeSkills = join(projectDir, ".claude", "skills");
+      await mkdir(claudeSkills, { recursive: true });
+      await writeFile(join(claudeSkills, "existing.md"), "keep me");
+
+      await clientAdd(["claude"], {
+        configPath,
+        registryPath,
+        storePath: storeDir,
+        skillsDir,
+        projectRoot: projectDir,
+      });
+
+      // Should still be a real directory, not a symlink
+      const linkStat = await lstat(claudeSkills);
+      expect(linkStat.isSymbolicLink()).toBe(false);
+      expect(linkStat.isDirectory()).toBe(true);
+    });
+
+    test("is idempotent when symlink already correct", async () => {
+      const projectDir = join(baseDir, "my-project");
+      const agentsSkills = join(projectDir, ".agents", "skills");
+      await mkdir(agentsSkills, { recursive: true });
+
+      // Run twice
+      await clientAdd(["claude"], {
+        configPath,
+        registryPath,
+        storePath: storeDir,
+        skillsDir,
+        projectRoot: projectDir,
+      });
+      await clientAdd(["claude"], {
+        configPath,
+        registryPath,
+        storePath: storeDir,
+        skillsDir,
+        projectRoot: projectDir,
+      });
+
+      const symlinkPath = join(projectDir, ".claude", "skills");
+      const linkStat = await lstat(symlinkPath);
+      expect(linkStat.isSymbolicLink()).toBe(true);
+    });
+
+    test("skips project symlink for client with null projectSubdir", async () => {
+      const projectDir = join(baseDir, "my-project");
+      await mkdir(projectDir, { recursive: true });
+
+      await clientAdd(["amp"], {
+        configPath,
+        registryPath,
+        storePath: storeDir,
+        skillsDir,
+        projectRoot: projectDir,
+      });
+
+      // .amp/skills should NOT exist
+      const ampSkills = join(projectDir, ".amp", "skills");
+      await expect(stat(ampSkills)).rejects.toThrow();
+    });
+
+    test("handles copilot special path .github/skills", async () => {
+      const projectDir = join(baseDir, "my-project");
+      const agentsSkills = join(projectDir, ".agents", "skills");
+      await mkdir(agentsSkills, { recursive: true });
+
+      await clientAdd(["copilot"], {
+        configPath,
+        registryPath,
+        storePath: storeDir,
+        skillsDir,
+        projectRoot: projectDir,
+      });
+
+      const symlinkPath = join(projectDir, ".github", "skills");
+      const linkStat = await lstat(symlinkPath);
+      expect(linkStat.isSymbolicLink()).toBe(true);
+
+      const target = await readlink(symlinkPath);
+      expect(target).toBe(join("..", ".agents", "skills"));
     });
   });
 
