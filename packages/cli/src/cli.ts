@@ -11,7 +11,7 @@ import { add } from "./commands/add.js";
 import { clientAdd, clientRm, clientLs } from "./commands/client.js";
 import { rm } from "./commands/rm.js";
 import { ls, printLs, lsAll, printLsAll } from "./commands/ls.js";
-import { migrate } from "./commands/migrate.js";
+import { save } from "./commands/save.js";
 import {
   profileCreate,
   profileLs,
@@ -108,10 +108,17 @@ program
   });
 
 program
+  .command("save [skill-name]")
+  .description("Save new or changed skills to bsk management")
+  .action(async (skillName?: string) => {
+    await save({ skillName });
+  });
+
+program
   .command("migrate")
-  .description("Migrate unmanaged global skills to bsk management")
+  .description("Alias for 'save' — migrate unmanaged skills to bsk management")
   .action(async () => {
-    await migrate();
+    await save();
   });
 
 const client = program
@@ -213,10 +220,10 @@ profile
     if (p.skills.length === 0) {
       console.log("  (empty)");
     } else {
-      console.log(`${"  Name".padEnd(32)} ${"Hash".padEnd(12)} ${"Source"}`);
-      console.log("  " + "-".repeat(68));
+      console.log(`${"  Name".padEnd(32)} ${"Version".padEnd(10)} ${"Source"}`);
+      console.log("  " + "-".repeat(60));
       for (const s of p.skills) {
-        console.log(`  ${s.skillName.padEnd(30)} ${s.hash.slice(0, 8).padEnd(12)} ${s.source}`);
+        console.log(`  ${s.skillName.padEnd(30)} ${"v" + s.v.toString().padEnd(9)} ${s.source}`);
       }
     }
     console.log("");
