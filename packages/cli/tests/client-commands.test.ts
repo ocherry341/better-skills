@@ -279,6 +279,65 @@ describe("client commands", () => {
         })
       ).rejects.toThrow("always enabled");
     });
+
+    test("removes project-level symlink", async () => {
+      const projectDir = join(baseDir, "my-project");
+      const agentsSkills = join(projectDir, ".agents", "skills");
+      await mkdir(agentsSkills, { recursive: true });
+
+      // Create the symlink manually
+      const claudeDir = join(projectDir, ".claude");
+      await mkdir(claudeDir, { recursive: true });
+      const symlinkPath = join(claudeDir, "skills");
+      const { symlink: symlinkFn } = await import("fs/promises");
+      await symlinkFn(join("..", ".agents", "skills"), symlinkPath);
+
+      await writeFile(configPath, JSON.stringify({ clients: ["claude"] }));
+
+      await clientRm(["claude"], {
+        configPath,
+        registryPath,
+        skillsDir,
+        projectRoot: projectDir,
+      });
+
+      await expect(lstat(symlinkPath)).rejects.toThrow();
+    });
+
+    test("does not remove real directory on clientRm", async () => {
+      const projectDir = join(baseDir, "my-project");
+      const claudeSkills = join(projectDir, ".claude", "skills");
+      await mkdir(claudeSkills, { recursive: true });
+      await writeFile(join(claudeSkills, "keep.md"), "important");
+
+      await writeFile(configPath, JSON.stringify({ clients: ["claude"] }));
+
+      await clientRm(["claude"], {
+        configPath,
+        registryPath,
+        skillsDir,
+        projectRoot: projectDir,
+      });
+
+      // Real directory should still exist
+      const s = await stat(claudeSkills);
+      expect(s.isDirectory()).toBe(true);
+    });
+
+    test("skips project removal for client with null projectSubdir", async () => {
+      const projectDir = join(baseDir, "my-project");
+      await mkdir(projectDir, { recursive: true });
+
+      await writeFile(configPath, JSON.stringify({ clients: ["amp"] }));
+
+      // Should not throw
+      await clientRm(["amp"], {
+        configPath,
+        registryPath,
+        skillsDir,
+        projectRoot: projectDir,
+      });
+    });
   });
 
   describe("clientLs", () => {

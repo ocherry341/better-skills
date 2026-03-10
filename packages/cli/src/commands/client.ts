@@ -1,4 +1,4 @@
-import { lstat, mkdir, readlink, stat, symlink } from "fs/promises";
+import { lstat, mkdir, readlink, rm, stat, symlink } from "fs/promises";
 import { dirname, join } from "path";
 import {
   CLIENT_REGISTRY,
@@ -108,6 +108,8 @@ export interface ClientRmOptions {
   skillsDir: string;
   /** Override client->dir mapping for testing */
   clientDirOverrides?: Record<string, string>;
+  /** Project root for removing project-level symlinks */
+  projectRoot?: string;
 }
 
 /**
@@ -136,6 +138,26 @@ export async function clientRm(
   const config = await readConfig(opts.configPath);
   const filtered = config.clients.filter((c) => !clientIds.includes(c));
   await writeConfig({ clients: filtered }, opts.configPath);
+
+  // Remove project-level symlinks
+  if (opts.projectRoot) {
+    for (const id of clientIds) {
+      const subdir = getClientProjectSubdir(id);
+      if (!subdir) continue;
+
+      const symlinkPath = join(opts.projectRoot, subdir);
+      try {
+        const st = await lstat(symlinkPath);
+        if (st.isSymbolicLink()) {
+          await rm(symlinkPath);
+          console.log(`  Removed symlink ${subdir}`);
+        }
+        // If it's a real directory, leave it alone
+      } catch {
+        // Does not exist, nothing to do
+      }
+    }
+  }
 
   console.log(`✓ Disabled client(s): ${clientIds.join(", ")}`);
 }
