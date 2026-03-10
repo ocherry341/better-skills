@@ -1,4 +1,5 @@
 import { defineConfig } from 'tsdown'
+import pkg from './package.json'
 
 export default defineConfig({
   entry: ['src/cli.ts'],
@@ -7,4 +8,7 @@ export default defineConfig({
   dts: false,
   clean: true,
   platform: 'node',
+  define: {
+    __BSK_VERSION__: JSON.stringify(pkg.version),
+  },
 })
