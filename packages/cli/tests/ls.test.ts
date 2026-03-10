@@ -3,7 +3,7 @@ import { $ } from "bun";
 import { mkdtemp, rm, mkdir, writeFile } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
-import { ls, type LsEntry } from "../src/commands/ls.js";
+import { ls, lsAll, type LsEntry, type LsAllEntry } from "../src/commands/ls.js";
 
 const cli = join(import.meta.dir, "../src/cli.ts");
 
@@ -66,6 +66,63 @@ describe("ls", () => {
 
     const entries = await ls({ globalDir, projectDir });
     expect(entries.map((e) => e.name)).toEqual(["alpha", "beta", "zeta"]);
+  });
+});
+
+describe("lsAll", () => {
+  let baseDir: string;
+  let registryPath: string;
+
+  beforeEach(async () => {
+    baseDir = await mkdtemp(join(tmpdir(), "ls-all-test-"));
+    registryPath = join(baseDir, "registry.json");
+  });
+
+  afterEach(async () => {
+    await rm(baseDir, { recursive: true, force: true });
+  });
+
+  test("returns empty array when registry does not exist", async () => {
+    const entries = await lsAll({ registryPath });
+    expect(entries).toEqual([]);
+  });
+
+  test("returns empty array when registry has no skills", async () => {
+    await writeFile(registryPath, JSON.stringify({ skills: {} }));
+    const entries = await lsAll({ registryPath });
+    expect(entries).toEqual([]);
+  });
+
+  test("returns all registered skills sorted by name", async () => {
+    await writeFile(
+      registryPath,
+      JSON.stringify({
+        skills: {
+          "zeta-skill": { hash: "aaa111", source: "owner/zeta" },
+          "alpha-skill": { hash: "bbb222", source: "owner/alpha" },
+        },
+      })
+    );
+    const entries = await lsAll({ registryPath });
+    expect(entries).toEqual([
+      { name: "alpha-skill", hash: "bbb222", source: "owner/alpha" },
+      { name: "zeta-skill", hash: "aaa111", source: "owner/zeta" },
+    ]);
+  });
+
+  test("returns single registered skill", async () => {
+    await writeFile(
+      registryPath,
+      JSON.stringify({
+        skills: {
+          "my-skill": { hash: "abc123def456", source: "https://github.com/foo/bar" },
+        },
+      })
+    );
+    const entries = await lsAll({ registryPath });
+    expect(entries).toEqual([
+      { name: "my-skill", hash: "abc123def456", source: "https://github.com/foo/bar" },
+    ]);
   });
 });
 

@@ -10,7 +10,7 @@ const version =
 import { add } from "./commands/add.js";
 import { clientAdd, clientRm, clientLs } from "./commands/client.js";
 import { rm } from "./commands/rm.js";
-import { ls, printLs } from "./commands/ls.js";
+import { ls, printLs, lsAll, printLsAll } from "./commands/ls.js";
 import { migrate } from "./commands/migrate.js";
 import {
   profileCreate,
@@ -96,9 +96,15 @@ program
   .command("list")
   .alias("ls")
   .description("Show all active skills with their source (global / project)")
-  .action(async () => {
-    const entries = await ls();
-    printLs(entries);
+  .option("-a, --all", "List all skills managed by bsk (from registry)")
+  .action(async (opts) => {
+    if (opts.all) {
+      const entries = await lsAll();
+      printLsAll(entries);
+    } else {
+      const entries = await ls();
+      printLs(entries);
+    }
   });
 
 program
