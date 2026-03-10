@@ -117,7 +117,7 @@ export async function clientLs(opts: ClientLsOptions): Promise<ClientListItem[]>
   const config = await readConfig(opts.configPath);
   return VALID_CLIENT_IDS.map((id) => ({
     id,
-    path: CLIENT_REGISTRY[id],
+    path: CLIENT_REGISTRY[id].globalDir,
     enabled: config.clients.includes(id),
   }));
 }

@@ -5,19 +5,24 @@ import { getConfigPath } from "../utils/paths.js";
 
 const HOME = homedir();
 
+export interface ClientEntry {
+  globalDir: string;
+  projectSubdir: string | null;
+}
+
 /**
- * Built-in client registry: client ID -> global skills directory path.
+ * Built-in client registry: client ID -> ClientEntry.
  * Does NOT include "agents" — that's always-on and handled separately.
  */
-export const CLIENT_REGISTRY: Record<string, string> = {
-  claude: join(HOME, ".claude", "skills"),
-  cursor: join(HOME, ".cursor", "skills"),
-  opencode: join(HOME, ".config", "opencode", "skills"),
-  gemini: join(HOME, ".gemini", "skills"),
-  copilot: join(HOME, ".copilot", "skills"),
-  roo: join(HOME, ".roo", "skills"),
-  goose: join(HOME, ".config", "goose", "skills"),
-  amp: join(HOME, ".config", "amp", "skills"),
+export const CLIENT_REGISTRY: Record<string, ClientEntry> = {
+  claude:   { globalDir: join(HOME, ".claude", "skills"),                 projectSubdir: join(".claude", "skills") },
+  cursor:   { globalDir: join(HOME, ".cursor", "skills"),                 projectSubdir: join(".cursor", "skills") },
+  opencode: { globalDir: join(HOME, ".config", "opencode", "skills"),     projectSubdir: join(".opencode", "skills") },
+  gemini:   { globalDir: join(HOME, ".gemini", "skills"),                 projectSubdir: join(".gemini", "skills") },
+  copilot:  { globalDir: join(HOME, ".copilot", "skills"),                projectSubdir: join(".github", "skills") },
+  roo:      { globalDir: join(HOME, ".roo", "skills"),                    projectSubdir: join(".roo", "skills") },
+  goose:    { globalDir: join(HOME, ".config", "goose", "skills"),        projectSubdir: join(".goose", "skills") },
+  amp:      { globalDir: join(HOME, ".config", "amp", "skills"),          projectSubdir: null },
 };
 
 export const VALID_CLIENT_IDS = Object.keys(CLIENT_REGISTRY);
@@ -82,13 +87,27 @@ export async function getEnabledClients(configPath?: string): Promise<string[]> 
  * Throws for unknown client IDs.
  */
 export function getClientSkillsDir(clientId: string): string {
-  const dir = CLIENT_REGISTRY[clientId];
-  if (!dir) {
+  const entry = CLIENT_REGISTRY[clientId];
+  if (!entry) {
     throw new Error(
       `Unknown client '${clientId}'. Valid clients: ${VALID_CLIENT_IDS.join(", ")}`
     );
   }
-  return dir;
+  return entry.globalDir;
+}
+
+/**
+ * Get the project-level subdirectory for a client ID.
+ * Returns null if the client has no project-level path.
+ */
+export function getClientProjectSubdir(clientId: string): string | null {
+  const entry = CLIENT_REGISTRY[clientId];
+  if (!entry) {
+    throw new Error(
+      `Unknown client '${clientId}'. Valid clients: ${VALID_CLIENT_IDS.join(", ")}`
+    );
+  }
+  return entry.projectSubdir;
 }
 
 /**
@@ -97,5 +116,5 @@ export function getClientSkillsDir(clientId: string): string {
  */
 export async function resolveClientDirs(configPath?: string): Promise<string[]> {
   const clients = await getEnabledClients(configPath);
-  return clients.map((c) => CLIENT_REGISTRY[c]);
+  return clients.map((c) => CLIENT_REGISTRY[c].globalDir);
 }
