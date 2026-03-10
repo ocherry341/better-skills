@@ -27,8 +27,7 @@ jobs:
           registry-url: "https://registry.npmjs.org"
 
       - name: Publish to npm
-        run: npm publish --access public
-        working-directory: packages/cli
+        run: npm publish -w packages/cli
 
   build-binaries:
     strategy:
