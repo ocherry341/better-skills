@@ -125,8 +125,8 @@ describe("profile show", () => {
     const profile: Profile = {
       name: "dev",
       skills: [
-        { skillName: "brainstorming", hash: "abc", source: "obra/superpowers", addedAt: "2026-03-03T00:00:00.000Z" },
-        { skillName: "debugging", hash: "def", source: "obra/superpowers", addedAt: "2026-03-03T00:00:00.000Z" },
+        { skillName: "brainstorming", v: 1, source: "obra/superpowers", addedAt: "2026-03-03T00:00:00.000Z" },
+        { skillName: "debugging", v: 2, source: "obra/superpowers", addedAt: "2026-03-03T00:00:00.000Z" },
       ],
     };
     await writeProfile(join(profilesDir, "dev.json"), profile);
@@ -163,18 +163,23 @@ describe("profile use", () => {
 
   test("switches skills directory to match profile", async () => {
     // Set up store with a skill
-    const storeDir = join(baseDir, "store", "abc123");
+    const storePath = join(baseDir, "store");
+    const registryPath = join(baseDir, "registry.json");
+    const storeDir = join(storePath, "abc123");
     await mkdir(storeDir, { recursive: true });
     await writeFile(
       join(storeDir, "SKILL.md"),
       "---\nname: test-skill\n---\n# Test"
     );
 
-    // Create profile referencing that hash
+    // Register in registry so profileUse can resolve v -> hash
+    await registerSkill("test-skill", "abc123", "test/repo", registryPath, storePath);
+
+    // Create profile referencing that version
     const profile: Profile = {
       name: "myprofile",
       skills: [
-        { skillName: "test-skill", hash: "abc123", source: "test/repo", addedAt: "2026-03-03T00:00:00.000Z" },
+        { skillName: "test-skill", v: 1, source: "test/repo", addedAt: "2026-03-03T00:00:00.000Z" },
       ],
     };
     await writeProfile(join(profilesDir, "myprofile.json"), profile);
@@ -183,8 +188,6 @@ describe("profile use", () => {
     const oldSkill = join(skillsDir, "old-skill");
     await mkdir(oldSkill, { recursive: true });
     await writeFile(join(oldSkill, "SKILL.md"), "old");
-    const registryPath = join(baseDir, "registry.json");
-    const storePath = join(baseDir, "store");
     // store/oldhash needs to exist for registry not to purge it
     await mkdir(join(storePath, "oldhash"), { recursive: true });
     await registerSkill("old-skill", "oldhash", "old/source", registryPath, storePath);
@@ -194,7 +197,7 @@ describe("profile use", () => {
       profilesDir,
       activeFile,
       skillsDir,
-      storePath: join(baseDir, "store"),
+      storePath,
       copy: true,
       registryPath,
     });
@@ -221,14 +224,18 @@ describe("profile use", () => {
     await mkdir(join(storePath, "hash-b"), { recursive: true });
     await writeFile(join(storePath, "hash-b", "SKILL.md"), "# Skill B");
 
+    // Register both skills in registry so profileUse can resolve v -> hash
+    await registerSkill("skill-a", "hash-a", "a/repo", registryPath, storePath);
+    await registerSkill("skill-b", "hash-b", "b/repo", registryPath, storePath);
+
     // Profile alpha has skill-a, profile beta has skill-b
     const alpha: Profile = {
       name: "alpha",
-      skills: [{ skillName: "skill-a", hash: "hash-a", source: "a/repo", addedAt: "2026-01-01T00:00:00.000Z" }],
+      skills: [{ skillName: "skill-a", v: 1, source: "a/repo", addedAt: "2026-01-01T00:00:00.000Z" }],
     };
     const beta: Profile = {
       name: "beta",
-      skills: [{ skillName: "skill-b", hash: "hash-b", source: "b/repo", addedAt: "2026-01-01T00:00:00.000Z" }],
+      skills: [{ skillName: "skill-b", v: 1, source: "b/repo", addedAt: "2026-01-01T00:00:00.000Z" }],
     };
     await writeProfile(join(profilesDir, "alpha.json"), alpha);
     await writeProfile(join(profilesDir, "beta.json"), beta);
@@ -263,11 +270,11 @@ describe("profile use", () => {
   });
 
   test("warns about missing store entries", async () => {
-    // Profile references a hash not in store
+    // Profile references a version not in registry
     const profile: Profile = {
       name: "broken",
       skills: [
-        { skillName: "ghost", hash: "nonexistent", source: "x/y", addedAt: "2026-03-03T00:00:00.000Z" },
+        { skillName: "ghost", v: 99, source: "x/y", addedAt: "2026-03-03T00:00:00.000Z" },
       ],
     };
     await writeProfile(join(profilesDir, "broken.json"), profile);
@@ -310,7 +317,7 @@ describe("add records to active profile", () => {
 
     await addSkillToProfile({
       skillName: "brainstorming",
-      hash: "abc123",
+      v: 1,
       source: "obra/superpowers",
       global: true,
       profilesDir,
@@ -320,7 +327,7 @@ describe("add records to active profile", () => {
     const updated = await readProfile(join(profilesDir, "dev.json"));
     expect(updated.skills.length).toBe(1);
     expect(updated.skills[0].skillName).toBe("brainstorming");
-    expect(updated.skills[0].hash).toBe("abc123");
+    expect(updated.skills[0].v).toBe(1);
     expect(updated.skills[0].source).toBe("obra/superpowers");
   });
 
@@ -328,7 +335,7 @@ describe("add records to active profile", () => {
     const profile: Profile = {
       name: "dev",
       skills: [
-        { skillName: "brainstorming", hash: "old", source: "old/source", addedAt: "2026-01-01T00:00:00.000Z" },
+        { skillName: "brainstorming", v: 1, source: "old/source", addedAt: "2026-01-01T00:00:00.000Z" },
       ],
     };
     await writeProfile(join(profilesDir, "dev.json"), profile);
@@ -336,7 +343,7 @@ describe("add records to active profile", () => {
 
     await addSkillToProfile({
       skillName: "brainstorming",
-      hash: "new",
+      v: 2,
       source: "new/source",
       global: true,
       profilesDir,
@@ -345,14 +352,14 @@ describe("add records to active profile", () => {
 
     const updated = await readProfile(join(profilesDir, "dev.json"));
     expect(updated.skills.length).toBe(1);
-    expect(updated.skills[0].hash).toBe("new");
+    expect(updated.skills[0].v).toBe(2);
   });
 
   test("no-op when no active profile", async () => {
     // Should not throw, just skip silently
     await addSkillToProfile({
       skillName: "brainstorming",
-      hash: "abc",
+      v: 1,
       source: "x/y",
       global: true,
       profilesDir,
@@ -384,7 +391,7 @@ describe("add respects profile scope constraint", () => {
 
     await addSkillToProfile({
       skillName: "brainstorming",
-      hash: "abc123",
+      v: 1,
       source: "obra/superpowers",
       global: true,
       profilesDir,
@@ -403,7 +410,7 @@ describe("add respects profile scope constraint", () => {
 
     await addSkillToProfile({
       skillName: "local-skill",
-      hash: "xyz789",
+      v: 0,
       source: "./local",
       global: false,
       profilesDir,
@@ -435,8 +442,8 @@ describe("rm records to active profile", () => {
     const profile: Profile = {
       name: "dev",
       skills: [
-        { skillName: "brainstorming", hash: "abc", source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
-        { skillName: "debugging", hash: "def", source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
+        { skillName: "brainstorming", v: 1, source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
+        { skillName: "debugging", v: 2, source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
       ],
     };
     await writeProfile(join(profilesDir, "dev.json"), profile);
@@ -484,7 +491,7 @@ describe("rm respects profile scope constraint", () => {
     const profile: Profile = {
       name: "dev",
       skills: [
-        { skillName: "brainstorming", hash: "abc", source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
+        { skillName: "brainstorming", v: 1, source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
       ],
     };
     await writeProfile(join(profilesDir, "dev.json"), profile);
@@ -505,7 +512,7 @@ describe("rm respects profile scope constraint", () => {
     const profile: Profile = {
       name: "dev",
       skills: [
-        { skillName: "brainstorming", hash: "abc", source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
+        { skillName: "brainstorming", v: 1, source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
       ],
     };
     await writeProfile(join(profilesDir, "dev.json"), profile);
@@ -607,7 +614,7 @@ describe("profile add", () => {
     const profile: Profile = {
       name: "dev",
       skills: [
-        { skillName: "test-skill", hash: "old-hash", source: "old", addedAt: "2026-01-01T00:00:00.000Z" },
+        { skillName: "test-skill", v: 0, source: "old", addedAt: "2026-01-01T00:00:00.000Z" },
       ],
     };
     await writeProfile(join(profilesDir, "dev.json"), profile);
@@ -622,7 +629,7 @@ describe("profile add", () => {
 
     const updated = await readProfile(join(profilesDir, "dev.json"));
     expect(updated.skills.length).toBe(1);
-    expect(updated.skills[0].hash).not.toBe("old-hash");
+    expect(updated.skills[0].v).toBeGreaterThan(0);
   });
 
   test("throws when no profile specified and no active profile", async () => {
@@ -689,8 +696,8 @@ describe("profile rm", () => {
     const profile: Profile = {
       name: "dev",
       skills: [
-        { skillName: "brainstorming", hash: "abc", source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
-        { skillName: "debugging", hash: "def", source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
+        { skillName: "brainstorming", v: 1, source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
+        { skillName: "debugging", v: 2, source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
       ],
     };
     await writeProfile(join(profilesDir, "dev.json"), profile);
@@ -722,7 +729,7 @@ describe("profile rm", () => {
     const workProfile: Profile = {
       name: "work",
       skills: [
-        { skillName: "brainstorming", hash: "abc", source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
+        { skillName: "brainstorming", v: 1, source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
       ],
     };
     await writeProfile(join(profilesDir, "dev.json"), devProfile);
@@ -789,7 +796,7 @@ describe("profile rm", () => {
     const profile: Profile = {
       name: "dev",
       skills: [
-        { skillName: "brainstorming", hash: "abc", source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
+        { skillName: "brainstorming", v: 1, source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
       ],
     };
     await writeProfile(join(profilesDir, "dev.json"), profile);
@@ -813,7 +820,7 @@ describe("profile rm", () => {
     const profile: Profile = {
       name: "dev",
       skills: [
-        { skillName: "ghost", hash: "abc", source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
+        { skillName: "ghost", v: 1, source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
       ],
     };
     await writeProfile(join(profilesDir, "dev.json"), profile);
@@ -896,7 +903,7 @@ describe("profile rename", () => {
     const profile: Profile = {
       name: "old",
       skills: [
-        { skillName: "brainstorming", hash: "abc", source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
+        { skillName: "brainstorming", v: 1, source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
       ],
     };
     await writeProfile(join(profilesDir, "old.json"), profile);
@@ -971,8 +978,8 @@ describe("profile clone", () => {
     const profile: Profile = {
       name: "dev",
       skills: [
-        { skillName: "brainstorming", hash: "abc", source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
-        { skillName: "debugging", hash: "def", source: "a/b", addedAt: "2026-01-02T00:00:00.000Z" },
+        { skillName: "brainstorming", v: 1, source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
+        { skillName: "debugging", v: 2, source: "a/b", addedAt: "2026-01-02T00:00:00.000Z" },
       ],
     };
     await writeProfile(join(profilesDir, "dev.json"), profile);
@@ -989,7 +996,7 @@ describe("profile clone", () => {
     expect(clone.name).toBe("dev-copy");
     expect(clone.skills.length).toBe(2);
     expect(clone.skills[0].skillName).toBe("brainstorming");
-    expect(clone.skills[0].hash).toBe("abc");
+    expect(clone.skills[0].v).toBe(1);
     expect(clone.skills[1].skillName).toBe("debugging");
   });
 

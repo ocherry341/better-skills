@@ -11,7 +11,7 @@ import {
   getActiveProfileName,
   setActiveProfileName,
 } from "../core/profile.js";
-import { isManaged, registerSkill } from "../core/registry.js";
+import { isManaged, registerSkill, readRegistry } from "../core/registry.js";
 import { hashDirectory } from "../core/hasher.js";
 import { resolve as resolveSource, toSourceString, type SourceDescriptor } from "../core/resolver.js";
 import { fetch } from "../core/fetcher.js";
@@ -52,10 +52,9 @@ export async function profileCreate(
       for (const entry of entries) {
         if (!entry.isDirectory()) continue;
         const skillDir = join(opts.skillsDir, entry.name);
-        const hash = await hashDirectory(skillDir);
         skills.push({
           skillName: entry.name,
-          hash,
+          v: 0,
           source: "unknown",
           addedAt: new Date().toISOString(),
         });
@@ -157,13 +156,22 @@ export async function profileUse(
 
   await fsMkdir(opts.skillsDir, { recursive: true });
 
+  // Read registry to resolve v -> hash
+  const registry = await readRegistry(opts.registryPath);
+
   // Link each skill from store and register
   for (const skill of profile.skills) {
-    const storeDir = join(opts.storePath, skill.hash);
+    const entry = registry.skills[skill.skillName];
+    const version = entry?.versions.find((ver) => ver.v === skill.v);
+    if (!version) {
+      console.warn(`⚠ Skill '${skill.skillName}' v${skill.v} not found in registry, skipping.`);
+      continue;
+    }
+    const storeDir = join(opts.storePath, version.hash);
     try {
       await stat(storeDir);
     } catch {
-      console.warn(`⚠ Skill '${skill.skillName}' (${skill.hash.slice(0, 8)}) not found in store, skipping.`);
+      console.warn(`⚠ Skill '${skill.skillName}' (${version.hash.slice(0, 8)}) not found in store, skipping.`);
       continue;
     }
     const targetDir = join(opts.skillsDir, skill.skillName);
@@ -172,7 +180,7 @@ export async function profileUse(
     if (clientDirs.length > 0) {
       await linkToClients(skill.skillName, storeDir, clientDirs, { copy: opts.copy });
     }
-    await registerSkill(skill.skillName, skill.hash, skill.source, opts.registryPath, opts.storePath);
+    await registerSkill(skill.skillName, version.hash, skill.source, opts.registryPath, opts.storePath);
   }
 
   // Update active profile
@@ -240,24 +248,24 @@ export async function profileAdd(
     console.log(`Storing ${hash.slice(0, 8)}...`);
     await store.store(hash, result.dir);
 
-    // 6. Record in profile
+    // 6. Register and record in profile
+    const v = await registerSkill(skillName, hash, toSourceString(descriptor), opts.registryPath, opts.storePath);
     profile.skills = profile.skills.filter((s) => s.skillName !== skillName);
     profile.skills.push({
       skillName,
-      hash,
+      v,
       source: toSourceString(descriptor),
       addedAt: new Date().toISOString(),
     });
     await writeProfile(filePath, profile);
 
-    // 7. Link if target is the active profile + register
+    // 7. Link if target is the active profile
     const isActive = targetName === activeName;
     if (isActive) {
       const targetDir = join(opts.skillsDir, skillName);
       console.log(`Linking to ${targetDir}...`);
       const storeDir = store.getHashPath(hash);
       await linkSkill(storeDir, targetDir, { copy: opts.copy });
-      await registerSkill(skillName, hash, toSourceString(descriptor), opts.registryPath, opts.storePath);
       // Link to client dirs
       const clientDirs = await resolveClientDirs(opts.configPath);
       if (clientDirs.length > 0) {

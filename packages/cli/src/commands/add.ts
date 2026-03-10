@@ -97,15 +97,16 @@ export async function add(source: string, options: AddOptions = {}): Promise<voi
     console.log(`✓ Added ${skillName} (${hash.slice(0, 8)})`);
 
     // 8. Register in registry (global only)
+    let v = 0;
     if (options.global) {
       const sourceStr = toSourceString(descriptor);
-      await registerSkill(skillName, hash, sourceStr, registryPath, getStorePath());
+      v = await registerSkill(skillName, hash, sourceStr, registryPath, getStorePath());
     }
 
     // 9. Record in active profile (only for global skills)
     await addSkillToProfile({
       skillName,
-      hash,
+      v,
       source: toSourceString(descriptor),
       global: options.global ?? false,
     });
@@ -116,7 +117,7 @@ export async function add(source: string, options: AddOptions = {}): Promise<voi
 
 export interface AddToProfileOptions {
   skillName: string;
-  hash: string;
+  v: number;
   source: string;
   global: boolean;
   profilesDir?: string;
@@ -155,7 +156,7 @@ export async function addSkillToProfile(opts: AddToProfileOptions): Promise<void
   profile.skills = profile.skills.filter((s) => s.skillName !== opts.skillName);
   profile.skills.push({
     skillName: opts.skillName,
-    hash: opts.hash,
+    v: opts.v,
     source: opts.source,
     addedAt: new Date().toISOString(),
   });

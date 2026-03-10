@@ -52,7 +52,7 @@ describe("add -g conflict detection", () => {
     expect(await isManaged("my-skill", registryPath)).toBe(true);
 
     const reg = await readRegistry(registryPath);
-    expect(reg.skills["my-skill"].hash).toBe(hash);
+    expect(reg.skills["my-skill"].versions[0].hash).toBe(hash);
   });
 
   test("managed overwrite: silently overwrites and updates registry", async () => {
@@ -77,10 +77,11 @@ describe("add -g conflict detection", () => {
     await mkdir(join(storeDir, hash2), { recursive: true });
     await registerSkill("my-skill", hash2, "local:/path2", registryPath, storeDir);
 
-    // Registry should reflect updated hash and source
+    // Registry should reflect updated hash and source (v2 is latest)
     const reg = await readRegistry(registryPath);
-    expect(reg.skills["my-skill"].hash).toBe(hash2);
-    expect(reg.skills["my-skill"].source).toBe("local:/path2");
+    const latest = reg.skills["my-skill"].versions[reg.skills["my-skill"].versions.length - 1];
+    expect(latest.hash).toBe(hash2);
+    expect(latest.source).toBe("local:/path2");
 
     // Disk should have the new file
     const content = await readFile(join(targetDir, "extra.txt"), "utf-8");
@@ -158,11 +159,14 @@ describe("profile use preserves unmanaged skills", () => {
     await mkdir(storeSkillDir, { recursive: true });
     await writeFile(join(storeSkillDir, "SKILL.md"), "---\nname: new-skill\n---\n# New");
 
+    // Register in registry so profileUse can resolve v -> hash
+    await registerSkill("new-skill", "newhash", "test/repo", registryPath, storeBase);
+
     // Create target profile
     const profile: Profile = {
       name: "target",
       skills: [
-        { skillName: "new-skill", hash: "newhash", source: "test/repo", addedAt: "2026-03-03T00:00:00.000Z" },
+        { skillName: "new-skill", v: 1, source: "test/repo", addedAt: "2026-03-03T00:00:00.000Z" },
       ],
     };
     await writeProfile(join(profilesDir, "target.json"), profile);
@@ -229,7 +233,7 @@ describe("auto-create default profile", () => {
     // addSkillToProfile should auto-create default profile
     await addSkillToProfile({
       skillName: "my-skill",
-      hash: "abc123",
+      v: 1,
       source: "owner/repo",
       global: true,
       profilesDir,
@@ -244,13 +248,13 @@ describe("auto-create default profile", () => {
     expect(profile.name).toBe("default");
     expect(profile.skills).toHaveLength(1);
     expect(profile.skills[0].skillName).toBe("my-skill");
-    expect(profile.skills[0].hash).toBe("abc123");
+    expect(profile.skills[0].v).toBe(1);
   });
 
   test("does not create default profile for non-global add", async () => {
     await addSkillToProfile({
       skillName: "my-skill",
-      hash: "abc123",
+      v: 0,
       source: "owner/repo",
       global: false,
       profilesDir,
@@ -268,7 +272,7 @@ describe("auto-create default profile", () => {
 
     await addSkillToProfile({
       skillName: "my-skill",
-      hash: "abc123",
+      v: 1,
       source: "owner/repo",
       global: true,
       profilesDir,
