@@ -98,15 +98,15 @@ describe("lsAll", () => {
       registryPath,
       JSON.stringify({
         skills: {
-          "zeta-skill": { hash: "aaa111", source: "owner/zeta" },
-          "alpha-skill": { hash: "bbb222", source: "owner/alpha" },
+          "zeta-skill": { versions: [{ v: 1, hash: "aaa111", source: "owner/zeta", addedAt: "2026-03-01T00:00:00.000Z" }] },
+          "alpha-skill": { versions: [{ v: 1, hash: "bbb222", source: "owner/alpha", addedAt: "2026-03-01T00:00:00.000Z" }] },
         },
       })
     );
     const entries = await lsAll({ registryPath });
     expect(entries).toEqual([
-      { name: "alpha-skill", hash: "bbb222", source: "owner/alpha" },
-      { name: "zeta-skill", hash: "aaa111", source: "owner/zeta" },
+      { name: "alpha-skill", hash: "bbb222", source: "owner/alpha", v: 1 },
+      { name: "zeta-skill", hash: "aaa111", source: "owner/zeta", v: 1 },
     ]);
   });
 
@@ -115,13 +115,13 @@ describe("lsAll", () => {
       registryPath,
       JSON.stringify({
         skills: {
-          "my-skill": { hash: "abc123def456", source: "https://github.com/foo/bar" },
+          "my-skill": { versions: [{ v: 1, hash: "abc123def456", source: "https://github.com/foo/bar", addedAt: "2026-03-01T00:00:00.000Z" }] },
         },
       })
     );
     const entries = await lsAll({ registryPath });
     expect(entries).toEqual([
-      { name: "my-skill", hash: "abc123def456", source: "https://github.com/foo/bar" },
+      { name: "my-skill", hash: "abc123def456", source: "https://github.com/foo/bar", v: 1 },
     ]);
   });
 });

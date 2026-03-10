@@ -17,6 +17,7 @@ export interface LsAllEntry {
   name: string;
   hash: string;
   source: string;
+  v: number;
 }
 
 export interface LsAllOptions {
@@ -85,7 +86,10 @@ export async function lsAll(options: LsAllOptions = {}): Promise<LsAllEntry[]> {
   if (entries.length === 0) return [];
 
   return entries
-    .map(([name, entry]) => ({ name, hash: entry.hash, source: entry.source }))
+    .map(([name, entry]) => {
+      const latest = entry.versions.reduce((best, v) => (v.v > best.v ? v : best));
+      return { name, hash: latest.hash, source: latest.source, v: latest.v };
+    })
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -99,11 +103,11 @@ export function printLsAll(entries: LsAllEntry[]): void {
   }
 
   console.log("");
-  console.log(`${"Name".padEnd(30)} ${"Hash".padEnd(12)} ${"Source"}`);
-  console.log("-".repeat(70));
+  console.log(`${"Name".padEnd(30)} ${"Version".padEnd(10)} ${"Hash".padEnd(12)} ${"Source"}`);
+  console.log("-".repeat(80));
 
   for (const entry of entries) {
-    console.log(`${entry.name.padEnd(30)} ${entry.hash.slice(0, 8).padEnd(12)} ${entry.source}`);
+    console.log(`${entry.name.padEnd(30)} ${"v" + entry.v.toString().padEnd(9)} ${entry.hash.slice(0, 8).padEnd(12)} ${entry.source}`);
   }
   console.log("");
 }

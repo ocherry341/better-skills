@@ -51,7 +51,9 @@ export async function clientAdd(
   for (const id of newIds) {
     const clientDir = opts.clientDirOverrides?.[id] ?? getClientSkillsDir(id);
     for (const [name, entry] of Object.entries(registry.skills)) {
-      const storeDir = join(opts.storePath, entry.hash);
+      if (entry.versions.length === 0) continue;
+      const latest = entry.versions.reduce((best, v) => (v.v > best.v ? v : best));
+      const storeDir = join(opts.storePath, latest.hash);
       try {
         await stat(storeDir);
         await linkToClients(name, storeDir, [clientDir]);

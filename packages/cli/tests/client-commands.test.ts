@@ -62,7 +62,7 @@ describe("client commands", () => {
       // Register it
       await writeFile(
         registryPath,
-        JSON.stringify({ skills: { "my-skill": { hash, source: "test/repo" } } })
+        JSON.stringify({ skills: { "my-skill": { versions: [{ v: 1, hash, source: "test/repo", addedAt: "2026-03-01T00:00:00.000Z" }] } } })
       );
 
       // Link to agents dir
@@ -257,7 +257,7 @@ describe("client commands", () => {
       // Register in registry so it's managed
       await writeFile(
         registryPath,
-        JSON.stringify({ skills: { "my-skill": { hash: "abc", source: "test" } } })
+        JSON.stringify({ skills: { "my-skill": { versions: [{ v: 1, hash: "abc", source: "test", addedAt: "2026-03-01T00:00:00.000Z" }] } } })
       );
 
       await clientRm(["claude"], {
