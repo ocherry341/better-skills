@@ -1,16 +1,20 @@
 import { unlinkSkill, unlinkFromClients } from "../core/linker.js";
 import { resolveClientDirs } from "../core/clients.js";
-import { getSkillsPath, getProfilesPath, getActiveProfileFilePath } from "../utils/paths.js";
-import { readProfile, writeProfile, getActiveProfileName } from "../core/profile.js";
+import { getSkillsPath, getProfilesPath, getActiveProfileFilePath, getRegistryPath, getStorePath } from "../utils/paths.js";
+import { readProfile, writeProfile, listProfiles, getActiveProfileName } from "../core/profile.js";
+import { unregisterSkill } from "../core/registry.js";
 import { stat } from "fs/promises";
 import { join } from "path";
 
 export interface RmOptions {
   global?: boolean;
+  registryPath?: string;
+  profilesDir?: string;
+  storePath?: string;
 }
 
 /**
- * Remove a skill: check existence on disk → remove link (keep store)
+ * Remove a skill: check existence on disk → remove link → clean registry + all profiles
  */
 export async function rm(name: string, options: RmOptions = {}): Promise<void> {
   const targetBase = getSkillsPath(options.global ?? false);
@@ -36,10 +40,35 @@ export async function rm(name: string, options: RmOptions = {}): Promise<void> {
     }
   }
 
-  console.log(`✓ Removed ${name}`);
+  // Clean registry entry (global only)
+  if (options.global) {
+    await unregisterSkill(
+      name,
+      options.registryPath ?? getRegistryPath(),
+      options.storePath ?? getStorePath()
+    );
+  }
 
-  // Remove from active profile (only for global skills)
-  await removeSkillFromProfile({ skillName: name, global: options.global ?? false });
+  // Remove from ALL profiles (global only)
+  if (options.global) {
+    const profilesDir = options.profilesDir ?? getProfilesPath();
+    const profileNames = await listProfiles(profilesDir);
+    for (const pName of profileNames) {
+      const filePath = join(profilesDir, `${pName}.json`);
+      try {
+        const profile = await readProfile(filePath);
+        const before = profile.skills.length;
+        profile.skills = profile.skills.filter((s) => s.skillName !== name);
+        if (profile.skills.length < before) {
+          await writeProfile(filePath, profile);
+        }
+      } catch {
+        // Skip unreadable profiles
+      }
+    }
+  }
+
+  console.log(`✓ Removed ${name}`);
 }
 
 export interface RemoveFromProfileOptions {
