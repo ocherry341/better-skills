@@ -121,6 +121,7 @@ client
       registryPath: getRegistryPath(),
       storePath: getStorePath(),
       skillsDir: getGlobalSkillsPath(),
+      projectRoot: process.cwd(),
     });
   });
 
@@ -133,6 +134,7 @@ client
       configPath: getConfigPath(),
       registryPath: getRegistryPath(),
       skillsDir: getGlobalSkillsPath(),
+      projectRoot: process.cwd(),
     });
   });
 

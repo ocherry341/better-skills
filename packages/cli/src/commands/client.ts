@@ -169,6 +169,7 @@ export interface ClientLsOptions {
 export interface ClientListItem {
   id: string;
   path: string;
+  projectSubdir: string | null;
   enabled: boolean;
 }
 
@@ -180,6 +181,7 @@ export async function clientLs(opts: ClientLsOptions): Promise<ClientListItem[]>
   return VALID_CLIENT_IDS.map((id) => ({
     id,
     path: CLIENT_REGISTRY[id].globalDir,
+    projectSubdir: CLIENT_REGISTRY[id].projectSubdir,
     enabled: config.clients.includes(id),
   }));
 }
