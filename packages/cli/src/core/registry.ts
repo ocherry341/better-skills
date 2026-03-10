@@ -2,13 +2,19 @@ import { readFile, writeFile, mkdir, stat } from "fs/promises";
 import { dirname, join } from "path";
 import { getRegistryPath, getStorePath } from "../utils/paths.js";
 
-export interface RegistryEntry {
+export interface VersionEntry {
+  v: number;
   hash: string;
   source: string;
+  addedAt: string;
+}
+
+export interface RegistrySkillEntry {
+  versions: VersionEntry[];
 }
 
 export interface Registry {
-  skills: Record<string, RegistryEntry>;
+  skills: Record<string, RegistrySkillEntry>;
 }
 
 /**
@@ -31,7 +37,6 @@ export async function readRegistry(
     if (err.code === "ENOENT") {
       return { skills: {} };
     }
-    // Corrupted JSON or other read error
     console.warn("⚠ Could not read registry, treating as empty.");
     return { skills: {} };
   }
@@ -39,7 +44,8 @@ export async function readRegistry(
 
 /**
  * Write the registry to disk.
- * Cleans entries where the hash no longer exists in the store.
+ * Cleans version entries where hash no longer exists in the store.
+ * Removes skill entries with no remaining versions.
  */
 export async function writeRegistry(
   registry: Registry,
@@ -49,14 +55,19 @@ export async function writeRegistry(
   const filePath = registryPath ?? getRegistryPath();
   const storeBase = storePath ?? getStorePath();
 
-  // Clean stale entries (hash missing from store)
-  const cleaned: Record<string, RegistryEntry> = {};
+  const cleaned: Record<string, RegistrySkillEntry> = {};
   for (const [name, entry] of Object.entries(registry.skills)) {
-    try {
-      await stat(join(storeBase, entry.hash));
-      cleaned[name] = entry;
-    } catch {
-      // Hash missing from store, skip entry
+    const validVersions: VersionEntry[] = [];
+    for (const ver of entry.versions) {
+      try {
+        await stat(join(storeBase, ver.hash));
+        validVersions.push(ver);
+      } catch {
+        // Hash missing from store, skip this version
+      }
+    }
+    if (validVersions.length > 0) {
+      cleaned[name] = { versions: validVersions };
     }
   }
 
@@ -68,7 +79,8 @@ export async function writeRegistry(
 }
 
 /**
- * Register a skill as managed by bsk.
+ * Register a skill version. Appends to versions[] with auto-incremented v.
+ * Idempotent: skips if hash already exists in versions[].
  */
 export async function registerSkill(
   name: string,
@@ -76,14 +88,39 @@ export async function registerSkill(
   source: string,
   registryPath?: string,
   storePath?: string
-): Promise<void> {
+): Promise<number> {
   const registry = await readRegistry(registryPath);
-  registry.skills[name] = { hash, source };
+
+  if (!registry.skills[name]) {
+    registry.skills[name] = { versions: [] };
+  }
+
+  const entry = registry.skills[name];
+
+  // Idempotent: skip if hash already registered
+  const existing = entry.versions.find((v) => v.hash === hash);
+  if (existing) {
+    await writeRegistry(registry, registryPath, storePath);
+    return existing.v;
+  }
+
+  // Auto-increment v
+  const maxV = entry.versions.reduce((max, v) => Math.max(max, v.v), 0);
+  const newV = maxV + 1;
+
+  entry.versions.push({
+    v: newV,
+    hash,
+    source,
+    addedAt: new Date().toISOString(),
+  });
+
   await writeRegistry(registry, registryPath, storePath);
+  return newV;
 }
 
 /**
- * Unregister a skill (no longer managed by bsk).
+ * Unregister a skill (remove all versions).
  */
 export async function unregisterSkill(
   name: string,
@@ -96,12 +133,69 @@ export async function unregisterSkill(
 }
 
 /**
- * Check if a skill directory is managed by bsk.
+ * Check if a skill is managed by bsk.
  */
 export async function isManaged(
   name: string,
   registryPath?: string
 ): Promise<boolean> {
   const registry = await readRegistry(registryPath);
-  return name in registry.skills;
+  return name in registry.skills && registry.skills[name].versions.length > 0;
+}
+
+/**
+ * Get the latest version (highest v) for a skill.
+ * Returns null if skill not found or has no versions.
+ */
+export function getLatestVersion(
+  registry: Registry,
+  name: string
+): VersionEntry | null {
+  const entry = registry.skills[name];
+  if (!entry || entry.versions.length === 0) return null;
+  return entry.versions.reduce((best, v) => (v.v > best.v ? v : best));
+}
+
+/**
+ * Resolve a version specifier to a VersionEntry.
+ * Specifiers: "latest", "previous", "~N", "vN", or hash prefix.
+ * Returns null if no match.
+ */
+export function resolveVersion(
+  registry: Registry,
+  name: string,
+  specifier: string
+): VersionEntry | null {
+  const entry = registry.skills[name];
+  if (!entry || entry.versions.length === 0) return null;
+
+  // Sort descending by v
+  const sorted = [...entry.versions].sort((a, b) => b.v - a.v);
+
+  if (specifier === "latest") {
+    return sorted[0];
+  }
+
+  if (specifier === "previous") {
+    return sorted[1] ?? null;
+  }
+
+  // ~N: N-th from end (1-indexed, ~1 = previous)
+  const tildeMatch = specifier.match(/^~(\d+)$/);
+  if (tildeMatch) {
+    const n = parseInt(tildeMatch[1], 10);
+    return sorted[n] ?? null;
+  }
+
+  // vN: exact version number
+  const vMatch = specifier.match(/^v(\d+)$/);
+  if (vMatch) {
+    const target = parseInt(vMatch[1], 10);
+    return entry.versions.find((v) => v.v === target) ?? null;
+  }
+
+  // Hash prefix match (fallback)
+  const matches = entry.versions.filter((v) => v.hash.startsWith(specifier));
+  if (matches.length === 1) return matches[0];
+  return null;
 }
