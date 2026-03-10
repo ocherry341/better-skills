@@ -8,6 +8,7 @@ import {
   writeConfig,
   getEnabledClients,
   getClientSkillsDir,
+  getClientProjectSubdir,
   resolveClientDirs,
 } from "../src/core/clients.js";
 
@@ -108,6 +109,27 @@ describe("clients", () => {
 
     test("throws for unknown client", () => {
       expect(() => getClientSkillsDir("unknown")).toThrow();
+    });
+  });
+
+  describe("getClientProjectSubdir", () => {
+    test("returns subdir for claude", () => {
+      const subdir = getClientProjectSubdir("claude");
+      expect(subdir).toMatch(/\.claude\/skills$/);
+    });
+
+    test("returns null for amp", () => {
+      const subdir = getClientProjectSubdir("amp");
+      expect(subdir).toBeNull();
+    });
+
+    test("returns .github/skills for copilot", () => {
+      const subdir = getClientProjectSubdir("copilot");
+      expect(subdir).toMatch(/\.github\/skills$/);
+    });
+
+    test("throws for unknown client", () => {
+      expect(() => getClientProjectSubdir("unknown")).toThrow();
     });
   });
 
