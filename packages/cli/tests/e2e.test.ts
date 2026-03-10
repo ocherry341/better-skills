@@ -42,9 +42,9 @@ This is a test.`
     const storePath = await store.store(hash, skillDir);
     expect(await store.has(hash)).toBe(true);
 
-    // Link (using copy mode for test isolation)
+    // Link (copy is now the default)
     const linkedDir = join(targetDir, "test-skill");
-    await linkSkill(storePath, linkedDir, { copy: true });
+    await linkSkill(storePath, linkedDir);
 
     // Verify linked files exist
     const skillMd = await readFile(join(linkedDir, "SKILL.md"), "utf-8");

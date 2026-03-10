@@ -116,7 +116,7 @@ export interface ProfileUseInternalOptions {
   activeFile: string;
   skillsDir: string;
   storePath: string;
-  copy?: boolean;
+  hardlink?: boolean;
   registryPath?: string;
   configPath?: string;
 }
@@ -175,10 +175,10 @@ export async function profileUse(
       continue;
     }
     const targetDir = join(opts.skillsDir, skill.skillName);
-    await linkSkill(storeDir, targetDir, { copy: opts.copy });
+    await linkSkill(storeDir, targetDir, { hardlink: opts.hardlink });
     // Also link to client dirs
     if (clientDirs.length > 0) {
-      await linkToClients(skill.skillName, storeDir, clientDirs, { copy: opts.copy });
+      await linkToClients(skill.skillName, storeDir, clientDirs, { hardlink: opts.hardlink });
     }
     await registerSkill(skill.skillName, version.hash, skill.source, opts.registryPath, opts.storePath);
   }
@@ -195,7 +195,7 @@ export interface ProfileAddInternalOptions {
   skillsDir: string;
   storePath: string;
   profileName?: string;
-  copy?: boolean;
+  hardlink?: boolean;
   name?: string;
   registryPath?: string;
   configPath?: string;
@@ -262,10 +262,10 @@ export async function profileAdd(
       if (isActive) {
         const storeDir = join(opts.storePath, version.hash);
         const targetDir = join(opts.skillsDir, skillName);
-        await linkSkill(storeDir, targetDir, { copy: opts.copy });
+        await linkSkill(storeDir, targetDir, { hardlink: opts.hardlink });
         const clientDirs = await resolveClientDirs(opts.configPath);
         if (clientDirs.length > 0) {
-          await linkToClients(skillName, storeDir, clientDirs, { copy: opts.copy });
+          await linkToClients(skillName, storeDir, clientDirs, { hardlink: opts.hardlink });
         }
       }
 
@@ -323,11 +323,11 @@ export async function profileAdd(
       const targetDir = join(opts.skillsDir, skillName);
       console.log(`Linking to ${targetDir}...`);
       const storeDir = store.getHashPath(hash);
-      await linkSkill(storeDir, targetDir, { copy: opts.copy });
+      await linkSkill(storeDir, targetDir, { hardlink: opts.hardlink });
       // Link to client dirs
       const clientDirs = await resolveClientDirs(opts.configPath);
       if (clientDirs.length > 0) {
-        await linkToClients(skillName, storeDir, clientDirs, { copy: opts.copy });
+        await linkToClients(skillName, storeDir, clientDirs, { hardlink: opts.hardlink });
       }
     }
 

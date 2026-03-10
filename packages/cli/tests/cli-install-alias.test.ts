@@ -20,9 +20,9 @@ describe("install alias", () => {
     expect(result).toContain("--global");
   });
 
-  test("install supports --copy option", async () => {
+  test("install supports --hardlink option", async () => {
     const result = await $`bun run ${cli} install --help`.text();
-    expect(result).toContain("--copy");
+    expect(result).toContain("--hardlink");
   });
 
   test("install supports --name option", async () => {

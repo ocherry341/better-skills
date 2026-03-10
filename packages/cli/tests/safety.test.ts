@@ -40,7 +40,7 @@ describe("add -g conflict detection", () => {
     await store.store(hash, localSkillDir);
 
     const targetDir = join(skillsDir, "my-skill");
-    await linkSkill(store.getHashPath(hash), targetDir, { copy: true });
+    await linkSkill(store.getHashPath(hash), targetDir);
     await mkdir(join(storeDir, hash), { recursive: true });
     await registerSkill("my-skill", hash, "local:/path", registryPath, storeDir);
 
@@ -60,7 +60,7 @@ describe("add -g conflict detection", () => {
     const hash1 = await hashDirectory(localSkillDir);
     await store.store(hash1, localSkillDir);
     const targetDir = join(skillsDir, "my-skill");
-    await linkSkill(store.getHashPath(hash1), targetDir, { copy: true });
+    await linkSkill(store.getHashPath(hash1), targetDir);
     await mkdir(join(storeDir, hash1), { recursive: true });
     await registerSkill("my-skill", hash1, "local:/path1", registryPath, storeDir);
 
@@ -73,7 +73,7 @@ describe("add -g conflict detection", () => {
     expect(await isManaged("my-skill", registryPath)).toBe(true);
 
     // Overwrite
-    await linkSkill(store.getHashPath(hash2), targetDir, { copy: true });
+    await linkSkill(store.getHashPath(hash2), targetDir);
     await mkdir(join(storeDir, hash2), { recursive: true });
     await registerSkill("my-skill", hash2, "local:/path2", registryPath, storeDir);
 
@@ -117,7 +117,7 @@ describe("add -g conflict detection", () => {
     // With --force, overwrite + register
     const hash = await hashDirectory(localSkillDir);
     await store.store(hash, localSkillDir);
-    await linkSkill(store.getHashPath(hash), unmanagedDir, { copy: true });
+    await linkSkill(store.getHashPath(hash), unmanagedDir);
     await mkdir(join(storeDir, hash), { recursive: true });
     await registerSkill("my-skill", hash, "local:/path", registryPath, storeDir);
 
@@ -189,7 +189,6 @@ describe("profile use preserves unmanaged skills", () => {
       activeFile,
       skillsDir,
       storePath: storeBase,
-      copy: true,
       registryPath,
     });
 

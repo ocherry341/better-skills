@@ -44,7 +44,7 @@ program
   .command("add <source>")
   .description("Add a skill from a source (github, git, or local path)")
   .option("-g, --global", "Install to global skills directory")
-  .option("--copy", "Use file copy instead of hard links")
+  .option("--hardlink", "Use hard links instead of file copy")
   .option("-n, --name <name>", "Override the skill name")
   .option("-f, --force", "Overwrite unmanaged skills")
   .option("-y, --yes", "Skip confirmation prompts")
@@ -53,7 +53,7 @@ program
   .action(async (source: string, opts) => {
     await add(source, {
       global: opts.global,
-      copy: opts.copy,
+      hardlink: opts.hardlink,
       name: opts.name,
       force: opts.force,
       clients: typeof opts.clients === "string" ? opts.clients.split(",") : undefined,
@@ -66,7 +66,7 @@ program
   .alias("i")
   .description("Add a skill from a source (github, git, or local path)")
   .option("-g, --global", "Install to global skills directory")
-  .option("--copy", "Use file copy instead of hard links")
+  .option("--hardlink", "Use hard links instead of file copy")
   .option("-n, --name <name>", "Override the skill name")
   .option("-f, --force", "Overwrite unmanaged skills")
   .option("-y, --yes", "Skip confirmation prompts")
@@ -75,7 +75,7 @@ program
   .action(async (source: string, opts) => {
     await add(source, {
       global: opts.global,
-      copy: opts.copy,
+      hardlink: opts.hardlink,
       name: opts.name,
       force: opts.force,
       clients: typeof opts.clients === "string" ? opts.clients.split(",") : undefined,
@@ -232,14 +232,14 @@ profile
 profile
   .command("use <name>")
   .description("Switch to a profile (re-links global skills)")
-  .option("--copy", "Use file copy instead of hard links")
+  .option("--hardlink", "Use hard links instead of file copy")
   .action(async (name: string, opts) => {
     await profileUse(name, {
       profilesDir: getProfilesPath(),
       activeFile: getActiveProfileFilePath(),
       skillsDir: getGlobalSkillsPath(),
       storePath: getStorePath(),
-      copy: opts.copy,
+      hardlink: opts.hardlink,
       configPath: getConfigPath(),
     });
   });
@@ -248,7 +248,7 @@ profile
   .command("add <source>")
   .description("Add a skill to a profile")
   .option("-p, --profile <name>", "Target profile (defaults to active)")
-  .option("--copy", "Use file copy instead of hard links")
+  .option("--hardlink", "Use hard links instead of file copy")
   .option("-n, --name <name>", "Override the skill name")
   .action(async (source: string, opts) => {
     await profileAdd(source, {
@@ -257,7 +257,7 @@ profile
       skillsDir: getGlobalSkillsPath(),
       storePath: getStorePath(),
       profileName: opts.profile,
-      copy: opts.copy,
+      hardlink: opts.hardlink,
       name: opts.name,
       configPath: getConfigPath(),
     });

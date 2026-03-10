@@ -198,7 +198,6 @@ describe("profile use", () => {
       activeFile,
       skillsDir,
       storePath,
-      copy: true,
       registryPath,
     });
 
@@ -243,13 +242,13 @@ describe("profile use", () => {
     // Switch to alpha first
     await profileUse("alpha", {
       profilesDir, activeFile, skillsDir,
-      storePath, copy: true, registryPath,
+      storePath, registryPath,
     });
 
     // Switch to beta
     await profileUse("beta", {
       profilesDir, activeFile, skillsDir,
-      storePath, copy: true, registryPath,
+      storePath, registryPath,
     });
 
     // Registry should contain BOTH skills (lockfile behavior)

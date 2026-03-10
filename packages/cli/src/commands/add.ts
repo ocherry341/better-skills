@@ -13,7 +13,7 @@ import { join, basename } from "path";
 
 export interface AddOptions {
   global?: boolean;
-  copy?: boolean;
+  hardlink?: boolean;
   name?: string;
   force?: boolean;
   registryPath?: string;
@@ -79,7 +79,7 @@ export async function add(source: string, options: AddOptions = {}): Promise<voi
 
     // 7. Link
     console.log(`Linking to ${targetDir}...`);
-    await linkSkill(store.getHashPath(hash), targetDir, { copy: options.copy });
+    await linkSkill(store.getHashPath(hash), targetDir, { hardlink: options.hardlink });
 
     // 7b. Link to client directories (global only)
     if (options.global && !options.noClients) {
@@ -90,7 +90,7 @@ export async function add(source: string, options: AddOptions = {}): Promise<voi
         clientDirs = await resolveClientDirs(options.configPath);
       }
       if (clientDirs.length > 0) {
-        await linkToClients(skillName, store.getHashPath(hash), clientDirs, { copy: options.copy });
+        await linkToClients(skillName, store.getHashPath(hash), clientDirs, { hardlink: options.hardlink });
       }
     }
 
