@@ -2,7 +2,7 @@ import { mkdir, readdir, rm, stat } from "fs/promises";
 import { join } from "path";
 import { getStorePath } from "../utils/paths.js";
 import { hashDirectory } from "./hasher.js";
-import { cpRecursive } from "./linker.js";
+import { cpRecursive, linkSkill, type LinkOptions } from "./linker.js";
 
 /** Get the path for a hash in the content-addressable store */
 export function getHashPath(hash: string): string {
@@ -73,4 +73,26 @@ export async function list(): Promise<string[]> {
 export async function remove(hash: string): Promise<void> {
   const dest = getHashPath(hash);
   await rm(dest, { recursive: true, force: true });
+}
+
+/**
+ * Verify store entry integrity, then link to target.
+ * Throws if the store entry is corrupted (hash mismatch).
+ */
+export async function verifiedLinkSkill(
+  hash: string,
+  targetDir: string,
+  options: LinkOptions = {},
+  storePath?: string
+): Promise<void> {
+  const base = storePath ?? getStorePath();
+  const ok = await verifyStoreEntry(hash, base);
+  if (!ok) {
+    throw new Error(
+      `Store entry ${hash.slice(0, 8)} is corrupted or missing. ` +
+      `Run 'bsk store verify' to check, then re-add the skill.`
+    );
+  }
+  const storeDir = join(base, hash);
+  await linkSkill(storeDir, targetDir, options);
 }

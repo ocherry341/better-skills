@@ -1,9 +1,8 @@
 import { readdir, stat } from "fs/promises";
 import { join } from "path";
 import { hashDirectory } from "../core/hasher.js";
-import { linkSkill } from "../core/linker.js";
 import { readRegistry, registerSkill, getLatestVersion } from "../core/registry.js";
-import { store as storeSkill } from "../core/store.js";
+import { store as storeSkill, verifiedLinkSkill } from "../core/store.js";
 import {
   getGlobalSkillsPath,
   getRegistryPath,
@@ -92,7 +91,7 @@ export async function save(options: SaveOptions = {}): Promise<void> {
       const hashPath = await storeSkill(hash, skillDir, storePath);
 
       // Re-link from store
-      await linkSkill(hashPath, skillDir);
+      await verifiedLinkSkill(hash, skillDir, {}, storePath);
 
       // Register new version
       const v = await registerSkill(skillName, hash, "local", registryPath, storePath);

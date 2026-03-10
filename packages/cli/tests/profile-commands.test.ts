@@ -7,6 +7,8 @@ import { type Profile, readProfile, writeProfile, getActiveProfileName, setActiv
 import { addSkillToProfile } from "../src/commands/add.js";
 import { removeSkillFromProfile } from "../src/commands/rm.js";
 import { registerSkill } from "../src/core/registry.js";
+import { hashDirectory } from "../src/core/hasher.js";
+import { cpRecursive } from "../src/core/linker.js";
 
 describe("profile create", () => {
   let baseDir: string;
@@ -162,18 +164,19 @@ describe("profile use", () => {
   });
 
   test("switches skills directory to match profile", async () => {
-    // Set up store with a skill
+    // Set up store with a skill using real hash
     const storePath = join(baseDir, "store");
     const registryPath = join(baseDir, "registry.json");
-    const storeDir = join(storePath, "abc123");
+    const tmpSkill = join(baseDir, "tmp-skill");
+    await mkdir(tmpSkill, { recursive: true });
+    await writeFile(join(tmpSkill, "SKILL.md"), "---\nname: test-skill\n---\n# Test");
+    const skillHash = await hashDirectory(tmpSkill);
+    const storeDir = join(storePath, skillHash);
     await mkdir(storeDir, { recursive: true });
-    await writeFile(
-      join(storeDir, "SKILL.md"),
-      "---\nname: test-skill\n---\n# Test"
-    );
+    await cpRecursive(tmpSkill, storeDir);
 
     // Register in registry so profileUse can resolve v -> hash
-    await registerSkill("test-skill", "abc123", "test/repo", registryPath, storePath);
+    await registerSkill("test-skill", skillHash, "test/repo", registryPath, storePath);
 
     // Create profile referencing that version
     const profile: Profile = {
@@ -217,15 +220,24 @@ describe("profile use", () => {
     const storePath = join(baseDir, "store");
     const registryPath = join(baseDir, "registry.json");
 
-    // Set up store with two skills
-    await mkdir(join(storePath, "hash-a"), { recursive: true });
-    await writeFile(join(storePath, "hash-a", "SKILL.md"), "# Skill A");
-    await mkdir(join(storePath, "hash-b"), { recursive: true });
-    await writeFile(join(storePath, "hash-b", "SKILL.md"), "# Skill B");
+    // Set up store with two skills using real hashes
+    const tmpA = join(baseDir, "tmp-a");
+    await mkdir(tmpA, { recursive: true });
+    await writeFile(join(tmpA, "SKILL.md"), "# Skill A");
+    const hashA = await hashDirectory(tmpA);
+    await mkdir(join(storePath, hashA), { recursive: true });
+    await cpRecursive(tmpA, join(storePath, hashA));
+
+    const tmpB = join(baseDir, "tmp-b");
+    await mkdir(tmpB, { recursive: true });
+    await writeFile(join(tmpB, "SKILL.md"), "# Skill B");
+    const hashB = await hashDirectory(tmpB);
+    await mkdir(join(storePath, hashB), { recursive: true });
+    await cpRecursive(tmpB, join(storePath, hashB));
 
     // Register both skills in registry so profileUse can resolve v -> hash
-    await registerSkill("skill-a", "hash-a", "a/repo", registryPath, storePath);
-    await registerSkill("skill-b", "hash-b", "b/repo", registryPath, storePath);
+    await registerSkill("skill-a", hashA, "a/repo", registryPath, storePath);
+    await registerSkill("skill-b", hashB, "b/repo", registryPath, storePath);
 
     // Profile alpha has skill-a, profile beta has skill-b
     const alpha: Profile = {
@@ -673,12 +685,23 @@ describe("profile add", () => {
 
   test("adds skill from registry with @latest (default)", async () => {
     const registryPath = join(baseDir, "registry.json");
-    await mkdir(join(storePath, "hash1"), { recursive: true });
-    await writeFile(join(storePath, "hash1", "SKILL.md"), "# v1");
-    await mkdir(join(storePath, "hash2"), { recursive: true });
-    await writeFile(join(storePath, "hash2", "SKILL.md"), "# v2");
-    await registerSkill("my-skill", "hash1", "owner/repo", registryPath, storePath);
-    await registerSkill("my-skill", "hash2", "owner/repo", registryPath, storePath);
+    // Create two versions with real hashes
+    const tmp1 = join(baseDir, "tmp-v1");
+    await mkdir(tmp1, { recursive: true });
+    await writeFile(join(tmp1, "SKILL.md"), "# v1");
+    const hash1 = await hashDirectory(tmp1);
+    await mkdir(join(storePath, hash1), { recursive: true });
+    await cpRecursive(tmp1, join(storePath, hash1));
+
+    const tmp2 = join(baseDir, "tmp-v2");
+    await mkdir(tmp2, { recursive: true });
+    await writeFile(join(tmp2, "SKILL.md"), "# v2");
+    const hash2 = await hashDirectory(tmp2);
+    await mkdir(join(storePath, hash2), { recursive: true });
+    await cpRecursive(tmp2, join(storePath, hash2));
+
+    await registerSkill("my-skill", hash1, "owner/repo", registryPath, storePath);
+    await registerSkill("my-skill", hash2, "owner/repo", registryPath, storePath);
 
     const profile: Profile = { name: "dev", skills: [] };
     await writeProfile(join(profilesDir, "dev.json"), profile);
@@ -695,12 +718,22 @@ describe("profile add", () => {
 
   test("adds skill from registry with @v1", async () => {
     const registryPath = join(baseDir, "registry.json");
-    await mkdir(join(storePath, "hash1"), { recursive: true });
-    await writeFile(join(storePath, "hash1", "SKILL.md"), "# v1");
-    await mkdir(join(storePath, "hash2"), { recursive: true });
-    await writeFile(join(storePath, "hash2", "SKILL.md"), "# v2");
-    await registerSkill("my-skill", "hash1", "owner/repo", registryPath, storePath);
-    await registerSkill("my-skill", "hash2", "owner/repo", registryPath, storePath);
+    const tmp1 = join(baseDir, "tmp-v1");
+    await mkdir(tmp1, { recursive: true });
+    await writeFile(join(tmp1, "SKILL.md"), "# v1");
+    const hash1 = await hashDirectory(tmp1);
+    await mkdir(join(storePath, hash1), { recursive: true });
+    await cpRecursive(tmp1, join(storePath, hash1));
+
+    const tmp2 = join(baseDir, "tmp-v2");
+    await mkdir(tmp2, { recursive: true });
+    await writeFile(join(tmp2, "SKILL.md"), "# v2");
+    const hash2 = await hashDirectory(tmp2);
+    await mkdir(join(storePath, hash2), { recursive: true });
+    await cpRecursive(tmp2, join(storePath, hash2));
+
+    await registerSkill("my-skill", hash1, "owner/repo", registryPath, storePath);
+    await registerSkill("my-skill", hash2, "owner/repo", registryPath, storePath);
 
     const profile: Profile = { name: "dev", skills: [] };
     await writeProfile(join(profilesDir, "dev.json"), profile);
@@ -717,12 +750,22 @@ describe("profile add", () => {
 
   test("adds skill from registry with @previous", async () => {
     const registryPath = join(baseDir, "registry.json");
-    await mkdir(join(storePath, "hash1"), { recursive: true });
-    await writeFile(join(storePath, "hash1", "SKILL.md"), "# v1");
-    await mkdir(join(storePath, "hash2"), { recursive: true });
-    await writeFile(join(storePath, "hash2", "SKILL.md"), "# v2");
-    await registerSkill("my-skill", "hash1", "owner/repo", registryPath, storePath);
-    await registerSkill("my-skill", "hash2", "owner/repo", registryPath, storePath);
+    const tmp1 = join(baseDir, "tmp-v1");
+    await mkdir(tmp1, { recursive: true });
+    await writeFile(join(tmp1, "SKILL.md"), "# v1");
+    const hash1 = await hashDirectory(tmp1);
+    await mkdir(join(storePath, hash1), { recursive: true });
+    await cpRecursive(tmp1, join(storePath, hash1));
+
+    const tmp2 = join(baseDir, "tmp-v2");
+    await mkdir(tmp2, { recursive: true });
+    await writeFile(join(tmp2, "SKILL.md"), "# v2");
+    const hash2 = await hashDirectory(tmp2);
+    await mkdir(join(storePath, hash2), { recursive: true });
+    await cpRecursive(tmp2, join(storePath, hash2));
+
+    await registerSkill("my-skill", hash1, "owner/repo", registryPath, storePath);
+    await registerSkill("my-skill", hash2, "owner/repo", registryPath, storePath);
 
     const profile: Profile = { name: "dev", skills: [] };
     await writeProfile(join(profilesDir, "dev.json"), profile);

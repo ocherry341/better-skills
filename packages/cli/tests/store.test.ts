@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtemp, rm, mkdir, writeFile, readdir } from "fs/promises";
+import { mkdtemp, rm, mkdir, writeFile, readdir, readFile } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
 import { hashDirectory } from "../src/core/hasher.js";
@@ -62,5 +62,34 @@ describe("store integrity", () => {
     const { verifyStoreEntry } = await import("../src/core/store.js");
     const result = await verifyStoreEntry("nonexistenthash", storeDir);
     expect(result).toBe(false);
+  });
+
+  test("verifiedLinkSkill succeeds when store entry is valid", async () => {
+    await writeFile(join(sourceDir, "a.txt"), "aaa");
+    const hash = await hashDirectory(sourceDir);
+
+    const hashPath = join(storeDir, hash);
+    await mkdir(hashPath, { recursive: true });
+    await cpRecursive(sourceDir, hashPath);
+
+    const targetDir = join(baseDir, "target");
+    const { verifiedLinkSkill } = await import("../src/core/store.js");
+    await verifiedLinkSkill(hash, targetDir, {}, storeDir);
+
+    const content = await readFile(join(targetDir, "a.txt"), "utf-8");
+    expect(content).toBe("aaa");
+  });
+
+  test("verifiedLinkSkill throws when store entry is corrupted", async () => {
+    await writeFile(join(sourceDir, "a.txt"), "aaa");
+    const hash = await hashDirectory(sourceDir);
+
+    const hashPath = join(storeDir, hash);
+    await mkdir(hashPath, { recursive: true });
+    await writeFile(join(hashPath, "a.txt"), "CORRUPTED");
+
+    const targetDir = join(baseDir, "target");
+    const { verifiedLinkSkill } = await import("../src/core/store.js");
+    await expect(verifiedLinkSkill(hash, targetDir, {}, storeDir)).rejects.toThrow(/corrupted/i);
   });
 });

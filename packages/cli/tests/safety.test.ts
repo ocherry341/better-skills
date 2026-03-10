@@ -4,7 +4,7 @@ import { join } from "path";
 import { tmpdir } from "os";
 import { hashDirectory } from "../src/core/hasher.js";
 import * as store from "../src/core/store.js";
-import { linkSkill } from "../src/core/linker.js";
+import { linkSkill, cpRecursive } from "../src/core/linker.js";
 import { registerSkill, unregisterSkill, isManaged, readRegistry } from "../src/core/registry.js";
 import { profileUse } from "../src/commands/profile.js";
 import { addSkillToProfile } from "../src/commands/add.js";
@@ -153,14 +153,18 @@ describe("profile use preserves unmanaged skills", () => {
   });
 
   test("preserves unmanaged skills and removes managed ones", async () => {
-    // Set up store with a skill for the target profile
+    // Set up store with a skill for the target profile using real hash
     const storeBase = join(baseDir, "store");
-    const storeSkillDir = join(storeBase, "newhash");
+    const tmpSkill = join(baseDir, "tmp-new-skill");
+    await mkdir(tmpSkill, { recursive: true });
+    await writeFile(join(tmpSkill, "SKILL.md"), "---\nname: new-skill\n---\n# New");
+    const newHash = await hashDirectory(tmpSkill);
+    const storeSkillDir = join(storeBase, newHash);
     await mkdir(storeSkillDir, { recursive: true });
-    await writeFile(join(storeSkillDir, "SKILL.md"), "---\nname: new-skill\n---\n# New");
+    await cpRecursive(tmpSkill, storeSkillDir);
 
     // Register in registry so profileUse can resolve v -> hash
-    await registerSkill("new-skill", "newhash", "test/repo", registryPath, storeBase);
+    await registerSkill("new-skill", newHash, "test/repo", registryPath, storeBase);
 
     // Create target profile
     const profile: Profile = {

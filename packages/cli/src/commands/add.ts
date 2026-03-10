@@ -2,7 +2,8 @@ import { resolve, toSourceString, type SourceDescriptor } from "../core/resolver
 import { fetch } from "../core/fetcher.js";
 import { hashDirectory } from "../core/hasher.js";
 import * as store from "../core/store.js";
-import { linkSkill, linkToClients } from "../core/linker.js";
+import { verifiedLinkSkill } from "../core/store.js";
+import { linkToClients } from "../core/linker.js";
 import { resolveClientDirs, getClientSkillsDir } from "../core/clients.js";
 import { getSkillsPath, getProfilesPath, getActiveProfileFilePath, getRegistryPath, getStorePath } from "../utils/paths.js";
 import { readSkillMd } from "../utils/skill-md.js";
@@ -79,7 +80,7 @@ export async function add(source: string, options: AddOptions = {}): Promise<voi
 
     // 7. Link
     console.log(`Linking to ${targetDir}...`);
-    await linkSkill(store.getHashPath(hash), targetDir, { hardlink: options.hardlink });
+    await verifiedLinkSkill(hash, targetDir, { hardlink: options.hardlink });
 
     // 7b. Link to client directories (global only)
     if (options.global && !options.noClients) {

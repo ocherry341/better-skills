@@ -1,6 +1,7 @@
 import { stat, readdir, mkdir as fsMkdir, unlink } from "fs/promises";
 import { join, basename } from "path";
-import { linkSkill, unlinkSkill, linkToClients, unlinkFromClients } from "../core/linker.js";
+import { unlinkSkill, linkToClients, unlinkFromClients } from "../core/linker.js";
+import { verifiedLinkSkill } from "../core/store.js";
 import { resolveClientDirs } from "../core/clients.js";
 import {
   type Profile,
@@ -175,7 +176,7 @@ export async function profileUse(
       continue;
     }
     const targetDir = join(opts.skillsDir, skill.skillName);
-    await linkSkill(storeDir, targetDir, { hardlink: opts.hardlink });
+    await verifiedLinkSkill(version.hash, targetDir, { hardlink: opts.hardlink }, opts.storePath);
     // Also link to client dirs
     if (clientDirs.length > 0) {
       await linkToClients(skill.skillName, storeDir, clientDirs, { hardlink: opts.hardlink });
@@ -262,7 +263,7 @@ export async function profileAdd(
       if (isActive) {
         const storeDir = join(opts.storePath, version.hash);
         const targetDir = join(opts.skillsDir, skillName);
-        await linkSkill(storeDir, targetDir, { hardlink: opts.hardlink });
+        await verifiedLinkSkill(version.hash, targetDir, { hardlink: opts.hardlink }, opts.storePath);
         const clientDirs = await resolveClientDirs(opts.configPath);
         if (clientDirs.length > 0) {
           await linkToClients(skillName, storeDir, clientDirs, { hardlink: opts.hardlink });
@@ -323,7 +324,7 @@ export async function profileAdd(
       const targetDir = join(opts.skillsDir, skillName);
       console.log(`Linking to ${targetDir}...`);
       const storeDir = store.getHashPath(hash);
-      await linkSkill(storeDir, targetDir, { hardlink: opts.hardlink });
+      await verifiedLinkSkill(hash, targetDir, { hardlink: opts.hardlink });
       // Link to client dirs
       const clientDirs = await resolveClientDirs(opts.configPath);
       if (clientDirs.length > 0) {
