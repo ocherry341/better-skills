@@ -37,11 +37,21 @@ describe("linker client operations", () => {
       expect(content2).toContain("name: test");
     });
 
-    test("links skill with copy mode", async () => {
-      await linkToClients("test-skill", storeDir, [clientDir1], { copy: true });
+    test("default mode uses copy (not hardlink)", async () => {
+      await linkToClients("test-skill", storeDir, [clientDir1]);
 
-      const content = await readFile(join(clientDir1, "test-skill", "SKILL.md"), "utf-8");
-      expect(content).toContain("name: test");
+      const storeStat = await stat(join(storeDir, "SKILL.md"));
+      const linkedStat = await stat(join(clientDir1, "test-skill", "SKILL.md"));
+      // Different inode = copy, same inode = hardlink
+      expect(linkedStat.ino).not.toBe(storeStat.ino);
+    });
+
+    test("hardlink mode shares inodes with store", async () => {
+      await linkToClients("test-skill", storeDir, [clientDir1], { hardlink: true });
+
+      const storeStat = await stat(join(storeDir, "SKILL.md"));
+      const linkedStat = await stat(join(clientDir1, "test-skill", "SKILL.md"));
+      expect(linkedStat.ino).toBe(storeStat.ino);
     });
 
     test("does nothing with empty client dirs", async () => {

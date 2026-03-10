@@ -2,8 +2,8 @@ import { copyFile, link, mkdir, readdir, rm, stat } from "fs/promises";
 import { join } from "path";
 
 export interface LinkOptions {
-  /** Use file copy instead of hard links */
-  copy?: boolean;
+  /** Use hard links instead of copy (saves space but shares inode with store) */
+  hardlink?: boolean;
 }
 
 /**
@@ -60,7 +60,7 @@ async function hardLinkRecursive(src: string, dest: string): Promise<void> {
 
 /**
  * Link skill from store to target directory.
- * Default: hard links. With --copy: file copy.
+ * Default: copy. With --hardlink: hard links.
  */
 export async function linkSkill(
   storeDir: string,
@@ -70,10 +70,10 @@ export async function linkSkill(
   // Clean existing target
   await rm(targetDir, { recursive: true, force: true });
 
-  if (options.copy) {
-    await cpRecursive(storeDir, targetDir);
-  } else {
+  if (options.hardlink) {
     await hardLinkRecursive(storeDir, targetDir);
+  } else {
+    await cpRecursive(storeDir, targetDir);
   }
 }
 
