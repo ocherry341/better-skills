@@ -4,7 +4,7 @@ import { dirname } from "path";
 
 export const ProfileSkillEntrySchema = z.object({
   skillName: z.string(),
-  hash: z.string(),
+  v: z.number(),
   source: z.string(),
   addedAt: z.string(),
 });

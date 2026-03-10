@@ -20,7 +20,7 @@ describe("ProfileSchema", () => {
       skills: [
         {
           skillName: "brainstorming",
-          hash: "abc123",
+          v: 1,
           source: "obra/superpowers",
           addedAt: "2026-03-03T00:00:00.000Z",
         },
@@ -59,7 +59,7 @@ describe("profile CRUD", () => {
       skills: [
         {
           skillName: "foo",
-          hash: "aaa",
+          v: 1,
           source: "owner/repo",
           addedAt: "2026-03-03T00:00:00.000Z",
         },
