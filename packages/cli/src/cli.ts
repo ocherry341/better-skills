@@ -12,6 +12,7 @@ import { clientAdd, clientRm, clientLs } from "./commands/client.js";
 import { rm } from "./commands/rm.js";
 import { ls, printLs, lsAll, printLsAll } from "./commands/ls.js";
 import { save } from "./commands/save.js";
+import { storeVerify } from "./commands/store-cmd.js";
 import {
   profileCreate,
   profileLs,
@@ -339,6 +340,27 @@ profile
     await profileClone(sourceName, targetName, {
       profilesDir: getProfilesPath(),
     });
+  });
+
+const storeCmd = program
+  .command("store")
+  .description("Manage the content-addressable store");
+
+storeCmd
+  .command("verify")
+  .description("Check integrity of all store entries")
+  .action(async () => {
+    const result = await storeVerify();
+    console.log(`\nStore: ${result.total} entries, ${result.ok} ok, ${result.corrupted.length} corrupted`);
+    if (result.corrupted.length > 0) {
+      console.log("");
+      for (const entry of result.corrupted) {
+        const skills = entry.skills.length > 0 ? ` (${entry.skills.join(", ")})` : "";
+        console.log(`  ✗ ${entry.hash.slice(0, 8)}${skills}`);
+      }
+      console.log("\nRe-add affected skills to repair: bsk add <source> --force");
+    }
+    console.log("");
   });
 
 program.parseAsync().catch((err: Error) => {
