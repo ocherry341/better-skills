@@ -12,6 +12,7 @@ import { rm } from "./commands/rm.js";
 import { ls, printLs, lsAll, printLsAll } from "./commands/ls.js";
 import { save } from "./commands/save.js";
 import { storeVerify } from "./commands/store-cmd.js";
+import { mvToProject, mvToGlobal } from "./commands/mv.js";
 import {
   profileCreate,
   profileLs,
@@ -119,6 +120,30 @@ program
   .description("Alias for 'save' — migrate unmanaged skills to bsk management")
   .action(async () => {
     await save();
+  });
+
+program
+  .command("mv <skill-name> <target>")
+  .alias("move")
+  .description("Move a skill between project and global scope")
+  .option("-f, --force", "Overwrite if skill already exists in target")
+  .option("--hardlink", "Use hard links instead of file copy (project → global only)")
+  .option("--no-clients", "Skip linking to client directories (project → global only)")
+  .action(async (skillName: string, target: string, opts) => {
+    if (target === "global") {
+      await mvToGlobal(skillName, {
+        force: opts.force,
+        hardlink: opts.hardlink,
+        noClients: opts.clients === false,
+      });
+    } else if (target === "project") {
+      await mvToProject(skillName, {
+        force: opts.force,
+      });
+    } else {
+      console.error(`Unknown target '${target}'. Use 'global' or 'project'.`);
+      process.exit(1);
+    }
   });
 
 const client = program
