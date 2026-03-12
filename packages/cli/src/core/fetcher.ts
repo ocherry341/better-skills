@@ -98,25 +98,28 @@ export async function fetch(source: SourceDescriptor): Promise<FetchResult> {
   // Determine the skill directory
   let skillDir: string;
 
+  const searchDir = (source.type === "github" && source.subdir)
+    ? join(tmpDir, source.subdir)
+    : tmpDir;
+
   if (source.type === "github" && source.subdir) {
-    skillDir = join(tmpDir, source.subdir);
-    // Verify it exists
+    // Verify subdir exists
     try {
-      await stat(skillDir);
+      await stat(searchDir);
     } catch {
       throw new Error(`Subdirectory not found: ${source.subdir}`);
     }
-  } else {
-    // Auto-discover skills or use root
-    const discovered = await discoverSkills(tmpDir);
+  }
+
+  {
+    // Auto-discover skills
+    const discovered = await discoverSkills(searchDir);
     if (discovered.length === 0) {
-      // Use the repo root as the skill
-      skillDir = tmpDir;
+      skillDir = searchDir;
     } else if (discovered.length === 1) {
       skillDir = discovered[0];
     } else {
       // Multiple skills found — for now, use the first one
-      // TODO: In the future, allow the user to choose or add all
       skillDir = discovered[0];
     }
   }

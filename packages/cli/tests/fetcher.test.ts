@@ -90,6 +90,17 @@ describe("discoverSkills", () => {
     expect(result).toEqual([join(tmpDir, "source", "skills", "frontend-design")]);
   });
 
+  test("discovers skills inside a subdir", async () => {
+    await mkdir(join(tmpDir, "source", "skills", "my-skill"), { recursive: true });
+    await writeFile(
+      join(tmpDir, "source", "skills", "my-skill", "SKILL.md"),
+      "---\nname: my-skill\n---\n"
+    );
+    // Discover from the "source/skills" subdir
+    const result = await discoverSkills(join(tmpDir, "source", "skills"));
+    expect(result).toEqual([join(tmpDir, "source", "skills", "my-skill")]);
+  });
+
   test("hidden dirs are skipped", async () => {
     await mkdir(join(tmpDir, ".hidden"));
     await writeFile(join(tmpDir, ".hidden", "SKILL.md"), "---\nname: hidden\n---\n");
