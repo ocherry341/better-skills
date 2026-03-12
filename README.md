@@ -157,6 +157,14 @@ Instructions for the AI agent...
 
 Identical skills across projects share a single store entry. The SHA-256 hash is computed deterministically from file paths and contents, so the same skill always produces the same hash.
 
+## Roadmap
+
+- **TUI** — Interactive terminal UI for managing skills (in development)
+- **Built-in `use better-skills` skill** — A bundled skill that teaches agents how to use `bsk`
+- **Git repo linking** — Link skills directly to their source git repositories
+- **Store pruning** — `bsk store prune` to clean up unreferenced store entries
+- **Skills security audit** — Security review and sandboxing for skill content
+
 ## Development
 
 This is a Bun workspace monorepo.
