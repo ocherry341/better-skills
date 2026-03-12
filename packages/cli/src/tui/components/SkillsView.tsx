@@ -9,7 +9,8 @@ type ActionMode =
   | null
   | { type: "search" }
   | { type: "confirmDelete"; skillName: string; isGlobal: boolean }
-  | { type: "confirmMove"; skillName: string; isGlobal: boolean };
+  | { type: "confirmMove"; skillName: string; isGlobal: boolean }
+  | { type: "addInput" };
 
 interface SkillsViewProps {
   focusPane: "left" | "right";
@@ -19,6 +20,8 @@ interface SkillsViewProps {
   actionMode?: ActionMode;
   onDelete?: (name: string, isGlobal: boolean) => void;
   onMove?: (name: string, isGlobal: boolean) => void;
+  onAdd?: () => void;
+  addSource?: string;
   refreshKey?: number;
 }
 
@@ -30,6 +33,8 @@ export function SkillsView({
   actionMode = null,
   onDelete,
   onMove,
+  onAdd,
+  addSource = "",
   refreshKey = 0,
 }: SkillsViewProps) {
   const { skills, loading } = useSkills(refreshKey);
@@ -40,10 +45,15 @@ export function SkillsView({
 
   const selected = filteredSkills[selectedIndex] as SkillDetail | undefined;
 
-  // Handle d/m keys to trigger actions on the selected skill
+  // Handle d/m/a keys to trigger actions
   useInput((input) => {
-    if (searchMode || actionMode !== null || !selected) return;
+    if (searchMode || actionMode !== null) return;
 
+    if (input === "a" && onAdd) {
+      onAdd();
+      return;
+    }
+    if (!selected) return;
     if (input === "d" && onDelete) {
       onDelete(selected.name, selected.global);
     }
@@ -106,6 +116,15 @@ export function SkillsView({
       {actionMode?.type === "confirmMove" && (
         <Box paddingX={1}>
           <Text bold color="blue">Move {actionMode.skillName} to (g)lobal or (p)roject?  Esc to cancel</Text>
+        </Box>
+      )}
+      {actionMode?.type === "addInput" && (
+        <Box paddingX={1}>
+          <Text>
+            <Text bold color="green">Add source: </Text>
+            <Text>{addSource}</Text>
+            <Text dimColor>_</Text>
+          </Text>
         </Box>
       )}
       <Box flexGrow={1}>

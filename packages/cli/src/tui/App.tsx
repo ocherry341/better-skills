@@ -11,7 +11,8 @@ type ActionMode =
   | null
   | { type: "search" }
   | { type: "confirmDelete"; skillName: string; isGlobal: boolean }
-  | { type: "confirmMove"; skillName: string; isGlobal: boolean };
+  | { type: "confirmMove"; skillName: string; isGlobal: boolean }
+  | { type: "addInput" };
 
 interface AppProps {
   version: string;
@@ -25,6 +26,7 @@ export function App({ version }: AppProps) {
   const [actionMode, setActionMode] = useState<ActionMode>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [addSource, setAddSource] = useState("");
 
   const isModal = actionMode !== null;
   const isSearch = actionMode?.type === "search";
@@ -111,6 +113,34 @@ export function App({ version }: AppProps) {
       }
       return;
     }
+
+    if (actionMode.type === "addInput") {
+      if (key.escape) {
+        setActionMode(null);
+        setAddSource("");
+        return;
+      }
+      if (key.return && addSource.trim()) {
+        const source = addSource.trim();
+        setActionMode(null);
+        setAddSource("");
+        (async () => {
+          const { add } = await import("../commands/add.js");
+          await add(source, { global: true });
+          setSelectedIndex(0);
+          refresh();
+        })();
+        return;
+      }
+      if (key.backspace || key.delete) {
+        setAddSource((s) => s.slice(0, -1));
+        return;
+      }
+      if (input.length === 1 && !key.ctrl && !key.meta) {
+        setAddSource((s) => s + input);
+      }
+      return;
+    }
   }, { isActive: isModal });
 
   useKeyboard({
@@ -153,6 +183,8 @@ export function App({ version }: AppProps) {
           actionMode={actionMode}
           onDelete={(name, isGlobal) => setActionMode({ type: "confirmDelete", skillName: name, isGlobal })}
           onMove={(name, isGlobal) => setActionMode({ type: "confirmMove", skillName: name, isGlobal })}
+          onAdd={() => { setActionMode({ type: "addInput" }); setAddSource(""); }}
+          addSource={addSource}
           refreshKey={refreshKey}
         />
       )}
