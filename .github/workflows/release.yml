@@ -26,6 +26,9 @@ jobs:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
 
+      - name: Copy README to package
+        run: cp README.md packages/cli/
+
       - name: Publish to npm
         run: npm publish --access public -w packages/cli
 
