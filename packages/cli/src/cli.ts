@@ -392,7 +392,7 @@ program
   .command("tui")
   .description("Launch interactive TUI")
   .action(() => {
-    startTui();
+    startTui(version);
   });
 
 program.parseAsync().catch((err: Error) => {
