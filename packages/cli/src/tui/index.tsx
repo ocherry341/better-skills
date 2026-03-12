@@ -3,5 +3,5 @@ import { render } from "ink";
 import { App } from "./App.js";
 
 export function startTui(version: string) {
-  render(<App version={version} />);
+  render(<App version={version} />, { exitOnCtrlC: true });
 }
