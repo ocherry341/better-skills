@@ -6,6 +6,7 @@ const version =
   typeof __BSK_VERSION__ !== "undefined"
     ? __BSK_VERSION__
     : "0.0.0-dev";
+import { startTui } from "./tui/index.js";
 import { add } from "./commands/add.js";
 import { clientAdd, clientRm, clientLs } from "./commands/client.js";
 import { rm } from "./commands/rm.js";
@@ -385,6 +386,13 @@ storeCmd
       console.log("\nRe-add affected skills to repair: bsk add <source> --force");
     }
     console.log("");
+  });
+
+program
+  .command("tui")
+  .description("Launch interactive TUI")
+  .action(() => {
+    startTui();
   });
 
 program.parseAsync().catch((err: Error) => {
