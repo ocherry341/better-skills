@@ -22,7 +22,7 @@ export interface UseSkillsResult {
   refresh: () => void;
 }
 
-export function useSkills(): UseSkillsResult {
+export function useSkills(externalRefreshKey = 0): UseSkillsResult {
   const [skills, setSkills] = useState<SkillDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -77,7 +77,7 @@ export function useSkills(): UseSkillsResult {
 
     load();
     return () => { cancelled = true; };
-  }, [refreshKey]);
+  }, [refreshKey, externalRefreshKey]);
 
   return {
     skills,

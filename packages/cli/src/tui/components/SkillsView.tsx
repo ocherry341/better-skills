@@ -1,27 +1,60 @@
 import React from "react";
-import { Box, Text } from "ink";
+import { Box, Text, useInput } from "ink";
 import { List, type ListItem } from "./List.js";
 import { DetailPane, type DetailField } from "./DetailPane.js";
 import { StatusBar, type Shortcut } from "./StatusBar.js";
-import { useSkills } from "../hooks/useSkills.js";
+import { useSkills, type SkillDetail } from "../hooks/useSkills.js";
+
+type ActionMode =
+  | null
+  | { type: "search" }
+  | { type: "confirmDelete"; skillName: string; isGlobal: boolean }
+  | { type: "confirmMove"; skillName: string; isGlobal: boolean };
 
 interface SkillsViewProps {
   focusPane: "left" | "right";
   selectedIndex: number;
   filterQuery?: string;
   searchMode?: boolean;
+  actionMode?: ActionMode;
+  onDelete?: (name: string, isGlobal: boolean) => void;
+  onMove?: (name: string, isGlobal: boolean) => void;
+  refreshKey?: number;
 }
 
-export function SkillsView({ focusPane, selectedIndex, filterQuery = "", searchMode = false }: SkillsViewProps) {
-  const { skills, loading } = useSkills();
-
-  if (loading) {
-    return <Text>Loading skills...</Text>;
-  }
+export function SkillsView({
+  focusPane,
+  selectedIndex,
+  filterQuery = "",
+  searchMode = false,
+  actionMode = null,
+  onDelete,
+  onMove,
+  refreshKey = 0,
+}: SkillsViewProps) {
+  const { skills, loading } = useSkills(refreshKey);
 
   const filteredSkills = filterQuery
     ? skills.filter((s) => s.name.toLowerCase().includes(filterQuery.toLowerCase()))
     : skills;
+
+  const selected = filteredSkills[selectedIndex] as SkillDetail | undefined;
+
+  // Handle d/m keys to trigger actions on the selected skill
+  useInput((input) => {
+    if (searchMode || actionMode !== null || !selected) return;
+
+    if (input === "d" && onDelete) {
+      onDelete(selected.name, selected.global);
+    }
+    if (input === "m" && onMove) {
+      onMove(selected.name, selected.global);
+    }
+  }, { isActive: !searchMode && actionMode === null });
+
+  if (loading) {
+    return <Text>Loading skills...</Text>;
+  }
 
   const items: ListItem[] = filteredSkills.map((s) => {
     const scope = [s.global ? "G" : "", s.project ? "P" : ""]
@@ -30,7 +63,6 @@ export function SkillsView({ focusPane, selectedIndex, filterQuery = "", searchM
     return { key: s.name, label: s.name, markers: scope };
   });
 
-  const selected = filteredSkills[selectedIndex];
   const fields: DetailField[] = selected
     ? [
         { label: "Name", value: selected.name },
@@ -47,7 +79,6 @@ export function SkillsView({ focusPane, selectedIndex, filterQuery = "", searchM
     { key: "d", label: "Delete" },
     { key: "m", label: "Move" },
     { key: "/", label: "Search" },
-    { key: "?", label: "Help" },
     { key: "q", label: "Quit" },
   ];
 
@@ -65,6 +96,16 @@ export function SkillsView({ focusPane, selectedIndex, filterQuery = "", searchM
       {!searchMode && filterQuery && (
         <Box paddingX={1}>
           <Text dimColor>filter: {filterQuery} ({filteredSkills.length} match{filteredSkills.length !== 1 ? "es" : ""})</Text>
+        </Box>
+      )}
+      {actionMode?.type === "confirmDelete" && (
+        <Box paddingX={1}>
+          <Text bold color="red">Delete {actionMode.skillName}? (y/n)</Text>
+        </Box>
+      )}
+      {actionMode?.type === "confirmMove" && (
+        <Box paddingX={1}>
+          <Text bold color="blue">Move {actionMode.skillName} to (g)lobal or (p)roject?  Esc to cancel</Text>
         </Box>
       )}
       <Box flexGrow={1}>
@@ -85,3 +126,5 @@ export function SkillsView({ focusPane, selectedIndex, filterQuery = "", searchM
     </Box>
   );
 }
+
+export type { ActionMode };

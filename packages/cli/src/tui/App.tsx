@@ -7,6 +7,12 @@ import { ProfilesView } from "./components/ProfilesView.js";
 import { StoreView } from "./components/StoreView.js";
 import { ClientsView } from "./components/ClientsView.js";
 
+type ActionMode =
+  | null
+  | { type: "search" }
+  | { type: "confirmDelete"; skillName: string; isGlobal: boolean }
+  | { type: "confirmMove"; skillName: string; isGlobal: boolean };
+
 interface AppProps {
   version: string;
 }
@@ -16,64 +22,121 @@ export function App({ version }: AppProps) {
   const [activeTab, setActiveTab] = useState<TabName>("Skills");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [focusPane, setFocusPane] = useState<"left" | "right">("left");
-  const [searchMode, setSearchMode] = useState(false);
+  const [actionMode, setActionMode] = useState<ActionMode>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const isModal = actionMode !== null;
+  const isSearch = actionMode?.type === "search";
 
   const switchTab = useCallback((tab: TabName) => {
     setActiveTab(tab);
     setSelectedIndex(0);
     setFocusPane("left");
-    setSearchMode(false);
+    setActionMode(null);
     setSearchQuery("");
   }, []);
 
-  // Search mode input handler
-  useInput((input, key) => {
-    if (!searchMode) return;
+  const refresh = useCallback(() => {
+    setRefreshKey((k) => k + 1);
+  }, []);
 
-    if (key.escape) {
-      setSearchMode(false);
-      setSearchQuery("");
-      setSelectedIndex(0);
+  // Modal input handler (search, confirmDelete, confirmMove)
+  useInput((input, key) => {
+    if (!isModal) return;
+
+    if (actionMode.type === "search") {
+      if (key.escape) {
+        setActionMode(null);
+        setSearchQuery("");
+        setSelectedIndex(0);
+        return;
+      }
+      if (key.return) {
+        setActionMode(null);
+        return;
+      }
+      if (key.backspace || key.delete) {
+        setSearchQuery((q) => q.slice(0, -1));
+        setSelectedIndex(0);
+        return;
+      }
+      if (input.length === 1 && !key.ctrl && !key.meta) {
+        setSearchQuery((q) => q + input);
+        setSelectedIndex(0);
+      }
       return;
     }
-    if (key.return) {
-      setSearchMode(false);
+
+    if (actionMode.type === "confirmDelete") {
+      if (input === "y" || input === "Y") {
+        (async () => {
+          const { rm } = await import("../commands/rm.js");
+          await rm(actionMode.skillName, { global: actionMode.isGlobal });
+          setActionMode(null);
+          setSelectedIndex(0);
+          refresh();
+        })();
+        return;
+      }
+      if (input === "n" || input === "N" || key.escape) {
+        setActionMode(null);
+      }
       return;
     }
-    if (key.backspace || key.delete) {
-      setSearchQuery((q) => q.slice(0, -1));
-      setSelectedIndex(0);
+
+    if (actionMode.type === "confirmMove") {
+      if (input === "g" || input === "G") {
+        (async () => {
+          const { mvToGlobal } = await import("../commands/mv.js");
+          await mvToGlobal(actionMode.skillName, {});
+          setActionMode(null);
+          setSelectedIndex(0);
+          refresh();
+        })();
+        return;
+      }
+      if (input === "p" || input === "P") {
+        (async () => {
+          const { mvToProject } = await import("../commands/mv.js");
+          await mvToProject(actionMode.skillName, {});
+          setActionMode(null);
+          setSelectedIndex(0);
+          refresh();
+        })();
+        return;
+      }
+      if (key.escape) {
+        setActionMode(null);
+      }
       return;
     }
-    if (input.length === 1 && !key.ctrl && !key.meta) {
-      setSearchQuery((q) => q + input);
-      setSelectedIndex(0);
-    }
-  }, { isActive: searchMode });
+  }, { isActive: isModal });
 
   useKeyboard({
-    onQuit: () => { if (!searchMode) exit(); },
-    onUp: () => { if (!searchMode) setSelectedIndex((i) => Math.max(0, i - 1)); },
-    onDown: () => { if (!searchMode) setSelectedIndex((i) => i + 1); },
-    onLeft: () => { if (!searchMode) setFocusPane("left"); },
-    onRight: () => { if (!searchMode) setFocusPane("right"); },
+    onQuit: () => { if (!isModal) exit(); },
+    onUp: () => { if (!isModal) setSelectedIndex((i) => Math.max(0, i - 1)); },
+    onDown: () => { if (!isModal) setSelectedIndex((i) => i + 1); },
+    onLeft: () => { if (!isModal) setFocusPane("left"); },
+    onRight: () => { if (!isModal) setFocusPane("right"); },
     onTab: () => {
-      if (searchMode) return;
+      if (isModal) return;
       const idx = TABS.indexOf(activeTab);
       switchTab(TABS[(idx + 1) % TABS.length]);
     },
     onKey: (key) => {
-      if (searchMode) return;
+      if (isModal) return;
       const num = parseInt(key, 10);
       if (num >= 1 && num <= 4) {
         switchTab(TABS[num - 1]);
         return;
       }
-      if (key === "/" && activeTab === "Skills") {
-        setSearchMode(true);
-        setSearchQuery("");
-        setSelectedIndex(0);
+      if (activeTab === "Skills") {
+        if (key === "/") {
+          setActionMode({ type: "search" });
+          setSearchQuery("");
+          setSelectedIndex(0);
+        }
       }
     },
   });
@@ -86,7 +149,11 @@ export function App({ version }: AppProps) {
           selectedIndex={selectedIndex}
           focusPane={focusPane}
           filterQuery={searchQuery}
-          searchMode={searchMode}
+          searchMode={isSearch}
+          actionMode={actionMode}
+          onDelete={(name, isGlobal) => setActionMode({ type: "confirmDelete", skillName: name, isGlobal })}
+          onMove={(name, isGlobal) => setActionMode({ type: "confirmMove", skillName: name, isGlobal })}
+          refreshKey={refreshKey}
         />
       )}
       {activeTab === "Profiles" && (
