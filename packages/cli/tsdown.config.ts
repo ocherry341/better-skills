@@ -1,7 +1,13 @@
-import { readFileSync } from 'node:fs'
+import { execSync } from 'node:child_process'
 import { defineConfig } from 'tsdown'
 
-const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf-8'))
+function getVersionFromGitTag(): string {
+  try {
+    return execSync('git describe --tags --abbrev=0', { encoding: 'utf-8' }).trim().replace(/^v/, '')
+  } catch {
+    return '0.0.0-dev'
+  }
+}
 
 export default defineConfig({
   entry: ['src/cli.ts'],
@@ -11,6 +17,6 @@ export default defineConfig({
   clean: true,
   platform: 'node',
   define: {
-    __BSK_VERSION__: JSON.stringify(pkg.version),
+    __BSK_VERSION__: JSON.stringify(getVersionFromGitTag()),
   },
 })
