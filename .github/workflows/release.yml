@@ -58,10 +58,16 @@ jobs:
 
       - run: bun install
 
+      - name: Stub react-devtools-core
+        run: |
+          mkdir -p node_modules/react-devtools-core
+          echo '{"name":"react-devtools-core","version":"0.0.0","main":"index.js"}' > node_modules/react-devtools-core/package.json
+          echo 'module.exports = {};' > node_modules/react-devtools-core/index.js
+
       - name: Build binary
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          bun build --compile --target=${{ matrix.target }} --define=__BSK_VERSION__="'\"${VERSION}\"'" --external react-devtools-core packages/cli/src/cli.ts --outfile ${{ matrix.asset }}
+          bun build --compile --target=${{ matrix.target }} --define=__BSK_VERSION__="'\"${VERSION}\"'" packages/cli/src/cli.ts --outfile ${{ matrix.asset }}
 
       - uses: actions/upload-artifact@v4
         with:
