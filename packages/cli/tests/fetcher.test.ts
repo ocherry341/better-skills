@@ -62,7 +62,7 @@ describe("discoverSkills", () => {
     expect(result).toEqual([]);
   });
 
-  test("immediate subdirs take priority over skills/ dir", async () => {
+  test("finds skills at multiple depths", async () => {
     // top-level skill
     await mkdir(join(tmpDir, "top"));
     await writeFile(join(tmpDir, "top", "SKILL.md"), "---\nname: top\n---\n");
@@ -70,13 +70,24 @@ describe("discoverSkills", () => {
     await mkdir(join(tmpDir, "skills", "nested"), { recursive: true });
     await writeFile(join(tmpDir, "skills", "nested", "SKILL.md"), "---\nname: nested\n---\n");
     const result = await discoverSkills(tmpDir);
-    // Should only return the immediate subdir hit, not the skills/ one
-    expect(result).toEqual([join(tmpDir, "top")]);
+    expect(result.sort()).toEqual(
+      [join(tmpDir, "skills", "nested"), join(tmpDir, "top")]
+    );
   });
 
   test("empty directory → returns empty", async () => {
     const result = await discoverSkills(tmpDir);
     expect(result).toEqual([]);
+  });
+
+  test("deeply nested SKILL.md files are discovered", async () => {
+    await mkdir(join(tmpDir, "source", "skills", "frontend-design"), { recursive: true });
+    await writeFile(
+      join(tmpDir, "source", "skills", "frontend-design", "SKILL.md"),
+      "---\nname: frontend-design\n---\n"
+    );
+    const result = await discoverSkills(tmpDir);
+    expect(result).toEqual([join(tmpDir, "source", "skills", "frontend-design")]);
   });
 
   test("hidden dirs are skipped", async () => {

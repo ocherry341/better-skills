@@ -36,50 +36,44 @@ async function gitClone(url: string, dest: string): Promise<void> {
   }
 }
 
+const SKIP_DIRS = new Set(["node_modules"]);
+
 /**
  * Discover skill directories within a cloned repo.
  * A skill directory is one that contains a SKILL.md file.
- * Returns paths relative to the search root.
+ * Recursively walks the directory tree to find all SKILL.md files.
  */
 export async function discoverSkills(dir: string): Promise<string[]> {
   const skills: string[] = [];
 
   // Check if the root itself is a skill
   if (await hasSkillMd(dir)) {
-    skills.push(dir);
-    return skills;
+    return [dir];
   }
 
-  // Check immediate subdirectories
-  const entries = await readdir(dir, { withFileTypes: true });
+  // Recursively search subdirectories
+  await walkForSkills(dir, skills);
+  return skills;
+}
+
+async function walkForSkills(dir: string, results: string[]): Promise<void> {
+  let entries;
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+
   for (const entry of entries) {
-    if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+    if (!entry.isDirectory() || entry.name.startsWith(".") || SKIP_DIRS.has(entry.name)) continue;
     const subdir = join(dir, entry.name);
     if (await hasSkillMd(subdir)) {
-      skills.push(subdir);
+      results.push(subdir);
+      // Don't recurse into skill directories — a skill is its own unit
+    } else {
+      await walkForSkills(subdir, results);
     }
   }
-
-  if (skills.length > 0) {
-    return skills;
-  }
-
-  // Check skills/<name>/SKILL.md pattern
-  const skillsDir = join(dir, "skills");
-  try {
-    const skillEntries = await readdir(skillsDir, { withFileTypes: true });
-    for (const entry of skillEntries) {
-      if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
-      const subdir = join(skillsDir, entry.name);
-      if (await hasSkillMd(subdir)) {
-        skills.push(subdir);
-      }
-    }
-  } catch {
-    // skills/ directory doesn't exist, skip
-  }
-
-  return skills;
 }
 
 /** Fetch a skill from a source descriptor */
