@@ -1,8 +1,9 @@
 import { $ } from "bun";
 import { mkdir } from "fs/promises";
 
-const pkg = await Bun.file("packages/cli/package.json").json();
-const define = `--define=__BSK_VERSION__='\"${pkg.version}\"'`;
+const tag = await $`git describe --tags --abbrev=0`.text();
+const version = tag.trim().replace(/^v/, '');
+const define = `--define=__BSK_VERSION__='\"${version}\"'`;
 
 const targets = [
   { bun: "bun-linux-x64", name: "bsk-linux-x64" },
