@@ -1,5 +1,5 @@
 import { resolve, toSourceString, type SourceDescriptor } from "../core/resolver.js";
-import { fetch } from "../core/fetcher.js";
+import { fetchAll } from "../core/fetcher.js";
 import { hashDirectory } from "../core/hasher.js";
 import * as store from "../core/store.js";
 import { verifiedLinkSkill } from "../core/store.js";
@@ -34,86 +34,102 @@ export async function add(source: string, options: AddOptions = {}): Promise<voi
   console.log(`Resolving ${source}...`);
   const descriptor = resolve(source);
 
-  // 2. Fetch
+  // 2. Fetch all skills
   console.log(`Fetching from ${descriptor.type} source...`);
-  const result = await fetch(descriptor);
+  const result = await fetchAll(descriptor);
 
   try {
-    // 3. Determine skill name
-    let skillName: string;
-    if (options.name) {
-      skillName = options.name;
-    } else {
-      try {
-        const meta = await readSkillMd(result.dir);
-        skillName = meta.name;
-      } catch {
-        // Fall back to repo name or directory name
-        skillName = deriveNameFromSource(descriptor);
-      }
+    const skillDirs = result.skills;
+
+    if (skillDirs.length === 0) {
+      console.log("No skills found (no SKILL.md files detected).");
+      return;
     }
 
-    // 4. Hash
-    console.log(`Hashing ${skillName}...`);
-    const hash = await hashDirectory(result.dir);
-
-    // 5. Store
-    console.log(`Storing ${hash.slice(0, 8)}...`);
-    await store.store(hash, result.dir);
-
-    // 6. Conflict detection (global only)
-    const targetBase = getSkillsPath(options.global ?? false);
-    const targetDir = join(targetBase, skillName);
-    const registryPath = options.registryPath ?? getRegistryPath();
-
-    if (options.global) {
-      const exists = await dirExists(targetDir);
-      if (exists) {
-        const managed = await isManaged(skillName, registryPath);
-        if (!managed && !options.force) {
-          throw new Error(
-            `Skill '${skillName}' exists but is not managed by bsk. Use --force to overwrite.`
-          );
-        }
-      }
+    for (const skillDir of skillDirs) {
+      await addSingleSkill(skillDir, descriptor, options);
     }
-
-    // 7. Link
-    console.log(`Linking to ${targetDir}...`);
-    await verifiedLinkSkill(hash, targetDir, { hardlink: options.hardlink });
-
-    // 7b. Link to client directories (global only)
-    if (options.global && !options.noClients) {
-      let clientDirs: string[];
-      if (options.clients?.length) {
-        clientDirs = options.clients.map((c) => getClientSkillsDir(c));
-      } else {
-        clientDirs = await resolveClientDirs(options.configPath);
-      }
-      if (clientDirs.length > 0) {
-        await linkToClients(skillName, store.getHashPath(hash), clientDirs, { hardlink: options.hardlink });
-      }
-    }
-
-    console.log(`✓ Added ${skillName} (${hash.slice(0, 8)})`);
-
-    // 8. Register in registry (global only)
-    let v = 0;
-    if (options.global) {
-      const sourceStr = toSourceString(descriptor);
-      v = await registerSkill(skillName, hash, sourceStr, registryPath, getStorePath());
-    }
-
-    // 9. Record in active profile (only for global skills)
-    await addSkillToProfile({
-      skillName,
-      v,
-      source: toSourceString(descriptor),
-      global: options.global ?? false,
-    });
   } finally {
     await result.cleanup();
   }
+}
+
+async function addSingleSkill(
+  skillDir: string,
+  descriptor: SourceDescriptor,
+  options: AddOptions
+): Promise<void> {
+  // 3. Determine skill name
+  let skillName: string;
+  if (options.name) {
+    skillName = options.name;
+  } else {
+    try {
+      const meta = await readSkillMd(skillDir);
+      skillName = meta.name;
+    } catch {
+      skillName = deriveNameFromSource(descriptor);
+    }
+  }
+
+  // 4. Hash
+  console.log(`Hashing ${skillName}...`);
+  const hash = await hashDirectory(skillDir);
+
+  // 5. Store
+  console.log(`Storing ${hash.slice(0, 8)}...`);
+  await store.store(hash, skillDir);
+
+  // 6. Conflict detection (global only)
+  const targetBase = getSkillsPath(options.global ?? false);
+  const targetDir = join(targetBase, skillName);
+  const registryPath = options.registryPath ?? getRegistryPath();
+
+  if (options.global) {
+    const exists = await dirExists(targetDir);
+    if (exists) {
+      const managed = await isManaged(skillName, registryPath);
+      if (!managed && !options.force) {
+        throw new Error(
+          `Skill '${skillName}' exists but is not managed by bsk. Use --force to overwrite.`
+        );
+      }
+    }
+  }
+
+  // 7. Link
+  console.log(`Linking to ${targetDir}...`);
+  await verifiedLinkSkill(hash, targetDir, { hardlink: options.hardlink });
+
+  // 7b. Link to client directories (global only)
+  if (options.global && !options.noClients) {
+    let clientDirs: string[];
+    if (options.clients?.length) {
+      clientDirs = options.clients.map((c) => getClientSkillsDir(c));
+    } else {
+      clientDirs = await resolveClientDirs(options.configPath);
+    }
+    if (clientDirs.length > 0) {
+      await linkToClients(skillName, store.getHashPath(hash), clientDirs, { hardlink: options.hardlink });
+    }
+  }
+
+  console.log(`✓ Added ${skillName} (${hash.slice(0, 8)})`);
+
+  // 8. Register in registry (global only)
+  let v = 0;
+  if (options.global) {
+    const sourceStr = toSourceString(descriptor);
+    v = await registerSkill(skillName, hash, sourceStr, registryPath, getStorePath());
+  }
+
+  // 9. Record in active profile (only for global skills)
+  await addSkillToProfile({
+    skillName,
+    v,
+    source: toSourceString(descriptor),
+    global: options.global ?? false,
+  });
 }
 
 export interface AddToProfileOptions {
