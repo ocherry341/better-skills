@@ -107,4 +107,41 @@ describe("discoverSkills", () => {
     const result = await discoverSkills(tmpDir);
     expect(result).toEqual([]);
   });
+
+  test("multiple deeply nested SKILL.md files at different depths", async () => {
+    await mkdir(join(tmpDir, "source", "skills", "skill-a"), { recursive: true });
+    await writeFile(
+      join(tmpDir, "source", "skills", "skill-a", "SKILL.md"),
+      "---\nname: skill-a\n---\n"
+    );
+    await mkdir(join(tmpDir, "source", "skills", "skill-b"), { recursive: true });
+    await writeFile(
+      join(tmpDir, "source", "skills", "skill-b", "SKILL.md"),
+      "---\nname: skill-b\n---\n"
+    );
+    const result = await discoverSkills(tmpDir);
+    expect(result.sort()).toEqual([
+      join(tmpDir, "source", "skills", "skill-a"),
+      join(tmpDir, "source", "skills", "skill-b"),
+    ]);
+  });
+
+  test("does not recurse into directories that have SKILL.md", async () => {
+    await mkdir(join(tmpDir, "parent"), { recursive: true });
+    await writeFile(join(tmpDir, "parent", "SKILL.md"), "---\nname: parent\n---\n");
+    await mkdir(join(tmpDir, "parent", "child"), { recursive: true });
+    await writeFile(join(tmpDir, "parent", "child", "SKILL.md"), "---\nname: child\n---\n");
+    const result = await discoverSkills(tmpDir);
+    expect(result).toEqual([join(tmpDir, "parent")]);
+  });
+
+  test("node_modules and hidden dirs are skipped in deep search", async () => {
+    await mkdir(join(tmpDir, "node_modules", "pkg", "skill"), { recursive: true });
+    await writeFile(
+      join(tmpDir, "node_modules", "pkg", "skill", "SKILL.md"),
+      "---\nname: hidden\n---\n"
+    );
+    const result = await discoverSkills(tmpDir);
+    expect(result).toEqual([]);
+  });
 });
