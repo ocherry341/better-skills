@@ -22,7 +22,7 @@ for (const target of targets) {
   if (filter && !target.name.includes(filter)) continue;
 
   console.log(`Building ${target.name}...`);
-  await $`bun build --compile --target=${target.bun} ${define} packages/cli/src/cli.ts --outfile ${outDir}/${target.name}`;
+  await $`bun build --compile --target=${target.bun} ${define} --external react-devtools-core packages/cli/src/cli.ts --outfile ${outDir}/${target.name}`;
   console.log(`  → ${outDir}/${target.name}`);
 }
 
