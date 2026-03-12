@@ -6,7 +6,8 @@
     "test": "bun run --filter 'better-skills' test",
     "typecheck": "bun run --filter 'better-skills' typecheck",
     "dev": "bun run --filter 'better-skills' dev",
-    "build:binary": "bun run scripts/build-binary.ts"
+    "build:binary": "bun run scripts/build-binary.ts",
+    "release": "bun run scripts/release.ts"
   },
   "devDependencies": {
     "@types/bun": "latest",
