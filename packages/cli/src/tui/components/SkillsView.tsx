@@ -8,23 +8,29 @@ import { useSkills } from "../hooks/useSkills.js";
 interface SkillsViewProps {
   focusPane: "left" | "right";
   selectedIndex: number;
+  filterQuery?: string;
+  searchMode?: boolean;
 }
 
-export function SkillsView({ focusPane, selectedIndex }: SkillsViewProps) {
+export function SkillsView({ focusPane, selectedIndex, filterQuery = "", searchMode = false }: SkillsViewProps) {
   const { skills, loading } = useSkills();
 
   if (loading) {
     return <Text>Loading skills...</Text>;
   }
 
-  const items: ListItem[] = skills.map((s) => {
+  const filteredSkills = filterQuery
+    ? skills.filter((s) => s.name.toLowerCase().includes(filterQuery.toLowerCase()))
+    : skills;
+
+  const items: ListItem[] = filteredSkills.map((s) => {
     const scope = [s.global ? "G" : "", s.project ? "P" : ""]
       .filter(Boolean)
       .join(" ");
     return { key: s.name, label: s.name, markers: scope };
   });
 
-  const selected = skills[selectedIndex];
+  const selected = filteredSkills[selectedIndex];
   const fields: DetailField[] = selected
     ? [
         { label: "Name", value: selected.name },
@@ -47,6 +53,20 @@ export function SkillsView({ focusPane, selectedIndex }: SkillsViewProps) {
 
   return (
     <Box flexDirection="column" flexGrow={1}>
+      {searchMode && (
+        <Box paddingX={1}>
+          <Text>
+            <Text bold color="yellow">/</Text>
+            <Text>{filterQuery}</Text>
+            <Text dimColor>_</Text>
+          </Text>
+        </Box>
+      )}
+      {!searchMode && filterQuery && (
+        <Box paddingX={1}>
+          <Text dimColor>filter: {filterQuery} ({filteredSkills.length} match{filteredSkills.length !== 1 ? "es" : ""})</Text>
+        </Box>
+      )}
       <Box flexGrow={1}>
         <List
           items={items}
