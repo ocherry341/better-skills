@@ -1,12 +1,11 @@
 #!/usr/bin/env node
-import { createRequire } from "node:module";
 import { Command } from "commander";
 
 declare const __BSK_VERSION__: string | undefined;
 const version =
   typeof __BSK_VERSION__ !== "undefined"
     ? __BSK_VERSION__
-    : createRequire(import.meta.url)("../package.json").version;
+    : "0.0.0-dev";
 import { add } from "./commands/add.js";
 import { clientAdd, clientRm, clientLs } from "./commands/client.js";
 import { rm } from "./commands/rm.js";
