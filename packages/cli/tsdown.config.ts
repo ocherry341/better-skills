@@ -10,7 +10,7 @@ function getVersionFromGitTag(): string {
 }
 
 export default defineConfig({
-  entry: ['src/cli.ts'],
+  entry: ['src/cli.ts', 'src/tui/index.tsx'],
   format: ['esm'],
   outDir: 'dist',
   dts: false,

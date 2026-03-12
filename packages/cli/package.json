@@ -32,6 +32,8 @@
   },
   "dependencies": {
     "commander": "^13.1.0",
+    "ink": "^6.8.0",
+    "react": "^19.2.4",
     "zod": "^3.24.0"
   },
   "keywords": [
@@ -39,5 +41,8 @@
     "better-skills",
     "cli",
     "content-addressable"
-  ]
+  ],
+  "devDependencies": {
+    "@types/react": "^19.2.14"
+  }
 }
