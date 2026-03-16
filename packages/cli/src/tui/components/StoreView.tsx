@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Text } from "ink";
+import { Box, Text, useInput } from "ink";
 import { StatusBar } from "./StatusBar.js";
 import { useStore } from "../hooks/useStore.js";
 
@@ -8,7 +8,13 @@ interface StoreViewProps {
 }
 
 export function StoreView({ selectedIndex }: StoreViewProps) {
-  const { result, loading } = useStore();
+  const { result, loading, refresh } = useStore();
+
+  useInput((input) => {
+    if (input === "v") {
+      refresh();
+    }
+  });
 
   if (loading || !result) return <Text>Verifying store...</Text>;
 
