@@ -93,7 +93,7 @@ export function SkillsView({
   ];
 
   return (
-    <Box flexDirection="column" flexGrow={1}>
+    <Box flexDirection="column" flexGrow={1} width="100%">
       {searchMode && (
         <Box paddingX={1}>
           <Text>

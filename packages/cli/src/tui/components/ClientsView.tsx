@@ -20,7 +20,7 @@ export function ClientsView({ selectedIndex }: ClientsViewProps) {
   }));
 
   return (
-    <Box flexDirection="column" flexGrow={1}>
+    <Box flexDirection="column" flexGrow={1} width="100%">
       <Box flexGrow={1}>
         <List items={items} selectedIndex={selectedIndex} title="Clients" focused={true} />
       </Box>

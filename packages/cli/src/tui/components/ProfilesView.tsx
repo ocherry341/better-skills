@@ -35,7 +35,7 @@ export function ProfilesView({ focusPane, selectedIndex }: ProfilesViewProps) {
     : "";
 
   return (
-    <Box flexDirection="column" flexGrow={1}>
+    <Box flexDirection="column" flexGrow={1} width="100%">
       <Box flexGrow={1}>
         <List items={items} selectedIndex={selectedIndex} title="Profiles" focused={focusPane === "left"} />
         <DetailPane fields={fields} content={skillList} contentTitle="Skills in profile" focused={focusPane === "right"} />

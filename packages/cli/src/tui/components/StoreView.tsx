@@ -13,8 +13,8 @@ export function StoreView({ selectedIndex }: StoreViewProps) {
   if (loading || !result) return <Text>Verifying store...</Text>;
 
   return (
-    <Box flexDirection="column" flexGrow={1}>
-      <Box flexDirection="column" flexGrow={1} padding={1}>
+    <Box flexDirection="column" flexGrow={1} width="100%">
+      <Box flexDirection="column" flexGrow={1} borderStyle="single" borderColor="gray" paddingX={1}>
         <Text bold>Store Health</Text>
         <Text>
           Total: {result.total}  <Text color="green">OK: {result.ok}</Text>
