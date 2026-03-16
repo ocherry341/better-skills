@@ -1,8 +1,8 @@
 import React from "react";
-import { render } from "ink";
+import { withFullScreen } from "fullscreen-ink";
 import { App } from "./App.js";
 
-export function startTui(version: string) {
+export async function startTui(version: string) {
   if (!process.stdin.isTTY) {
     console.error(
       "Error: TUI requires an interactive terminal with raw mode support.\n" +
@@ -10,5 +10,7 @@ export function startTui(version: string) {
     );
     process.exit(1);
   }
-  render(<App version={version} />, { exitOnCtrlC: true });
+  const ink = withFullScreen(<App version={version} />, { exitOnCtrlC: true });
+  await ink.start();
+  await ink.waitUntilExit();
 }
