@@ -23,7 +23,7 @@ export interface SaveOptions {
 
 /**
  * Save new or changed skills from the skills directory to bsk management.
- * Replaces the old `migrate` command with expanded semantics.
+ * Hashes each skill, stores it, re-links, and registers a new version.
  */
 export async function save(options: SaveOptions = {}): Promise<void> {
   const skillsDir = options.skillsDir ?? getGlobalSkillsPath();

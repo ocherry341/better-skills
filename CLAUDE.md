@@ -44,7 +44,6 @@ Uses commander.js and zod for CLI parsing and validation. Main commands:
 - `bsk rm <name>` — remove a skill
 - `bsk ls` — list active skills; `bsk ls -a` lists all managed skills
 - `bsk save [name]` — save new/changed skills to bsk management
-- `bsk migrate` — alias for `save`
 - `bsk mv <skill> <global|project>` — move a skill between scopes
 - `bsk client add|rm|ls` — manage multi-client skill directories
 - `bsk profile create|ls|show|use|add|rm|delete|rename|clone` — manage skill profiles

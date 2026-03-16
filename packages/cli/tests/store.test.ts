@@ -7,7 +7,6 @@ import { cpRecursive } from "../src/core/linker.js";
 
 // store.ts uses getStorePath() which reads a global path.
 // We test the logic directly instead of importing store.ts.
-// This mirrors how migrate.ts inlines the same pattern.
 
 describe("store integrity", () => {
   let baseDir: string;
