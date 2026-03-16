@@ -117,13 +117,6 @@ program
   });
 
 program
-  .command("migrate")
-  .description("Alias for 'save' — migrate unmanaged skills to bsk management")
-  .action(async () => {
-    await save();
-  });
-
-program
   .command("mv <skill-name> <target>")
   .alias("move")
   .description("Move a skill between project and global scope")
