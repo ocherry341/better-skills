@@ -1,15 +1,29 @@
 import React from "react";
-import { Box, Text } from "ink";
+import { Box, Text, useInput } from "ink";
 import { List, type ListItem } from "./List.js";
 import { StatusBar } from "./StatusBar.js";
 import { useClients } from "../hooks/useClients.js";
 
 interface ClientsViewProps {
   selectedIndex: number;
+  onEnableClient?: (clientId: string) => void;
+  onDisableClient?: (clientId: string) => void;
+  refreshKey?: number;
 }
 
-export function ClientsView({ selectedIndex }: ClientsViewProps) {
-  const { clients, loading } = useClients();
+export function ClientsView({ selectedIndex, onEnableClient, onDisableClient, refreshKey = 0 }: ClientsViewProps) {
+  const { clients, loading } = useClients(refreshKey);
+  const selected = clients[selectedIndex];
+
+  useInput((input) => {
+    if (!selected || selected.alwaysOn) return;
+    if (input === "a" && !selected.enabled && onEnableClient) {
+      onEnableClient(selected.id);
+    }
+    if (input === "d" && selected.enabled && onDisableClient) {
+      onDisableClient(selected.id);
+    }
+  });
 
   if (loading) return <Text>Loading clients...</Text>;
 

@@ -214,7 +214,35 @@ export function App({ version }: AppProps) {
         <StoreView selectedIndex={selectedIndex} />
       )}
       {activeTab === "Clients" && (
-        <ClientsView selectedIndex={selectedIndex} />
+        <ClientsView
+          selectedIndex={selectedIndex}
+          refreshKey={refreshKey}
+          onEnableClient={(clientId) => {
+            (async () => {
+              const { clientAdd } = await import("../commands/client.js");
+              const { getConfigPath, getRegistryPath, getStorePath, getGlobalSkillsPath } = await import("../utils/paths.js");
+              await clientAdd([clientId], {
+                configPath: getConfigPath(),
+                registryPath: getRegistryPath(),
+                storePath: getStorePath(),
+                skillsDir: getGlobalSkillsPath(),
+              });
+              refresh();
+            })();
+          }}
+          onDisableClient={(clientId) => {
+            (async () => {
+              const { clientRm } = await import("../commands/client.js");
+              const { getConfigPath, getRegistryPath, getGlobalSkillsPath } = await import("../utils/paths.js");
+              await clientRm([clientId], {
+                configPath: getConfigPath(),
+                registryPath: getRegistryPath(),
+                skillsDir: getGlobalSkillsPath(),
+              });
+              refresh();
+            })();
+          }}
+        />
       )}
     </Box>
   );

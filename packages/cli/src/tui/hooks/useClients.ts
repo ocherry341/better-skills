@@ -9,7 +9,7 @@ export interface ClientInfo {
   alwaysOn: boolean;
 }
 
-export function useClients() {
+export function useClients(externalRefreshKey = 0) {
   const [clients, setClients] = useState<ClientInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -40,7 +40,7 @@ export function useClients() {
 
     load();
     return () => { cancelled = true; };
-  }, [refreshKey]);
+  }, [refreshKey, externalRefreshKey]);
 
   return { clients, loading, refresh: () => setRefreshKey((k) => k + 1) };
 }
