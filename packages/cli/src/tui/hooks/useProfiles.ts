@@ -10,7 +10,7 @@ export interface ProfileSummary {
   skills: { skillName: string; v: number; source: string }[];
 }
 
-export function useProfiles() {
+export function useProfiles(externalRefreshKey = 0) {
   const [profiles, setProfiles] = useState<ProfileSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -53,7 +53,7 @@ export function useProfiles() {
 
     load();
     return () => { cancelled = true; };
-  }, [refreshKey]);
+  }, [refreshKey, externalRefreshKey]);
 
   return { profiles, loading, refresh: () => setRefreshKey((k) => k + 1) };
 }

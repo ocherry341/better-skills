@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Text } from "ink";
+import { Box, Text, useInput } from "ink";
 import { List, type ListItem } from "./List.js";
 import { DetailPane, type DetailField } from "./DetailPane.js";
 import { StatusBar } from "./StatusBar.js";
@@ -8,10 +8,19 @@ import { useProfiles } from "../hooks/useProfiles.js";
 interface ProfilesViewProps {
   focusPane: "left" | "right";
   selectedIndex: number;
+  refreshKey?: number;
+  onSwitchProfile?: (profileName: string) => void;
 }
 
-export function ProfilesView({ focusPane, selectedIndex }: ProfilesViewProps) {
-  const { profiles, loading } = useProfiles();
+export function ProfilesView({ focusPane, selectedIndex, refreshKey, onSwitchProfile }: ProfilesViewProps) {
+  const { profiles, loading } = useProfiles(refreshKey);
+  const selected = profiles[selectedIndex];
+
+  useInput((_input, key) => {
+    if (key.return && selected && onSwitchProfile) {
+      onSwitchProfile(selected.name);
+    }
+  });
 
   if (loading) return <Text>Loading profiles...</Text>;
 
@@ -20,8 +29,6 @@ export function ProfilesView({ focusPane, selectedIndex }: ProfilesViewProps) {
     label: p.name,
     markers: p.active ? "* active" : `${p.skillCount} skills`,
   }));
-
-  const selected = profiles[selectedIndex];
   const fields: DetailField[] = selected
     ? [
         { label: "Name", value: selected.name },

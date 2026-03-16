@@ -189,7 +189,26 @@ export function App({ version }: AppProps) {
         />
       )}
       {activeTab === "Profiles" && (
-        <ProfilesView selectedIndex={selectedIndex} focusPane={focusPane} />
+        <ProfilesView
+          selectedIndex={selectedIndex}
+          focusPane={focusPane}
+          refreshKey={refreshKey}
+          onSwitchProfile={(name) => {
+            (async () => {
+              const { profileUse } = await import("../commands/profile.js");
+              const { getProfilesPath, getActiveProfileFilePath, getGlobalSkillsPath, getStorePath, getRegistryPath, getConfigPath } = await import("../utils/paths.js");
+              await profileUse(name, {
+                profilesDir: getProfilesPath(),
+                activeFile: getActiveProfileFilePath(),
+                skillsDir: getGlobalSkillsPath(),
+                storePath: getStorePath(),
+                registryPath: getRegistryPath(),
+                configPath: getConfigPath(),
+              });
+              refresh();
+            })();
+          }}
+        />
       )}
       {activeTab === "Store" && (
         <StoreView selectedIndex={selectedIndex} />
