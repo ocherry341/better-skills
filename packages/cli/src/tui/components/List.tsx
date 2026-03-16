@@ -16,7 +16,7 @@ interface ListProps {
 
 export function List({ items, selectedIndex, title, focused = true }: ListProps) {
   return (
-    <Box flexDirection="column" flexGrow={1} flexBasis={0}>
+    <Box flexDirection="column" flexGrow={1} flexBasis={0} borderStyle="single" borderColor={focused ? "cyan" : "gray"} paddingX={1}>
       {title && (
         <Text bold>{title} ({items.length})</Text>
       )}

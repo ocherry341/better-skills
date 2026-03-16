@@ -52,6 +52,16 @@ bsk ls
 bsk ls -a
 ```
 
+## Already Have Skills?
+
+Still managing your skills manually? Just one command to unlock the full power of `bsk`:
+
+```bash
+bsk save
+```
+
+Versioning, deduplication, profile switching — all yours, instantly.
+
 ## Commands
 
 ### Skill Management
@@ -159,11 +169,10 @@ Identical skills across projects share a single store entry. The SHA-256 hash is
 
 ## Roadmap
 
-- **TUI** — Interactive terminal UI for managing skills (in development)
-- **Built-in `use better-skills` skill** — A bundled skill that teaches agents how to use `bsk`
-- **Git repo linking** — Link skills directly to their source git repositories
-- **Store pruning** — `bsk store prune` to clean up unreferenced store entries
-- **Skills security audit** — Security review and sandboxing for skill content
+- [ ] **TUI** — Interactive terminal UI for managing skills (in development)
+- [ ] **Built-in `use better-skills` skill** — A bundled skill that teaches agents how to use `bsk`
+- [ ] **Git repo linking** — Link your skill storage to git repo
+- [ ] **Skills security audit** — Security review and sandboxing for skill content
 
 ## Development
 

@@ -15,7 +15,7 @@ interface DetailPaneProps {
 
 export function DetailPane({ fields, content, contentTitle, focused = false }: DetailPaneProps) {
   return (
-    <Box flexDirection="column" flexGrow={2} flexBasis={0} paddingLeft={1}>
+    <Box flexDirection="column" flexGrow={2} flexBasis={0} borderStyle="single" borderColor={focused ? "cyan" : "gray"} paddingX={1}>
       {fields.map((f) => (
         <Text key={f.label}>
           <Text dimColor>{f.label}: </Text>
