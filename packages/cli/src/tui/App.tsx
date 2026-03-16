@@ -172,7 +172,7 @@ export function App({ version }: AppProps) {
   });
 
   return (
-    <Box flexDirection="column" height="100%">
+    <Box flexDirection="column" width="100%" height="100%">
       <TabBar active={activeTab} version={version} />
       {activeTab === "Skills" && (
         <SkillsView
