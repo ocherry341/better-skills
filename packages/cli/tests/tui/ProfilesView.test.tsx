@@ -1,30 +1,41 @@
 import { describe, test, expect, mock } from "bun:test";
 import { render } from "ink-testing-library";
 import React from "react";
-import { stripAnsi } from "./helpers.js";
+import { stripAnsi, flush } from "./helpers.js";
 
-mock.module("../../src/tui/hooks/useProfiles.js", () => ({
-  useProfiles: () => ({
-    profiles: [
-      {
-        name: "default",
-        active: true,
-        skillCount: 2,
-        skills: [
-          { skillName: "skill-a", v: 1, source: "owner/repo-a" },
-          { skillName: "skill-b", v: 3, source: "owner/repo-b" },
-        ],
-      },
-      {
-        name: "work",
-        active: false,
-        skillCount: 0,
-        skills: [],
-      },
-    ],
-    loading: false,
-    refresh: () => {},
-  }),
+const mockListProfiles = mock(() => Promise.resolve(["default", "work"]));
+const mockGetActiveProfileName = mock(() => Promise.resolve("default"));
+const mockReadProfile = mock((path: string) => {
+  const name = path.replace(/.*\//, "").replace(".json", "");
+  return Promise.resolve({
+    name,
+    skills:
+      name === "default"
+        ? [
+            { skillName: "skill-a", v: 1, source: "owner/repo-a", addedAt: "2025-01-01T00:00:00Z" },
+            { skillName: "skill-b", v: 3, source: "owner/repo-b", addedAt: "2025-01-01T00:00:00Z" },
+          ]
+        : [],
+  });
+});
+
+mock.module("../../src/core/profile.js", () => ({
+  listProfiles: mockListProfiles,
+  getActiveProfileName: mockGetActiveProfileName,
+  readProfile: mockReadProfile,
+}));
+mock.module("../../src/utils/paths.js", () => ({
+  getStorePath: () => "/tmp/bsk-test-store",
+  getGlobalSkillsPath: () => "/tmp/bsk-test-global",
+  getProjectSkillsPath: () => "/tmp/bsk-test-project",
+  getSkillsPath: (global: boolean) => global ? "/tmp/bsk-test-global" : "/tmp/bsk-test-project",
+  getProfilesPath: () => "/tmp/bsk-test-profiles",
+  getProfilePath: (name: string) => `/tmp/bsk-test-profiles/${name}.json`,
+  getActiveProfileFilePath: () => "/tmp/bsk-test-profiles/.active",
+  getRegistryPath: () => "/tmp/bsk-test-registry.json",
+  getConfigPath: () => "/tmp/bsk-test-config.json",
+  getTempPath: () => "/tmp/bsk-test-tmp",
+  resolveAbsolute: (p: string) => p,
 }));
 
 const { ProfilesView } = await import(
@@ -32,38 +43,42 @@ const { ProfilesView } = await import(
 );
 
 describe("ProfilesView", () => {
-  test("renders profile names", () => {
+  test("renders profile names", async () => {
     const { lastFrame, unmount } = render(
       <ProfilesView focusPane="left" selectedIndex={0} />
     );
+    await flush();
     const frame = stripAnsi(lastFrame()!);
     expect(frame).toContain("default");
     expect(frame).toContain("work");
     unmount();
   });
 
-  test("shows active marker for active profile", () => {
+  test("shows active marker for active profile", async () => {
     const { lastFrame, unmount } = render(
       <ProfilesView focusPane="left" selectedIndex={0} />
     );
+    await flush();
     const frame = stripAnsi(lastFrame()!);
     expect(frame).toContain("* active");
     unmount();
   });
 
-  test("shows skill count for inactive profile", () => {
+  test("shows skill count for inactive profile", async () => {
     const { lastFrame, unmount } = render(
       <ProfilesView focusPane="left" selectedIndex={0} />
     );
+    await flush();
     const frame = stripAnsi(lastFrame()!);
     expect(frame).toContain("0 skills");
     unmount();
   });
 
-  test("shows detail pane fields for selected profile", () => {
+  test("shows detail pane fields for selected profile", async () => {
     const { lastFrame, unmount } = render(
       <ProfilesView focusPane="right" selectedIndex={0} />
     );
+    await flush();
     const frame = stripAnsi(lastFrame()!);
     expect(frame).toContain("Name: default");
     expect(frame).toContain("Status: Active");
@@ -71,10 +86,11 @@ describe("ProfilesView", () => {
     unmount();
   });
 
-  test("shows status bar shortcuts", () => {
+  test("shows status bar shortcuts", async () => {
     const { lastFrame, unmount } = render(
       <ProfilesView focusPane="left" selectedIndex={0} />
     );
+    await flush();
     const frame = stripAnsi(lastFrame()!);
     expect(frame).toContain("Enter:Switch");
     expect(frame).toContain("q:Quit");
