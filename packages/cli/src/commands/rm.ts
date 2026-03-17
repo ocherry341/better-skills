@@ -24,8 +24,7 @@ export async function rm(name: string, options: RmOptions = {}): Promise<void> {
   try {
     await stat(targetDir);
   } catch {
-    console.error(`Skill '${name}' not found.`);
-    process.exit(1);
+    throw new Error(`Skill '${name}' not found.`);
   }
 
   // Remove the linked directory
