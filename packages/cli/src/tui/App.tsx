@@ -207,10 +207,12 @@ export function App({ version }: AppProps) {
           selectedIndex={selectedIndex}
           focusPane={focusPane}
           refreshKey={refreshKey}
+          actionMode={actionMode}
+          profileInput={profileInput}
           onSwitchProfile={(name) => {
             (async () => {
               const { profileUse } = await import("../commands/profile.js");
-              const { getProfilesPath, getActiveProfileFilePath, getGlobalSkillsPath, getStorePath, getRegistryPath, getConfigPath } = await import("../utils/paths.js");
+              const { getRegistryPath } = await import("../utils/paths.js");
               await profileUse(name, {
                 profilesDir: getProfilesPath(),
                 activeFile: getActiveProfileFilePath(),
@@ -222,6 +224,12 @@ export function App({ version }: AppProps) {
               refresh();
             })();
           }}
+          onCreateProfile={() => { setActionMode({ type: "profileCreate" }); setProfileInput(""); }}
+          onDeleteProfile={(name) => setActionMode({ type: "profileDelete", profileName: name })}
+          onRenameProfile={(name) => { setActionMode({ type: "profileRename", profileName: name }); setProfileInput(""); }}
+          onCloneProfile={(name) => { setActionMode({ type: "profileClone", profileName: name }); setProfileInput(""); }}
+          onAddSkill={(name) => { setActionMode({ type: "profileAddSkill", profileName: name }); setProfileInput(""); }}
+          onRemoveSkill={(name) => { setActionMode({ type: "profileRemoveSkill", profileName: name }); setProfileInput(""); }}
         />
       )}
       {activeTab === "Store" && (
