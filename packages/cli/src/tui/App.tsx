@@ -12,6 +12,7 @@ import {
   getGlobalSkillsPath,
   getStorePath,
   getConfigPath,
+  getRegistryPath,
 } from "../utils/paths.js";
 
 export type ActionMode =
@@ -155,6 +156,105 @@ export function App({ version }: AppProps) {
       }
       return;
     }
+
+    // Profile text-input modals: create, rename, clone, addSkill, removeSkill
+    if (
+      actionMode.type === "profileCreate" ||
+      actionMode.type === "profileRename" ||
+      actionMode.type === "profileClone" ||
+      actionMode.type === "profileAddSkill" ||
+      actionMode.type === "profileRemoveSkill"
+    ) {
+      if (key.escape) {
+        setActionMode(null);
+        setProfileInput("");
+        return;
+      }
+      if (key.return && profileInput.trim()) {
+        const value = profileInput.trim();
+        const mode = actionMode;
+        setActionMode(null);
+        setProfileInput("");
+        (async () => {
+          const {
+            profileCreate: createProfile,
+            profileRename: renameProfile,
+            profileClone: cloneProfile,
+            profileAdd: addToProfile,
+            profileRm: rmFromProfile,
+          } = await import("../commands/profile.js");
+          const profilesDir = getProfilesPath();
+          const activeFile = getActiveProfileFilePath();
+          const skillsDir = getGlobalSkillsPath();
+          if (mode.type === "profileCreate") {
+            await createProfile(value, {
+              profilesDir,
+              activeFile,
+              skillsDir,
+            });
+          } else if (mode.type === "profileRename") {
+            await renameProfile(mode.profileName, value, {
+              profilesDir,
+              activeFile,
+            });
+          } else if (mode.type === "profileClone") {
+            await cloneProfile(mode.profileName, value, {
+              profilesDir,
+            });
+          } else if (mode.type === "profileAddSkill") {
+            await addToProfile(value, {
+              profilesDir,
+              activeFile,
+              skillsDir,
+              storePath: getStorePath(),
+              profileName: mode.profileName,
+              configPath: getConfigPath(),
+            });
+          } else if (mode.type === "profileRemoveSkill") {
+            await rmFromProfile(value, {
+              profilesDir,
+              activeFile,
+              skillsDir,
+              profileName: mode.profileName,
+              configPath: getConfigPath(),
+            });
+          }
+          setSelectedIndex(0);
+          refresh();
+        })();
+        return;
+      }
+      if (key.backspace || key.delete) {
+        setProfileInput((s) => s.slice(0, -1));
+        return;
+      }
+      if (input.length === 1 && !key.ctrl && !key.meta) {
+        setProfileInput((s) => s + input);
+      }
+      return;
+    }
+
+    // Profile confirm modal: delete
+    if (actionMode.type === "profileDelete") {
+      if (input === "y" || input === "Y") {
+        const name = actionMode.profileName;
+        setActionMode(null);
+        (async () => {
+          const { profileDelete: deleteProfile } = await import("../commands/profile.js");
+          await deleteProfile(name, {
+            profilesDir: getProfilesPath(),
+            activeFile: getActiveProfileFilePath(),
+          });
+          setSelectedIndex(0);
+          refresh();
+        })();
+        return;
+      }
+      if (input === "n" || input === "N" || key.escape) {
+        setActionMode(null);
+      }
+      return;
+    }
   }, { isActive: isModal });
 
   useKeyboard({
@@ -212,7 +312,6 @@ export function App({ version }: AppProps) {
           onSwitchProfile={(name) => {
             (async () => {
               const { profileUse } = await import("../commands/profile.js");
-              const { getRegistryPath } = await import("../utils/paths.js");
               await profileUse(name, {
                 profilesDir: getProfilesPath(),
                 activeFile: getActiveProfileFilePath(),
