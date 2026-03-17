@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ls } from "../../commands/ls.js";
+import { ls, lsAll } from "../../commands/ls.js";
 import { readRegistry, getLatestVersion } from "../../core/registry.js";
 import { getGlobalSkillsPath, getProjectSkillsPath } from "../../utils/paths.js";
 import { join } from "path";
@@ -14,6 +14,7 @@ export interface SkillDetail {
   source?: string;
   addedAt?: string;
   skillMdContent?: string;
+  inactive?: boolean;
 }
 
 export interface UseSkillsResult {
@@ -22,7 +23,7 @@ export interface UseSkillsResult {
   refresh: () => void;
 }
 
-export function useSkills(externalRefreshKey = 0): UseSkillsResult {
+export function useSkills(externalRefreshKey = 0, showAll = false): UseSkillsResult {
   const [skills, setSkills] = useState<SkillDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -63,6 +64,27 @@ export function useSkills(externalRefreshKey = 0): UseSkillsResult {
           })
         );
 
+        if (showAll) {
+          const allEntries = await lsAll();
+          const activeNames = new Set(details.map((d) => d.name));
+
+          for (const entry of allEntries) {
+            if (!activeNames.has(entry.name)) {
+              details.push({
+                name: entry.name,
+                global: false,
+                project: false,
+                version: entry.v,
+                hash: entry.hash,
+                source: entry.source,
+                inactive: true,
+              });
+            }
+          }
+
+          details.sort((a, b) => a.name.localeCompare(b.name));
+        }
+
         if (!cancelled) {
           setSkills(details);
           setLoading(false);
@@ -77,7 +99,7 @@ export function useSkills(externalRefreshKey = 0): UseSkillsResult {
 
     load();
     return () => { cancelled = true; };
-  }, [refreshKey, externalRefreshKey]);
+  }, [refreshKey, externalRefreshKey, showAll]);
 
   return {
     skills,

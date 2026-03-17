@@ -4,7 +4,7 @@ import { List, type ListItem } from "./List.js";
 import { DetailPane, type DetailField } from "./DetailPane.js";
 import { StatusBar, type Shortcut } from "./StatusBar.js";
 import { useSkills, type SkillDetail } from "../hooks/useSkills.js";
-import { type ActionMode } from "../App.js";
+import { type ActionMode, type AddOptionsState } from "../App.js";
 
 interface SkillsViewProps {
   focusPane: "left" | "right";
@@ -15,8 +15,11 @@ interface SkillsViewProps {
   onDelete?: (name: string, isGlobal: boolean) => void;
   onMove?: (name: string, isGlobal: boolean) => void;
   onAdd?: () => void;
+  onSave?: (skillName?: string) => void;
   addSource?: string;
   refreshKey?: number;
+  showAll?: boolean;
+  addOptions?: AddOptionsState;
 }
 
 export function SkillsView({
@@ -28,10 +31,13 @@ export function SkillsView({
   onDelete,
   onMove,
   onAdd,
+  onSave,
   addSource = "",
   refreshKey = 0,
+  showAll = false,
+  addOptions,
 }: SkillsViewProps) {
-  const { skills, loading } = useSkills(refreshKey);
+  const { skills, loading } = useSkills(refreshKey, showAll);
 
   const filteredSkills = filterQuery
     ? skills.filter((s) => s.name.toLowerCase().includes(filterQuery.toLowerCase()))
@@ -47,12 +53,19 @@ export function SkillsView({
       onAdd();
       return;
     }
+    if (input === "S" && onSave) {
+      onSave();
+      return;
+    }
     if (!selected) return;
     if (input === "d" && onDelete) {
       onDelete(selected.name, selected.global);
     }
     if (input === "m" && onMove) {
       onMove(selected.name, selected.global);
+    }
+    if (input === "s" && onSave) {
+      onSave(selected.name);
     }
   }, { isActive: !searchMode && actionMode === null });
 
@@ -61,16 +74,18 @@ export function SkillsView({
   }
 
   const items: ListItem[] = filteredSkills.map((s) => {
-    const scope = [s.global ? "G" : "", s.project ? "P" : ""]
-      .filter(Boolean)
-      .join(" ");
+    const scope = s.inactive
+      ? "inactive"
+      : [s.global ? "G" : "", s.project ? "P" : ""]
+          .filter(Boolean)
+          .join(" ");
     return { key: s.name, label: s.name, markers: scope };
   });
 
   const fields: DetailField[] = selected
     ? [
         { label: "Name", value: selected.name },
-        { label: "Scope", value: [selected.global ? "Global" : "", selected.project ? "Project" : ""].filter(Boolean).join(" + ") },
+        { label: "Scope", value: selected.inactive ? "Inactive (not linked)" : [selected.global ? "Global" : "", selected.project ? "Project" : ""].filter(Boolean).join(" + ") },
         ...(selected.source ? [{ label: "Source", value: selected.source }] : []),
         ...(selected.version != null ? [{ label: "Version", value: `v${selected.version}` }] : []),
         ...(selected.hash ? [{ label: "Hash", value: selected.hash.slice(0, 8) }] : []),
@@ -82,6 +97,8 @@ export function SkillsView({
     { key: "a", label: "Add" },
     { key: "d", label: "Delete" },
     { key: "m", label: "Move" },
+    { key: "s", label: "Save" },
+    { key: "A", label: showAll ? "Active only" : "Show all" },
     { key: "/", label: "Search" },
     { key: "q", label: "Quit" },
   ];
@@ -119,6 +136,31 @@ export function SkillsView({
             <Text>{addSource}</Text>
             <Text dimColor>_</Text>
           </Text>
+        </Box>
+      )}
+      {actionMode?.type === "addScope" && (
+        <Box paddingX={1}>
+          <Text bold color="blue">Add "{actionMode.source}" to (g)lobal or (p)roject?  Esc to cancel</Text>
+        </Box>
+      )}
+      {actionMode?.type === "addOptions" && addOptions && (
+        <Box flexDirection="column" paddingX={1}>
+          <Text bold color="cyan">
+            Add "{addOptions.source}" → {addOptions.global ? "global" : "project"}
+          </Text>
+          <Text>
+            <Text bold color="yellow">[h]</Text>
+            <Text> Hardlink: {addOptions.hardlink ? "on" : "off"}  </Text>
+            <Text bold color="yellow">[n]</Text>
+            <Text> Name: {addOptions.editingField === "name" ? addOptions.name + "_" : addOptions.name || "(auto)"}  </Text>
+          </Text>
+          <Text>
+            <Text bold color="yellow">[f]</Text>
+            <Text> Force: {addOptions.force ? "on" : "off"}  </Text>
+            <Text bold color="yellow">[c]</Text>
+            <Text> Clients: {addOptions.editingField === "clients" ? addOptions.clients + "_" : addOptions.clients || "(default)"}  </Text>
+          </Text>
+          <Text dimColor>Enter: confirm  Esc: cancel</Text>
         </Box>
       )}
       <Box flexGrow={1}>

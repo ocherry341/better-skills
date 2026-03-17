@@ -15,12 +15,24 @@ import {
   getRegistryPath,
 } from "../utils/paths.js";
 
+export interface AddOptionsState {
+  source: string;
+  global: boolean;
+  hardlink: boolean;
+  name: string;
+  force: boolean;
+  clients: string;
+  editingField: "name" | "clients" | null;
+}
+
 export type ActionMode =
   | null
   | { type: "search" }
   | { type: "confirmDelete"; skillName: string; isGlobal: boolean }
   | { type: "confirmMove"; skillName: string; isGlobal: boolean }
   | { type: "addInput" }
+  | { type: "addScope"; source: string }
+  | { type: "addOptions" }
   | { type: "profileCreate" }
   | { type: "profileDelete"; profileName: string }
   | { type: "profileRename"; profileName: string }
@@ -41,6 +53,16 @@ export function App({ version }: AppProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
   const [addSource, setAddSource] = useState("");
+  const [showAll, setShowAll] = useState(false);
+  const [addOptions, setAddOptions] = useState<AddOptionsState>({
+    source: "",
+    global: true,
+    hardlink: false,
+    name: "",
+    force: false,
+    clients: "",
+    editingField: null,
+  });
   const [profileInput, setProfileInput] = useState("");
 
   const isModal = actionMode !== null;
@@ -137,14 +159,8 @@ export function App({ version }: AppProps) {
       }
       if (key.return && addSource.trim()) {
         const source = addSource.trim();
-        setActionMode(null);
         setAddSource("");
-        (async () => {
-          const { add } = await import("../commands/add.js");
-          await add(source, { global: true });
-          setSelectedIndex(0);
-          refresh();
-        })();
+        setActionMode({ type: "addScope", source });
         return;
       }
       if (key.backspace || key.delete) {
@@ -153,6 +169,97 @@ export function App({ version }: AppProps) {
       }
       if (input.length === 1 && !key.ctrl && !key.meta) {
         setAddSource((s) => s + input);
+      }
+      return;
+    }
+
+    if (actionMode.type === "addScope") {
+      if (input === "g" || input === "G") {
+        setAddOptions((o) => ({ ...o, source: actionMode.source, global: true, hardlink: false, name: "", force: false, clients: "", editingField: null }));
+        setActionMode({ type: "addOptions" });
+        return;
+      }
+      if (input === "p" || input === "P") {
+        setAddOptions((o) => ({ ...o, source: actionMode.source, global: false, hardlink: false, name: "", force: false, clients: "", editingField: null }));
+        setActionMode({ type: "addOptions" });
+        return;
+      }
+      if (key.escape) {
+        setActionMode(null);
+      }
+      return;
+    }
+
+    if (actionMode.type === "addOptions") {
+      const opts = addOptions;
+
+      // If editing a text field, handle text input
+      if (opts.editingField) {
+        if (key.escape) {
+          setAddOptions((o) => ({ ...o, editingField: null }));
+          return;
+        }
+        if (key.return) {
+          setAddOptions((o) => ({ ...o, editingField: null }));
+          return;
+        }
+        if (key.backspace || key.delete) {
+          if (opts.editingField === "name") {
+            setAddOptions((o) => ({ ...o, name: o.name.slice(0, -1) }));
+          } else {
+            setAddOptions((o) => ({ ...o, clients: o.clients.slice(0, -1) }));
+          }
+          return;
+        }
+        if (input.length === 1 && !key.ctrl && !key.meta) {
+          if (opts.editingField === "name") {
+            setAddOptions((o) => ({ ...o, name: o.name + input }));
+          } else {
+            setAddOptions((o) => ({ ...o, clients: o.clients + input }));
+          }
+        }
+        return;
+      }
+
+      // Toggle/edit options
+      if (input === "h") {
+        setAddOptions((o) => ({ ...o, hardlink: !o.hardlink }));
+        return;
+      }
+      if (input === "f") {
+        setAddOptions((o) => ({ ...o, force: !o.force }));
+        return;
+      }
+      if (input === "n") {
+        setAddOptions((o) => ({ ...o, editingField: "name" }));
+        return;
+      }
+      if (input === "c") {
+        setAddOptions((o) => ({ ...o, editingField: "clients" }));
+        return;
+      }
+
+      // Confirm
+      if (key.return) {
+        const { source, global: isGlobal, hardlink, name, force, clients } = opts;
+        setActionMode(null);
+        (async () => {
+          const { add } = await import("../commands/add.js");
+          await add(source, {
+            global: isGlobal,
+            hardlink: hardlink || undefined,
+            name: name.trim() || undefined,
+            force: force || undefined,
+            clients: clients.trim() ? clients.split(",").map((s: string) => s.trim()).filter(Boolean) : undefined,
+          });
+          setSelectedIndex(0);
+          refresh();
+        })();
+        return;
+      }
+
+      if (key.escape) {
+        setActionMode(null);
       }
       return;
     }
@@ -283,6 +390,10 @@ export function App({ version }: AppProps) {
           setSearchQuery("");
           setSelectedIndex(0);
         }
+        if (key === "A") {
+          setShowAll((v) => !v);
+          setSelectedIndex(0);
+        }
       }
     },
   });
@@ -302,6 +413,16 @@ export function App({ version }: AppProps) {
           onAdd={() => { setActionMode({ type: "addInput" }); setAddSource(""); }}
           addSource={addSource}
           refreshKey={refreshKey}
+          showAll={showAll}
+          addOptions={addOptions}
+          onSave={(skillName) => {
+            (async () => {
+              const { save } = await import("../commands/save.js");
+              await save({ skillName });
+              setSelectedIndex(0);
+              refresh();
+            })();
+          }}
         />
       )}
       {activeTab === "Profiles" && (
