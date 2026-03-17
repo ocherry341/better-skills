@@ -9,7 +9,25 @@ permissions:
   contents: write
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Test
+        run: bun run test
+
   publish-npm:
+    needs: [test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,6 +51,7 @@ jobs:
         run: npm publish --access public -w packages/cli
 
   build-binaries:
+    needs: [test]
     strategy:
       matrix:
         include:
