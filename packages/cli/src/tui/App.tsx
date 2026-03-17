@@ -6,13 +6,26 @@ import { SkillsView } from "./components/SkillsView.js";
 import { ProfilesView } from "./components/ProfilesView.js";
 import { StoreView } from "./components/StoreView.js";
 import { ClientsView } from "./components/ClientsView.js";
+import {
+  getProfilesPath,
+  getActiveProfileFilePath,
+  getGlobalSkillsPath,
+  getStorePath,
+  getConfigPath,
+} from "../utils/paths.js";
 
-type ActionMode =
+export type ActionMode =
   | null
   | { type: "search" }
   | { type: "confirmDelete"; skillName: string; isGlobal: boolean }
   | { type: "confirmMove"; skillName: string; isGlobal: boolean }
-  | { type: "addInput" };
+  | { type: "addInput" }
+  | { type: "profileCreate" }
+  | { type: "profileDelete"; profileName: string }
+  | { type: "profileRename"; profileName: string }
+  | { type: "profileClone"; profileName: string }
+  | { type: "profileAddSkill"; profileName: string }
+  | { type: "profileRemoveSkill"; profileName: string };
 
 interface AppProps {
   version: string;
@@ -27,6 +40,7 @@ export function App({ version }: AppProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
   const [addSource, setAddSource] = useState("");
+  const [profileInput, setProfileInput] = useState("");
 
   const isModal = actionMode !== null;
   const isSearch = actionMode?.type === "search";

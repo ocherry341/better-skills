@@ -4,13 +4,7 @@ import { List, type ListItem } from "./List.js";
 import { DetailPane, type DetailField } from "./DetailPane.js";
 import { StatusBar, type Shortcut } from "./StatusBar.js";
 import { useSkills, type SkillDetail } from "../hooks/useSkills.js";
-
-type ActionMode =
-  | null
-  | { type: "search" }
-  | { type: "confirmDelete"; skillName: string; isGlobal: boolean }
-  | { type: "confirmMove"; skillName: string; isGlobal: boolean }
-  | { type: "addInput" };
+import { type ActionMode } from "../App.js";
 
 interface SkillsViewProps {
   focusPane: "left" | "right";
@@ -145,5 +139,3 @@ export function SkillsView({
     </Box>
   );
 }
-
-export type { ActionMode };
