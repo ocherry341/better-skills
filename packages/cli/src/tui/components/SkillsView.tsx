@@ -3,6 +3,8 @@ import { Box, Text, useInput } from "ink";
 import { List, type ListItem } from "./List.js";
 import { DetailPane, type DetailField } from "./DetailPane.js";
 import { StatusBar, type Shortcut } from "./StatusBar.js";
+import { Notification } from "./Notification.js";
+import type { NotificationState } from "../hooks/useNotification.js";
 import { useSkills, type SkillDetail } from "../hooks/useSkills.js";
 import { type ActionMode, type AddOptionsState } from "../App.js";
 
@@ -20,6 +22,7 @@ interface SkillsViewProps {
   refreshKey?: number;
   showAll?: boolean;
   addOptions?: AddOptionsState;
+  notification?: NotificationState | null;
 }
 
 export function SkillsView({
@@ -36,6 +39,7 @@ export function SkillsView({
   refreshKey = 0,
   showAll = false,
   addOptions,
+  notification = null,
 }: SkillsViewProps) {
   const { skills, loading } = useSkills(refreshKey, showAll);
 
@@ -100,6 +104,7 @@ export function SkillsView({
     { key: "s", label: "Save" },
     { key: "A", label: showAll ? "Active only" : "Show all" },
     { key: "/", label: "Search" },
+    { key: "?", label: "Help" },
     { key: "q", label: "Quit" },
   ];
 
@@ -177,6 +182,7 @@ export function SkillsView({
           focused={focusPane === "right"}
         />
       </Box>
+      <Notification notification={notification} />
       <StatusBar shortcuts={shortcuts} />
     </Box>
   );

@@ -2,6 +2,8 @@ import React from "react";
 import { Box, Text, useInput } from "ink";
 import { List, type ListItem } from "./List.js";
 import { StatusBar } from "./StatusBar.js";
+import { Notification } from "./Notification.js";
+import type { NotificationState } from "../hooks/useNotification.js";
 import { useClients } from "../hooks/useClients.js";
 
 interface ClientsViewProps {
@@ -9,9 +11,10 @@ interface ClientsViewProps {
   onEnableClient?: (clientId: string) => void;
   onDisableClient?: (clientId: string) => void;
   refreshKey?: number;
+  notification?: NotificationState | null;
 }
 
-export function ClientsView({ selectedIndex, onEnableClient, onDisableClient, refreshKey = 0 }: ClientsViewProps) {
+export function ClientsView({ selectedIndex, onEnableClient, onDisableClient, refreshKey = 0, notification = null }: ClientsViewProps) {
   const { clients, loading } = useClients(refreshKey);
   const selected = clients[selectedIndex];
 
@@ -38,9 +41,11 @@ export function ClientsView({ selectedIndex, onEnableClient, onDisableClient, re
       <Box flexGrow={1}>
         <List items={items} selectedIndex={selectedIndex} title="Clients" focused={true} />
       </Box>
+      <Notification notification={notification} />
       <StatusBar shortcuts={[
         { key: "a", label: "Enable" },
         { key: "d", label: "Disable" },
+        { key: "?", label: "Help" },
         { key: "q", label: "Quit" },
       ]} />
     </Box>

@@ -3,6 +3,8 @@ import { Box, Text, useInput } from "ink";
 import { List, type ListItem } from "./List.js";
 import { DetailPane, type DetailField } from "./DetailPane.js";
 import { StatusBar } from "./StatusBar.js";
+import { Notification } from "./Notification.js";
+import type { NotificationState } from "../hooks/useNotification.js";
 import { useProfiles } from "../hooks/useProfiles.js";
 import { type ActionMode } from "../App.js";
 
@@ -19,6 +21,7 @@ interface ProfilesViewProps {
   onCloneProfile?: (name: string) => void;
   onAddSkill?: (profileName: string) => void;
   onRemoveSkill?: (profileName: string) => void;
+  notification?: NotificationState | null;
 }
 
 export function ProfilesView({
@@ -34,6 +37,7 @@ export function ProfilesView({
   onCloneProfile,
   onAddSkill,
   onRemoveSkill,
+  notification = null,
 }: ProfilesViewProps) {
   const { profiles, loading } = useProfiles(refreshKey);
 
@@ -130,6 +134,7 @@ export function ProfilesView({
         <List items={items} selectedIndex={selectedIndex} title="Profiles" focused={focusPane === "left"} />
         <DetailPane fields={fields} content={skillList} contentTitle="Skills in profile" focused={focusPane === "right"} />
       </Box>
+      <Notification notification={notification} />
       <StatusBar shortcuts={[
         { key: "Enter", label: "Switch" },
         { key: "c", label: "Create" },
@@ -138,6 +143,7 @@ export function ProfilesView({
         { key: "C", label: "Clone" },
         { key: "a", label: "Add skill" },
         { key: "x", label: "Rm skill" },
+        { key: "?", label: "Help" },
         { key: "q", label: "Quit" },
       ]} />
     </Box>

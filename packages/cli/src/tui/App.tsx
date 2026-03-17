@@ -14,6 +14,7 @@ import {
   getConfigPath,
   getRegistryPath,
 } from "../utils/paths.js";
+import { useNotification } from "./hooks/useNotification.js";
 
 export interface AddOptionsState {
   source: string;
@@ -64,6 +65,7 @@ export function App({ version }: AppProps) {
     editingField: null,
   });
   const [profileInput, setProfileInput] = useState("");
+  const { notification, show: showNotification, clear: clearNotification } = useNotification();
 
   const isModal = actionMode !== null;
   const isSearch = actionMode?.type === "search";
@@ -408,6 +410,7 @@ export function App({ version }: AppProps) {
           filterQuery={searchQuery}
           searchMode={isSearch}
           actionMode={actionMode}
+          notification={notification}
           onDelete={(name, isGlobal) => setActionMode({ type: "confirmDelete", skillName: name, isGlobal })}
           onMove={(name, isGlobal) => setActionMode({ type: "confirmMove", skillName: name, isGlobal })}
           onAdd={() => { setActionMode({ type: "addInput" }); setAddSource(""); }}
@@ -432,6 +435,7 @@ export function App({ version }: AppProps) {
           refreshKey={refreshKey}
           actionMode={actionMode}
           profileInput={profileInput}
+          notification={notification}
           onSwitchProfile={(name) => {
             (async () => {
               const { profileUse } = await import("../commands/profile.js");
@@ -455,12 +459,13 @@ export function App({ version }: AppProps) {
         />
       )}
       {activeTab === "Store" && (
-        <StoreView selectedIndex={selectedIndex} />
+        <StoreView selectedIndex={selectedIndex} notification={notification} />
       )}
       {activeTab === "Clients" && (
         <ClientsView
           selectedIndex={selectedIndex}
           refreshKey={refreshKey}
+          notification={notification}
           onEnableClient={(clientId) => {
             (async () => {
               const { clientAdd } = await import("../commands/client.js");

@@ -1,13 +1,16 @@
 import React from "react";
 import { Box, Text, useInput } from "ink";
 import { StatusBar } from "./StatusBar.js";
+import { Notification } from "./Notification.js";
+import type { NotificationState } from "../hooks/useNotification.js";
 import { useStore } from "../hooks/useStore.js";
 
 interface StoreViewProps {
   selectedIndex: number;
+  notification?: NotificationState | null;
 }
 
-export function StoreView({ selectedIndex }: StoreViewProps) {
+export function StoreView({ selectedIndex, notification = null }: StoreViewProps) {
   const { result, loading, refresh } = useStore();
 
   useInput((input) => {
@@ -43,8 +46,10 @@ export function StoreView({ selectedIndex }: StoreViewProps) {
           <Text color="green" bold>All store entries healthy {"\u2713"}</Text>
         )}
       </Box>
+      <Notification notification={notification} />
       <StatusBar shortcuts={[
         { key: "v", label: "Re-verify" },
+        { key: "?", label: "Help" },
         { key: "q", label: "Quit" },
       ]} />
     </Box>
