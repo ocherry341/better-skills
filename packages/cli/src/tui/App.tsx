@@ -14,6 +14,7 @@ import {
   getConfigPath,
   getRegistryPath,
 } from "../utils/paths.js";
+import { HelpOverlay } from "./components/HelpOverlay.js";
 import { useNotification } from "./hooks/useNotification.js";
 
 export interface AddOptionsState {
@@ -34,6 +35,7 @@ export type ActionMode =
   | { type: "addInput" }
   | { type: "addScope"; source: string }
   | { type: "addOptions" }
+  | { type: "help" }
   | { type: "profileCreate" }
   | { type: "profileDelete"; profileName: string }
   | { type: "profileRename"; profileName: string }
@@ -100,6 +102,13 @@ export function App({ version }: AppProps) {
   // Modal input handler (search, confirmDelete, confirmMove)
   useInput((input, key) => {
     if (!isModal) return;
+
+    if (actionMode.type === "help") {
+      if (key.escape || input === "?") {
+        setActionMode(null);
+      }
+      return;
+    }
 
     if (actionMode.type === "search") {
       if (key.escape) {
@@ -395,6 +404,10 @@ export function App({ version }: AppProps) {
         switchTab(TABS[num - 1]);
         return;
       }
+      if (key === "?") {
+        setActionMode({ type: "help" });
+        return;
+      }
       if (activeTab === "Skills") {
         if (key === "/") {
           setActionMode({ type: "search" });
@@ -412,88 +425,94 @@ export function App({ version }: AppProps) {
   return (
     <Box flexDirection="column" width="100%" height="100%">
       <TabBar active={activeTab} version={version} />
-      {activeTab === "Skills" && (
-        <SkillsView
-          selectedIndex={selectedIndex}
-          focusPane={focusPane}
-          filterQuery={searchQuery}
-          searchMode={isSearch}
-          actionMode={actionMode}
-          notification={notification}
-          onDelete={(name, isGlobal) => setActionMode({ type: "confirmDelete", skillName: name, isGlobal })}
-          onMove={(name, isGlobal) => setActionMode({ type: "confirmMove", skillName: name, isGlobal })}
-          onAdd={() => { setActionMode({ type: "addInput" }); setAddSource(""); }}
-          addSource={addSource}
-          refreshKey={refreshKey}
-          showAll={showAll}
-          addOptions={addOptions}
-          onSave={(skillName) => {
-            runAction("Saving...", "Skill saved", async () => {
-              const { save } = await import("../commands/save.js");
-              await save({ skillName });
-            }, () => { setSelectedIndex(0); refresh(); });
-          }}
-        />
-      )}
-      {activeTab === "Profiles" && (
-        <ProfilesView
-          selectedIndex={selectedIndex}
-          focusPane={focusPane}
-          refreshKey={refreshKey}
-          actionMode={actionMode}
-          profileInput={profileInput}
-          notification={notification}
-          onSwitchProfile={(name) => {
-            runAction("Switching profile...", `Switched to ${name}`, async () => {
-              const { profileUse } = await import("../commands/profile.js");
-              await profileUse(name, {
-                profilesDir: getProfilesPath(),
-                activeFile: getActiveProfileFilePath(),
-                skillsDir: getGlobalSkillsPath(),
-                storePath: getStorePath(),
-                registryPath: getRegistryPath(),
-                configPath: getConfigPath(),
-              });
-            }, refresh);
-          }}
-          onCreateProfile={() => { setActionMode({ type: "profileCreate" }); setProfileInput(""); }}
-          onDeleteProfile={(name) => setActionMode({ type: "profileDelete", profileName: name })}
-          onRenameProfile={(name) => { setActionMode({ type: "profileRename", profileName: name }); setProfileInput(""); }}
-          onCloneProfile={(name) => { setActionMode({ type: "profileClone", profileName: name }); setProfileInput(""); }}
-          onAddSkill={(name) => { setActionMode({ type: "profileAddSkill", profileName: name }); setProfileInput(""); }}
-          onRemoveSkill={(name) => { setActionMode({ type: "profileRemoveSkill", profileName: name }); setProfileInput(""); }}
-        />
-      )}
-      {activeTab === "Store" && (
-        <StoreView selectedIndex={selectedIndex} notification={notification} />
-      )}
-      {activeTab === "Clients" && (
-        <ClientsView
-          selectedIndex={selectedIndex}
-          refreshKey={refreshKey}
-          notification={notification}
-          onEnableClient={(clientId) => {
-            runAction("Enabling client...", `${clientId} enabled`, async () => {
-              const { clientAdd } = await import("../commands/client.js");
-              await clientAdd([clientId], {
-                configPath: getConfigPath(),
-                registryPath: getRegistryPath(),
-                storePath: getStorePath(),
-                skillsDir: getGlobalSkillsPath(),
-              });
-            }, refresh);
-          }}
-          onDisableClient={(clientId) => {
-            runAction("Disabling client...", `${clientId} disabled`, async () => {
-              const { clientRm } = await import("../commands/client.js");
-              await clientRm([clientId], {
-                configPath: getConfigPath(),
-                registryPath: getRegistryPath(),
-                skillsDir: getGlobalSkillsPath(),
-              });
-            }, refresh);
-          }}
-        />
+      {actionMode?.type === "help" ? (
+        <HelpOverlay tab={activeTab} />
+      ) : (
+        <>
+          {activeTab === "Skills" && (
+            <SkillsView
+              selectedIndex={selectedIndex}
+              focusPane={focusPane}
+              filterQuery={searchQuery}
+              searchMode={isSearch}
+              actionMode={actionMode}
+              notification={notification}
+              onDelete={(name, isGlobal) => setActionMode({ type: "confirmDelete", skillName: name, isGlobal })}
+              onMove={(name, isGlobal) => setActionMode({ type: "confirmMove", skillName: name, isGlobal })}
+              onAdd={() => { setActionMode({ type: "addInput" }); setAddSource(""); }}
+              addSource={addSource}
+              refreshKey={refreshKey}
+              showAll={showAll}
+              addOptions={addOptions}
+              onSave={(skillName) => {
+                runAction("Saving...", "Skill saved", async () => {
+                  const { save } = await import("../commands/save.js");
+                  await save({ skillName });
+                }, () => { setSelectedIndex(0); refresh(); });
+              }}
+            />
+          )}
+          {activeTab === "Profiles" && (
+            <ProfilesView
+              selectedIndex={selectedIndex}
+              focusPane={focusPane}
+              refreshKey={refreshKey}
+              actionMode={actionMode}
+              profileInput={profileInput}
+              notification={notification}
+              onSwitchProfile={(name) => {
+                runAction("Switching profile...", `Switched to ${name}`, async () => {
+                  const { profileUse } = await import("../commands/profile.js");
+                  await profileUse(name, {
+                    profilesDir: getProfilesPath(),
+                    activeFile: getActiveProfileFilePath(),
+                    skillsDir: getGlobalSkillsPath(),
+                    storePath: getStorePath(),
+                    registryPath: getRegistryPath(),
+                    configPath: getConfigPath(),
+                  });
+                }, refresh);
+              }}
+              onCreateProfile={() => { setActionMode({ type: "profileCreate" }); setProfileInput(""); }}
+              onDeleteProfile={(name) => setActionMode({ type: "profileDelete", profileName: name })}
+              onRenameProfile={(name) => { setActionMode({ type: "profileRename", profileName: name }); setProfileInput(""); }}
+              onCloneProfile={(name) => { setActionMode({ type: "profileClone", profileName: name }); setProfileInput(""); }}
+              onAddSkill={(name) => { setActionMode({ type: "profileAddSkill", profileName: name }); setProfileInput(""); }}
+              onRemoveSkill={(name) => { setActionMode({ type: "profileRemoveSkill", profileName: name }); setProfileInput(""); }}
+            />
+          )}
+          {activeTab === "Store" && (
+            <StoreView selectedIndex={selectedIndex} notification={notification} />
+          )}
+          {activeTab === "Clients" && (
+            <ClientsView
+              selectedIndex={selectedIndex}
+              refreshKey={refreshKey}
+              notification={notification}
+              onEnableClient={(clientId) => {
+                runAction("Enabling client...", `${clientId} enabled`, async () => {
+                  const { clientAdd } = await import("../commands/client.js");
+                  await clientAdd([clientId], {
+                    configPath: getConfigPath(),
+                    registryPath: getRegistryPath(),
+                    storePath: getStorePath(),
+                    skillsDir: getGlobalSkillsPath(),
+                  });
+                }, refresh);
+              }}
+              onDisableClient={(clientId) => {
+                runAction("Disabling client...", `${clientId} disabled`, async () => {
+                  const { clientRm } = await import("../commands/client.js");
+                  await clientRm([clientId], {
+                    configPath: getConfigPath(),
+                    registryPath: getRegistryPath(),
+                    skillsDir: getGlobalSkillsPath(),
+                  });
+                }, refresh);
+              }}
+            />
+          )}
+        </>
       )}
     </Box>
   );
