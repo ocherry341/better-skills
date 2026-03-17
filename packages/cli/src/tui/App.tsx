@@ -208,6 +208,7 @@ export function App({ version }: AppProps) {
               skillsDir,
               storePath: getStorePath(),
               profileName: mode.profileName,
+              registryPath: getRegistryPath(),
               configPath: getConfigPath(),
             });
           } else if (mode.type === "profileRemoveSkill") {
@@ -216,6 +217,7 @@ export function App({ version }: AppProps) {
               activeFile,
               skillsDir,
               profileName: mode.profileName,
+              registryPath: getRegistryPath(),
               configPath: getConfigPath(),
             });
           }
