@@ -1,14 +1,15 @@
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect, mock } from "bun:test";
 import { homedir } from "os";
 import { join } from "path";
 
 const HOME = homedir();
 
-// Import the real source file directly to avoid mock.module pollution from other test files.
-// Bun's mock.module is process-global, so importing via the .ts source path
-// sidesteps any mocks registered against the .js path.
-const { getProfilesPath, getProfilePath, getActiveProfileFilePath } =
-  await import("../src/utils/paths.ts");
+// Override any leaked mock.module from other test files (e.g. rm-throw.test.ts)
+// by re-pointing the .js mock back to the real implementation.
+const real = await import("../src/utils/paths.ts");
+mock.module("../src/utils/paths.js", () => real);
+
+const { getProfilesPath, getProfilePath, getActiveProfileFilePath } = real;
 
 describe("profile paths", () => {
   test("getProfilesPath returns ~/.better-skills/profiles", () => {
