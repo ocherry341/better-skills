@@ -37,10 +37,10 @@ describe("add -g conflict detection", () => {
 
   test("new skill: links and registers without issue", async () => {
     const hash = await hashDirectory(localSkillDir);
-    await store.store(hash, localSkillDir);
+    await store.store(hash, localSkillDir, storeDir);
 
     const targetDir = join(skillsDir, "my-skill");
-    await linkSkill(store.getHashPath(hash), targetDir);
+    await linkSkill(join(storeDir, hash), targetDir);
     await mkdir(join(storeDir, hash), { recursive: true });
     await registerSkill("my-skill", hash, "local:/path", registryPath, storeDir);
 
@@ -58,22 +58,22 @@ describe("add -g conflict detection", () => {
   test("managed overwrite: silently overwrites and updates registry", async () => {
     // First add
     const hash1 = await hashDirectory(localSkillDir);
-    await store.store(hash1, localSkillDir);
+    await store.store(hash1, localSkillDir, storeDir);
     const targetDir = join(skillsDir, "my-skill");
-    await linkSkill(store.getHashPath(hash1), targetDir);
+    await linkSkill(join(storeDir, hash1), targetDir);
     await mkdir(join(storeDir, hash1), { recursive: true });
     await registerSkill("my-skill", hash1, "local:/path1", registryPath, storeDir);
 
     // Modify skill content
     await writeFile(join(localSkillDir, "extra.txt"), "new content");
     const hash2 = await hashDirectory(localSkillDir);
-    await store.store(hash2, localSkillDir);
+    await store.store(hash2, localSkillDir, storeDir);
 
     // isManaged should return true — safe to overwrite
     expect(await isManaged("my-skill", registryPath)).toBe(true);
 
     // Overwrite
-    await linkSkill(store.getHashPath(hash2), targetDir);
+    await linkSkill(join(storeDir, hash2), targetDir);
     await mkdir(join(storeDir, hash2), { recursive: true });
     await registerSkill("my-skill", hash2, "local:/path2", registryPath, storeDir);
 
@@ -116,8 +116,8 @@ describe("add -g conflict detection", () => {
 
     // With --force, overwrite + register
     const hash = await hashDirectory(localSkillDir);
-    await store.store(hash, localSkillDir);
-    await linkSkill(store.getHashPath(hash), unmanagedDir);
+    await store.store(hash, localSkillDir, storeDir);
+    await linkSkill(join(storeDir, hash), unmanagedDir);
     await mkdir(join(storeDir, hash), { recursive: true });
     await registerSkill("my-skill", hash, "local:/path", registryPath, storeDir);
 
@@ -194,6 +194,7 @@ describe("profile use preserves unmanaged skills", () => {
       skillsDir,
       storePath: storeBase,
       registryPath,
+      configPath: join(baseDir, "config.json"),
     });
 
     const entries = (await readdir(skillsDir)).sort();

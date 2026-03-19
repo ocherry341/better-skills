@@ -1,12 +1,18 @@
-import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { describe, test, expect, beforeEach, afterEach, mock } from "bun:test";
 import { mkdtemp, rm, mkdir, writeFile, readFile, readdir } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
-import { save } from "../src/commands/save.js";
 import { readRegistry, registerSkill } from "../src/core/registry.js";
 import { readProfile, writeProfile, setActiveProfileName, getActiveProfileName } from "../src/core/profile.js";
 import { hashDirectory } from "../src/core/hasher.js";
 import * as store from "../src/core/store.js";
+
+// Mock clients module so save() doesn't sync to real ~/.claude/skills/
+mock.module("../src/core/clients.js", () => ({
+  resolveClientDirs: async () => [],
+}));
+
+const { save } = await import("../src/commands/save.js");
 
 describe("save command", () => {
   let baseDir: string;

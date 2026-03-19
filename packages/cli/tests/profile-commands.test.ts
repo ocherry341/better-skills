@@ -202,6 +202,7 @@ describe("profile use", () => {
       skillsDir,
       storePath,
       registryPath,
+      configPath: join(baseDir, "config.json"),
     });
 
     // old-skill should be gone, test-skill should be present
@@ -255,12 +256,14 @@ describe("profile use", () => {
     await profileUse("alpha", {
       profilesDir, activeFile, skillsDir,
       storePath, registryPath,
+      configPath: join(baseDir, "config.json"),
     });
 
     // Switch to beta
     await profileUse("beta", {
       profilesDir, activeFile, skillsDir,
       storePath, registryPath,
+      configPath: join(baseDir, "config.json"),
     });
 
     // Registry should contain BOTH skills (lockfile behavior)
@@ -276,6 +279,7 @@ describe("profile use", () => {
         activeFile,
         skillsDir,
         storePath: join(baseDir, "store"),
+        configPath: join(baseDir, "config.json"),
       })
     ).rejects.toThrow();
   });
@@ -296,6 +300,7 @@ describe("profile use", () => {
       activeFile,
       skillsDir,
       storePath: join(baseDir, "store"),
+      configPath: join(baseDir, "config.json"),
     });
 
     // Skills dir should be empty (the ghost skill wasn't linked)
@@ -583,6 +588,7 @@ describe("profile add", () => {
       activeFile,
       skillsDir,
       storePath,
+      configPath: join(baseDir, "config.json"),
     });
 
     // Profile should have the skill
@@ -609,6 +615,7 @@ describe("profile add", () => {
       skillsDir,
       storePath,
       profileName: "work",
+      configPath: join(baseDir, "config.json"),
     });
 
     // Work profile should have the skill
@@ -636,6 +643,7 @@ describe("profile add", () => {
       activeFile,
       skillsDir,
       storePath,
+      configPath: join(baseDir, "config.json"),
     });
 
     const updated = await readProfile(join(profilesDir, "dev.json"));
@@ -650,6 +658,7 @@ describe("profile add", () => {
         activeFile,
         skillsDir,
         storePath,
+        configPath: join(baseDir, "config.json"),
       })
     ).rejects.toThrow(/No active profile/);
   });
@@ -662,6 +671,7 @@ describe("profile add", () => {
         skillsDir,
         storePath,
         profileName: "nonexistent",
+        configPath: join(baseDir, "config.json"),
       })
     ).rejects.toThrow();
   });
@@ -677,6 +687,7 @@ describe("profile add", () => {
       skillsDir,
       storePath,
       name: "custom-name",
+      configPath: join(baseDir, "config.json"),
     });
 
     const updated = await readProfile(join(profilesDir, "dev.json"));
@@ -710,6 +721,7 @@ describe("profile add", () => {
     await profileAdd("my-skill", {
       profilesDir, activeFile, skillsDir, storePath,
       registryPath,
+      configPath: join(baseDir, "config.json"),
     });
 
     const updated = await readProfile(join(profilesDir, "dev.json"));
@@ -742,6 +754,7 @@ describe("profile add", () => {
     await profileAdd("my-skill@v1", {
       profilesDir, activeFile, skillsDir, storePath,
       registryPath,
+      configPath: join(baseDir, "config.json"),
     });
 
     const updated = await readProfile(join(profilesDir, "dev.json"));
@@ -774,6 +787,7 @@ describe("profile add", () => {
     await profileAdd("my-skill@previous", {
       profilesDir, activeFile, skillsDir, storePath,
       registryPath,
+      configPath: join(baseDir, "config.json"),
     });
 
     const updated = await readProfile(join(profilesDir, "dev.json"));
@@ -820,6 +834,7 @@ describe("profile rm", () => {
       profilesDir,
       activeFile,
       skillsDir,
+      configPath: join(baseDir, "config.json"),
     });
 
     // Profile should have only debugging
@@ -849,6 +864,7 @@ describe("profile rm", () => {
       activeFile,
       skillsDir,
       profileName: "work",
+      configPath: join(baseDir, "config.json"),
     });
 
     // Work profile should be empty
@@ -866,6 +882,7 @@ describe("profile rm", () => {
         profilesDir,
         activeFile,
         skillsDir,
+        configPath: join(baseDir, "config.json"),
       })
     ).rejects.toThrow(/not found in profile/);
   });
@@ -876,6 +893,7 @@ describe("profile rm", () => {
         profilesDir,
         activeFile,
         skillsDir,
+        configPath: join(baseDir, "config.json"),
       })
     ).rejects.toThrow(/No active profile/);
   });
@@ -887,6 +905,7 @@ describe("profile rm", () => {
         activeFile,
         skillsDir,
         profileName: "nonexistent",
+        configPath: join(baseDir, "config.json"),
       })
     ).rejects.toThrow();
   });
@@ -917,6 +936,7 @@ describe("profile rm", () => {
 
     await profileRm("brainstorming", {
       profilesDir, activeFile, skillsDir, registryPath,
+      configPath: join(baseDir, "config.json"),
     });
 
     // Registry should still have the entry
@@ -939,6 +959,7 @@ describe("profile rm", () => {
       profilesDir,
       activeFile,
       skillsDir,
+      configPath: join(baseDir, "config.json"),
     });
 
     const updated = await readProfile(join(profilesDir, "dev.json"));
