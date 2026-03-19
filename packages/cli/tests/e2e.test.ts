@@ -9,10 +9,12 @@ import { linkSkill, unlinkSkill } from "../src/core/linker.js";
 describe("e2e: store → link flow", () => {
   let skillDir: string;
   let targetDir: string;
+  let storeDir: string;
 
   beforeEach(async () => {
     skillDir = await mkdtemp(join(tmpdir(), "e2e-skill-"));
     targetDir = await mkdtemp(join(tmpdir(), "e2e-target-"));
+    storeDir = await mkdtemp(join(tmpdir(), "e2e-store-"));
 
     // Create a test skill
     await writeFile(
@@ -31,6 +33,7 @@ This is a test.`
   afterEach(async () => {
     await rm(skillDir, { recursive: true, force: true });
     await rm(targetDir, { recursive: true, force: true });
+    await rm(storeDir, { recursive: true, force: true });
   });
 
   test("hash → store → link → verify", async () => {
@@ -38,9 +41,10 @@ This is a test.`
     const hash = await hashDirectory(skillDir);
     expect(hash).toMatch(/^[0-9a-f]{64}$/);
 
-    // Store
-    const storePath = await store.store(hash, skillDir);
-    expect(await store.has(hash)).toBe(true);
+    // Store (use temp storeDir to avoid polluting real home)
+    const storePath = await store.store(hash, skillDir, storeDir);
+    const s = await stat(storePath);
+    expect(s.isDirectory()).toBe(true);
 
     // Link (copy is now the default)
     const linkedDir = join(targetDir, "test-skill");
