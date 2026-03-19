@@ -21,20 +21,23 @@ export function List({ items, selectedIndex, title, focused = true }: ListProps)
         <Text bold>{title} ({items.length})</Text>
       )}
       {items.length === 0 && <Text dimColor>(empty)</Text>}
-      {items.map((item, i) => {
-        const isSelected = i === selectedIndex;
-        return (
-          <Text
-            key={item.key}
-            inverse={isSelected && focused}
-            dimColor={isSelected && !focused}
-          >
-            {isSelected ? "\u25B8 " : "  "}
-            {item.label}
-            {item.markers ? `  ${item.markers}` : ""}
-          </Text>
-        );
-      })}
+      {(() => {
+        const maxLabelLen = items.reduce((max, item) => Math.max(max, item.label.length), 0);
+        return items.map((item, i) => {
+          const isSelected = i === selectedIndex;
+          return (
+            <Text
+              key={item.key}
+              inverse={isSelected && focused}
+              dimColor={isSelected && !focused}
+            >
+              {isSelected ? "\u25B8 " : "  "}
+              {item.label.padEnd(maxLabelLen)}
+              {item.markers ? `  ${item.markers}` : ""}
+            </Text>
+          );
+        });
+      })()}
     </Box>
   );
 }

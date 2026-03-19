@@ -6,7 +6,7 @@ import { StatusBar, type Shortcut } from "./StatusBar.js";
 import { Notification } from "./Notification.js";
 import type { NotificationState } from "../hooks/useNotification.js";
 import { useSkills, type SkillDetail } from "../hooks/useSkills.js";
-import { type ActionMode, type AddOptionsState } from "../App.js";
+import { type ActionMode } from "../App.js";
 
 interface SkillsViewProps {
   focusPane: "left" | "right";
@@ -14,14 +14,13 @@ interface SkillsViewProps {
   filterQuery?: string;
   searchMode?: boolean;
   actionMode?: ActionMode;
-  onDelete?: (name: string, isGlobal: boolean) => void;
+  onDelete?: (name: string, isGlobal: boolean, isProject: boolean) => void;
   onMove?: (name: string, isGlobal: boolean) => void;
   onAdd?: () => void;
   onSave?: (skillName?: string) => void;
   addSource?: string;
   refreshKey?: number;
   showAll?: boolean;
-  addOptions?: AddOptionsState;
   notification?: NotificationState | null;
 }
 
@@ -38,7 +37,6 @@ export function SkillsView({
   addSource = "",
   refreshKey = 0,
   showAll = false,
-  addOptions,
   notification = null,
 }: SkillsViewProps) {
   const { skills, loading } = useSkills(refreshKey, showAll);
@@ -63,7 +61,7 @@ export function SkillsView({
     }
     if (!selected) return;
     if (input === "d" && onDelete) {
-      onDelete(selected.name, selected.global);
+      onDelete(selected.name, selected.global, selected.project);
     }
     if (input === "m" && onMove) {
       onMove(selected.name, selected.global);
@@ -80,9 +78,7 @@ export function SkillsView({
   const items: ListItem[] = filteredSkills.map((s) => {
     const scope = s.inactive
       ? "inactive"
-      : [s.global ? "G" : "", s.project ? "P" : ""]
-          .filter(Boolean)
-          .join(" ");
+      : `${s.global ? "G" : " "} ${s.project ? "P" : " "}`;
     return { key: s.name, label: s.name, markers: scope };
   });
 
@@ -126,7 +122,20 @@ export function SkillsView({
       )}
       {actionMode?.type === "confirmDelete" && (
         <Box paddingX={1}>
-          <Text bold color="red">Delete {actionMode.skillName}? (y/n)</Text>
+          <Text bold color="red">
+            {actionMode.deleteBoth
+              ? `Delete "${actionMode.skillName}" from both global and project? This will remove from registry and all profiles. (y/n)`
+              : actionMode.isGlobal
+                ? `Delete "${actionMode.skillName}" from global? This will also remove from registry and all profiles. (y/n)`
+                : `Delete "${actionMode.skillName}" from project? (y/n)`}
+          </Text>
+        </Box>
+      )}
+      {actionMode?.type === "confirmDeleteScope" && (
+        <Box paddingX={1}>
+          <Text bold color="red">
+            Delete "{actionMode.skillName}" from (g)lobal, (p)roject, or (b)oth?  Esc to cancel
+          </Text>
         </Box>
       )}
       {actionMode?.type === "confirmMove" && (
@@ -146,26 +155,6 @@ export function SkillsView({
       {actionMode?.type === "addScope" && (
         <Box paddingX={1}>
           <Text bold color="blue">Add "{actionMode.source}" to (g)lobal or (p)roject?  Esc to cancel</Text>
-        </Box>
-      )}
-      {actionMode?.type === "addOptions" && addOptions && (
-        <Box flexDirection="column" paddingX={1}>
-          <Text bold color="cyan">
-            Add "{addOptions.source}" → {addOptions.global ? "global" : "project"}
-          </Text>
-          <Text>
-            <Text bold color="yellow">[h]</Text>
-            <Text> Hardlink: {addOptions.hardlink ? "on" : "off"}  </Text>
-            <Text bold color="yellow">[n]</Text>
-            <Text> Name: {addOptions.editingField === "name" ? addOptions.name + "_" : addOptions.name || "(auto)"}  </Text>
-          </Text>
-          <Text>
-            <Text bold color="yellow">[f]</Text>
-            <Text> Force: {addOptions.force ? "on" : "off"}  </Text>
-            <Text bold color="yellow">[c]</Text>
-            <Text> Clients: {addOptions.editingField === "clients" ? addOptions.clients + "_" : addOptions.clients || "(default)"}  </Text>
-          </Text>
-          <Text dimColor>Enter: confirm  Esc: cancel</Text>
         </Box>
       )}
       <Box flexGrow={1}>

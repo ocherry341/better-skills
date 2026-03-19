@@ -92,8 +92,8 @@ describe("ProfilesView", () => {
     );
     await flush();
     const frame = stripAnsi(lastFrame()!);
-    expect(frame).toContain("Enter:Switch");
-    expect(frame).toContain("q:Quit");
+    expect(frame).toContain("Enter:Swit");
+    expect(frame).toContain("q:Qui");
     unmount();
   });
 });

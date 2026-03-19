@@ -17,31 +17,22 @@ import {
 import { HelpOverlay } from "./components/HelpOverlay.js";
 import { useNotification } from "./hooks/useNotification.js";
 
-export interface AddOptionsState {
-  source: string;
-  global: boolean;
-  hardlink: boolean;
-  name: string;
-  force: boolean;
-  clients: string;
-  editingField: "name" | "clients" | null;
-}
-
 export type ActionMode =
   | null
   | { type: "search" }
-  | { type: "confirmDelete"; skillName: string; isGlobal: boolean }
+  | { type: "confirmDelete"; skillName: string; isGlobal: boolean; deleteBoth?: boolean }
+  | { type: "confirmDeleteScope"; skillName: string }
   | { type: "confirmMove"; skillName: string; isGlobal: boolean }
   | { type: "addInput" }
   | { type: "addScope"; source: string }
-  | { type: "addOptions" }
   | { type: "help" }
   | { type: "profileCreate" }
   | { type: "profileDelete"; profileName: string }
   | { type: "profileRename"; profileName: string }
   | { type: "profileClone"; profileName: string }
-  | { type: "profileAddSkill"; profileName: string }
-  | { type: "profileRemoveSkill"; profileName: string };
+  | { type: "profileRemoveSkillList"; profileName: string; skills: string[] }
+  | { type: "profileAddSkillList"; profileName: string; registrySkills: string[]; manualInput: boolean }
+  | { type: "profileSwitchVersion"; profileName: string; skillName: string; versions: { v: number; hash: string; source: string }[]; currentV: number };
 
 interface AppProps {
   version: string;
@@ -57,16 +48,8 @@ export function App({ version }: AppProps) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [addSource, setAddSource] = useState("");
   const [showAll, setShowAll] = useState(false);
-  const [addOptions, setAddOptions] = useState<AddOptionsState>({
-    source: "",
-    global: true,
-    hardlink: false,
-    name: "",
-    force: false,
-    clients: "",
-    editingField: null,
-  });
   const [profileInput, setProfileInput] = useState("");
+  const [modalListIndex, setModalListIndex] = useState(0);
   const { notification, show: showNotification, clear: clearNotification } = useNotification();
 
   const isModal = actionMode !== null;
@@ -126,7 +109,7 @@ export function App({ version }: AppProps) {
         setSelectedIndex(0);
         return;
       }
-      if (input.length === 1 && !key.ctrl && !key.meta) {
+      if (input && !key.ctrl && !key.meta) {
         setSearchQuery((q) => q + input);
         setSelectedIndex(0);
       }
@@ -135,16 +118,40 @@ export function App({ version }: AppProps) {
 
     if (actionMode.type === "confirmDelete") {
       if (input === "y" || input === "Y") {
-        const { skillName, isGlobal } = actionMode;
+        const { skillName, isGlobal, deleteBoth } = actionMode;
         setActionMode(null);
         setSelectedIndex(0);
         runAction("Deleting skill...", "Skill deleted", async () => {
           const { rm } = await import("../commands/rm.js");
-          await rm(skillName, { global: isGlobal });
+          if (deleteBoth) {
+            await rm(skillName, { global: true });
+            await rm(skillName, { global: false });
+          } else {
+            await rm(skillName, { global: isGlobal });
+          }
         }, refresh);
         return;
       }
       if (input === "n" || input === "N" || key.escape) {
+        setActionMode(null);
+      }
+      return;
+    }
+
+    if (actionMode.type === "confirmDeleteScope") {
+      if (input === "g" || input === "G") {
+        setActionMode({ type: "confirmDelete", skillName: actionMode.skillName, isGlobal: true });
+        return;
+      }
+      if (input === "p" || input === "P") {
+        setActionMode({ type: "confirmDelete", skillName: actionMode.skillName, isGlobal: false });
+        return;
+      }
+      if (input === "b" || input === "B") {
+        setActionMode({ type: "confirmDelete", skillName: actionMode.skillName, isGlobal: true, deleteBoth: true });
+        return;
+      }
+      if (key.escape) {
         setActionMode(null);
       }
       return;
@@ -193,7 +200,7 @@ export function App({ version }: AppProps) {
         setAddSource((s) => s.slice(0, -1));
         return;
       }
-      if (input.length === 1 && !key.ctrl && !key.meta) {
+      if (input && !key.ctrl && !key.meta) {
         setAddSource((s) => s + input);
       }
       return;
@@ -201,100 +208,34 @@ export function App({ version }: AppProps) {
 
     if (actionMode.type === "addScope") {
       if (input === "g" || input === "G") {
-        setAddOptions((o) => ({ ...o, source: actionMode.source, global: true, hardlink: false, name: "", force: false, clients: "", editingField: null }));
-        setActionMode({ type: "addOptions" });
-        return;
-      }
-      if (input === "p" || input === "P") {
-        setAddOptions((o) => ({ ...o, source: actionMode.source, global: false, hardlink: false, name: "", force: false, clients: "", editingField: null }));
-        setActionMode({ type: "addOptions" });
-        return;
-      }
-      if (key.escape) {
-        setActionMode(null);
-      }
-      return;
-    }
-
-    if (actionMode.type === "addOptions") {
-      const opts = addOptions;
-
-      // If editing a text field, handle text input
-      if (opts.editingField) {
-        if (key.escape) {
-          setAddOptions((o) => ({ ...o, editingField: null }));
-          return;
-        }
-        if (key.return) {
-          setAddOptions((o) => ({ ...o, editingField: null }));
-          return;
-        }
-        if (key.backspace || key.delete) {
-          if (opts.editingField === "name") {
-            setAddOptions((o) => ({ ...o, name: o.name.slice(0, -1) }));
-          } else {
-            setAddOptions((o) => ({ ...o, clients: o.clients.slice(0, -1) }));
-          }
-          return;
-        }
-        if (input.length === 1 && !key.ctrl && !key.meta) {
-          if (opts.editingField === "name") {
-            setAddOptions((o) => ({ ...o, name: o.name + input }));
-          } else {
-            setAddOptions((o) => ({ ...o, clients: o.clients + input }));
-          }
-        }
-        return;
-      }
-
-      // Toggle/edit options
-      if (input === "h") {
-        setAddOptions((o) => ({ ...o, hardlink: !o.hardlink }));
-        return;
-      }
-      if (input === "f") {
-        setAddOptions((o) => ({ ...o, force: !o.force }));
-        return;
-      }
-      if (input === "n") {
-        setAddOptions((o) => ({ ...o, editingField: "name" }));
-        return;
-      }
-      if (input === "c") {
-        setAddOptions((o) => ({ ...o, editingField: "clients" }));
-        return;
-      }
-
-      // Confirm
-      if (key.return) {
-        const { source, global: isGlobal, hardlink, name, force, clients } = opts;
+        const source = actionMode.source;
         setActionMode(null);
         runAction("Adding skill...", "Skill added", async () => {
           const { add } = await import("../commands/add.js");
-          await add(source, {
-            global: isGlobal,
-            hardlink: hardlink || undefined,
-            name: name.trim() || undefined,
-            force: force || undefined,
-            clients: clients.trim() ? clients.split(",").map((s: string) => s.trim()).filter(Boolean) : undefined,
-          });
+          await add(source, { global: true });
         }, () => { setSelectedIndex(0); refresh(); });
         return;
       }
-
+      if (input === "p" || input === "P") {
+        const source = actionMode.source;
+        setActionMode(null);
+        runAction("Adding skill...", "Skill added", async () => {
+          const { add } = await import("../commands/add.js");
+          await add(source, { global: false });
+        }, () => { setSelectedIndex(0); refresh(); });
+        return;
+      }
       if (key.escape) {
         setActionMode(null);
       }
       return;
     }
 
-    // Profile text-input modals: create, rename, clone, addSkill, removeSkill
+    // Profile text-input modals: create, rename, clone
     if (
       actionMode.type === "profileCreate" ||
       actionMode.type === "profileRename" ||
-      actionMode.type === "profileClone" ||
-      actionMode.type === "profileAddSkill" ||
-      actionMode.type === "profileRemoveSkill"
+      actionMode.type === "profileClone"
     ) {
       if (key.escape) {
         setActionMode(null);
@@ -311,8 +252,6 @@ export function App({ version }: AppProps) {
             profileCreate: createProfile,
             profileRename: renameProfile,
             profileClone: cloneProfile,
-            profileAdd: addToProfile,
-            profileRm: rmFromProfile,
           } = await import("../commands/profile.js");
           const profilesDir = getProfilesPath();
           const activeFile = getActiveProfileFilePath();
@@ -332,25 +271,6 @@ export function App({ version }: AppProps) {
             await cloneProfile(mode.profileName, value, {
               profilesDir,
             });
-          } else if (mode.type === "profileAddSkill") {
-            await addToProfile(value, {
-              profilesDir,
-              activeFile,
-              skillsDir,
-              storePath: getStorePath(),
-              profileName: mode.profileName,
-              registryPath: getRegistryPath(),
-              configPath: getConfigPath(),
-            });
-          } else if (mode.type === "profileRemoveSkill") {
-            await rmFromProfile(value, {
-              profilesDir,
-              activeFile,
-              skillsDir,
-              profileName: mode.profileName,
-              registryPath: getRegistryPath(),
-              configPath: getConfigPath(),
-            });
           }
         }, () => { setSelectedIndex(0); refresh(); });
         return;
@@ -359,8 +279,175 @@ export function App({ version }: AppProps) {
         setProfileInput((s) => s.slice(0, -1));
         return;
       }
-      if (input.length === 1 && !key.ctrl && !key.meta) {
+      if (input && !key.ctrl && !key.meta) {
         setProfileInput((s) => s + input);
+      }
+      return;
+    }
+
+    // Profile list-based remove skill modal
+    if (actionMode.type === "profileRemoveSkillList") {
+      if (key.escape) {
+        setActionMode(null);
+        setModalListIndex(0);
+        return;
+      }
+      if (input === "j") {
+        setModalListIndex((i) => Math.min(i + 1, actionMode.skills.length - 1));
+        return;
+      }
+      if (input === "k") {
+        setModalListIndex((i) => Math.max(0, i - 1));
+        return;
+      }
+      if (key.return && actionMode.skills.length > 0) {
+        const skillName = actionMode.skills[modalListIndex];
+        const profileName = actionMode.profileName;
+        setActionMode(null);
+        setModalListIndex(0);
+        runAction("Removing skill...", "Skill removed", async () => {
+          const { profileRm: rmFromProfile } = await import("../commands/profile.js");
+          await rmFromProfile(skillName, {
+            profilesDir: getProfilesPath(),
+            activeFile: getActiveProfileFilePath(),
+            skillsDir: getGlobalSkillsPath(),
+            profileName,
+            registryPath: getRegistryPath(),
+            configPath: getConfigPath(),
+          });
+        }, () => { setSelectedIndex(0); refresh(); });
+        return;
+      }
+      return;
+    }
+
+    // Profile list-based add skill modal
+    if (actionMode.type === "profileAddSkillList") {
+      // Manual input sub-mode: type a source string
+      if (actionMode.manualInput) {
+        if (key.escape) {
+          // Escape from manual input goes back to list (or closes if list is empty)
+          if (actionMode.registrySkills.length > 0) {
+            setActionMode({ ...actionMode, manualInput: false });
+            setProfileInput("");
+          } else {
+            setActionMode(null);
+            setProfileInput("");
+            setModalListIndex(0);
+          }
+          return;
+        }
+        if (key.return && profileInput.trim()) {
+          const value = profileInput.trim();
+          const profileName = actionMode.profileName;
+          setActionMode(null);
+          setProfileInput("");
+          setModalListIndex(0);
+          runAction("Adding skill...", "Skill added", async () => {
+            const { profileAdd: addToProfile } = await import("../commands/profile.js");
+            await addToProfile(value, {
+              profilesDir: getProfilesPath(),
+              activeFile: getActiveProfileFilePath(),
+              skillsDir: getGlobalSkillsPath(),
+              storePath: getStorePath(),
+              profileName,
+              registryPath: getRegistryPath(),
+              configPath: getConfigPath(),
+            });
+          }, () => { setSelectedIndex(0); refresh(); });
+          return;
+        }
+        if (key.backspace || key.delete) {
+          setProfileInput((s) => s.slice(0, -1));
+          return;
+        }
+        if (input && !key.ctrl && !key.meta) {
+          setProfileInput((s) => s + input);
+        }
+        return;
+      }
+
+      // List selection sub-mode
+      if (key.escape) {
+        setActionMode(null);
+        setModalListIndex(0);
+        return;
+      }
+      if (input === "/") {
+        setActionMode({ ...actionMode, manualInput: true });
+        setProfileInput("");
+        return;
+      }
+      if (input === "j") {
+        setModalListIndex((i) => Math.min(i + 1, actionMode.registrySkills.length - 1));
+        return;
+      }
+      if (input === "k") {
+        setModalListIndex((i) => Math.max(0, i - 1));
+        return;
+      }
+      if (key.return && actionMode.registrySkills.length > 0) {
+        const skillName = actionMode.registrySkills[modalListIndex];
+        const profileName = actionMode.profileName;
+        setActionMode(null);
+        setModalListIndex(0);
+        runAction("Adding skill...", "Skill added", async () => {
+          const { profileAdd: addToProfile } = await import("../commands/profile.js");
+          await addToProfile(skillName, {
+            profilesDir: getProfilesPath(),
+            activeFile: getActiveProfileFilePath(),
+            skillsDir: getGlobalSkillsPath(),
+            storePath: getStorePath(),
+            profileName,
+            registryPath: getRegistryPath(),
+            configPath: getConfigPath(),
+          });
+        }, () => { setSelectedIndex(0); refresh(); });
+        return;
+      }
+      return;
+    }
+
+    // Profile version switch modal
+    if (actionMode.type === "profileSwitchVersion") {
+      if (key.escape) {
+        setActionMode(null);
+        setModalListIndex(0);
+        return;
+      }
+      if (input === "j") {
+        setModalListIndex((i) => Math.min(i + 1, actionMode.versions.length - 1));
+        return;
+      }
+      if (input === "k") {
+        setModalListIndex((i) => Math.max(0, i - 1));
+        return;
+      }
+      if (key.return && actionMode.versions.length > 0) {
+        const sorted = [...actionMode.versions].sort((a, b) => b.v - a.v);
+        const version = sorted[modalListIndex];
+        if (version.v === actionMode.currentV) {
+          // Already on this version, just close
+          setActionMode(null);
+          setModalListIndex(0);
+          return;
+        }
+        const { profileName, skillName } = actionMode;
+        setActionMode(null);
+        setModalListIndex(0);
+        runAction("Switching version...", `Switched ${skillName} to v${version.v}`, async () => {
+          const { profileAdd: addToProfile } = await import("../commands/profile.js");
+          await addToProfile(`${skillName}@v${version.v}`, {
+            profilesDir: getProfilesPath(),
+            activeFile: getActiveProfileFilePath(),
+            skillsDir: getGlobalSkillsPath(),
+            storePath: getStorePath(),
+            profileName,
+            registryPath: getRegistryPath(),
+            configPath: getConfigPath(),
+          });
+        }, () => { setSelectedIndex(0); refresh(); });
+        return;
       }
       return;
     }
@@ -437,13 +524,18 @@ export function App({ version }: AppProps) {
               searchMode={isSearch}
               actionMode={actionMode}
               notification={notification}
-              onDelete={(name, isGlobal) => setActionMode({ type: "confirmDelete", skillName: name, isGlobal })}
+              onDelete={(name, isGlobal, isProject) => {
+                if (isGlobal && isProject) {
+                  setActionMode({ type: "confirmDeleteScope", skillName: name });
+                } else {
+                  setActionMode({ type: "confirmDelete", skillName: name, isGlobal });
+                }
+              }}
               onMove={(name, isGlobal) => setActionMode({ type: "confirmMove", skillName: name, isGlobal })}
               onAdd={() => { setActionMode({ type: "addInput" }); setAddSource(""); }}
               addSource={addSource}
               refreshKey={refreshKey}
               showAll={showAll}
-              addOptions={addOptions}
               onSave={(skillName) => {
                 runAction("Saving...", "Skill saved", async () => {
                   const { save } = await import("../commands/save.js");
@@ -459,6 +551,7 @@ export function App({ version }: AppProps) {
               refreshKey={refreshKey}
               actionMode={actionMode}
               profileInput={profileInput}
+              modalListIndex={modalListIndex}
               notification={notification}
               onSwitchProfile={(name) => {
                 runAction("Switching profile...", `Switched to ${name}`, async () => {
@@ -477,12 +570,30 @@ export function App({ version }: AppProps) {
               onDeleteProfile={(name) => setActionMode({ type: "profileDelete", profileName: name })}
               onRenameProfile={(name) => { setActionMode({ type: "profileRename", profileName: name }); setProfileInput(""); }}
               onCloneProfile={(name) => { setActionMode({ type: "profileClone", profileName: name }); setProfileInput(""); }}
-              onAddSkill={(name) => { setActionMode({ type: "profileAddSkill", profileName: name }); setProfileInput(""); }}
-              onRemoveSkill={(name) => { setActionMode({ type: "profileRemoveSkill", profileName: name }); setProfileInput(""); }}
+              onAddSkill={(profileName, profileSkills, registrySkills) => {
+                const profileSkillSet = new Set(profileSkills);
+                const available = registrySkills.filter((n) => !profileSkillSet.has(n));
+                setModalListIndex(0);
+                setActionMode({ type: "profileAddSkillList", profileName, registrySkills: available, manualInput: false });
+                setProfileInput("");
+              }}
+              onRemoveSkill={(profileName, profileSkills) => {
+                setModalListIndex(0);
+                setActionMode({ type: "profileRemoveSkillList", profileName, skills: profileSkills });
+              }}
+              onSwitchVersion={(profileName, skillName, versions, currentV) => {
+                setModalListIndex(0);
+                setActionMode({ type: "profileSwitchVersion", profileName, skillName, versions, currentV });
+              }}
             />
           )}
           {activeTab === "Store" && (
-            <StoreView selectedIndex={selectedIndex} notification={notification} />
+            <StoreView
+              selectedIndex={selectedIndex}
+              focusPane={focusPane}
+              refreshKey={refreshKey}
+              notification={notification}
+            />
           )}
           {activeTab === "Clients" && (
             <ClientsView

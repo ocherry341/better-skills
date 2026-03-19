@@ -128,7 +128,7 @@ describe("SkillsView", () => {
     await flush();
     stdin.write("d");
     await flush();
-    expect(onDelete).toHaveBeenCalledWith("test-skill", true);
+    expect(onDelete).toHaveBeenCalledWith("test-skill", true, false);
     unmount();
   });
 

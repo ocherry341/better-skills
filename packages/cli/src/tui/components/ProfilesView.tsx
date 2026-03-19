@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
 import { List, type ListItem } from "./List.js";
 import { DetailPane, type DetailField } from "./DetailPane.js";
@@ -14,13 +14,15 @@ interface ProfilesViewProps {
   refreshKey?: number;
   actionMode?: ActionMode;
   profileInput?: string;
+  modalListIndex?: number;
   onSwitchProfile?: (profileName: string) => void;
   onCreateProfile?: () => void;
   onDeleteProfile?: (name: string) => void;
   onRenameProfile?: (name: string) => void;
   onCloneProfile?: (name: string) => void;
-  onAddSkill?: (profileName: string) => void;
-  onRemoveSkill?: (profileName: string) => void;
+  onAddSkill?: (profileName: string, profileSkills: string[], registrySkills: string[]) => void;
+  onRemoveSkill?: (profileName: string, profileSkills: string[]) => void;
+  onSwitchVersion?: (profileName: string, skillName: string, versions: { v: number; hash: string; source: string }[], currentV: number) => void;
   notification?: NotificationState | null;
 }
 
@@ -30,6 +32,7 @@ export function ProfilesView({
   refreshKey = 0,
   actionMode = null,
   profileInput = "",
+  modalListIndex = 0,
   onSwitchProfile,
   onCreateProfile,
   onDeleteProfile,
@@ -37,11 +40,18 @@ export function ProfilesView({
   onCloneProfile,
   onAddSkill,
   onRemoveSkill,
+  onSwitchVersion,
   notification = null,
 }: ProfilesViewProps) {
-  const { profiles, loading } = useProfiles(refreshKey);
+  const { profiles, registrySkillNames, loading } = useProfiles(refreshKey);
+  const [skillIndex, setSkillIndex] = useState(0);
 
   const selected = profiles[selectedIndex];
+
+  // Reset skill index when profile changes
+  React.useEffect(() => {
+    setSkillIndex(0);
+  }, [selectedIndex]);
 
   // Handle profile action keys (only when no modal is open)
   useInput((input, key) => {
@@ -54,8 +64,31 @@ export function ProfilesView({
     if (input === "d" && selected && onDeleteProfile) onDeleteProfile(selected.name);
     if (input === "r" && selected && onRenameProfile) onRenameProfile(selected.name);
     if (input === "C" && selected && onCloneProfile) onCloneProfile(selected.name);
-    if (input === "a" && selected && onAddSkill) onAddSkill(selected.name);
-    if (input === "x" && selected && onRemoveSkill) onRemoveSkill(selected.name);
+    if (input === "a" && selected && onAddSkill) {
+      const profileSkills = selected.skills.map((s) => s.skillName);
+      onAddSkill(selected.name, profileSkills, registrySkillNames);
+    }
+    if (input === "x" && selected && onRemoveSkill) {
+      const profileSkills = selected.skills.map((s) => s.skillName);
+      onRemoveSkill(selected.name, profileSkills);
+    }
+    if (input === "v" && selected && selected.skills.length > 0 && onSwitchVersion) {
+      const skill = selected.skills[skillIndex] ?? selected.skills[0];
+      if (skill.allVersions.length > 1) {
+        onSwitchVersion(
+          selected.name,
+          skill.skillName,
+          skill.allVersions.map((ver) => ({ v: ver.v, hash: ver.hash, source: ver.source })),
+          skill.v,
+        );
+      }
+    }
+    if (input === "J" && selected) {
+      setSkillIndex((i) => Math.min(i + 1, selected.skills.length - 1));
+    }
+    if (input === "K" && selected) {
+      setSkillIndex((i) => Math.max(0, i - 1));
+    }
   }, { isActive: actionMode === null });
 
   if (loading) return <Text>Loading profiles...</Text>;
@@ -75,7 +108,19 @@ export function ProfilesView({
     : [];
 
   const skillList = selected
-    ? selected.skills.map((s) => `  ${s.skillName} v${s.v} (${s.source})`).join("\n")
+    ? selected.skills
+        .map((s, idx) => {
+          const focused = idx === skillIndex ? ">" : " ";
+          const currentMarker = (v: number) => (v === s.v ? " <-- current" : "");
+          const versionLines = s.allVersions.length > 0
+            ? s.allVersions
+                .sort((a, b) => b.v - a.v)
+                .map((ver) => `    v${ver.v} ${ver.hash?.slice(0, 8) ?? "?"} (${ver.source})${currentMarker(ver.v)}`)
+                .join("\n")
+            : `    v${s.v} (${s.source})`;
+          return `${focused} ${s.skillName}\n${versionLines}`;
+        })
+        .join("\n")
     : "";
 
   return (
@@ -112,7 +157,37 @@ export function ProfilesView({
           </Text>
         </Box>
       )}
-      {actionMode?.type === "profileAddSkill" && (
+      {actionMode?.type === "profileRemoveSkillList" && (
+        <Box flexDirection="column" paddingX={1}>
+          <Text bold color="red">Remove skill from {actionMode.profileName}:</Text>
+          {actionMode.skills.length === 0 ? (
+            <Text dimColor>(no skills in profile)</Text>
+          ) : (
+            actionMode.skills.map((s, i) => (
+              <Text key={s} inverse={i === modalListIndex}>
+                {i === modalListIndex ? "\u25B8 " : "  "}{s}
+              </Text>
+            ))
+          )}
+          <Text dimColor>j/k:navigate  Enter:remove  Esc:cancel</Text>
+        </Box>
+      )}
+      {actionMode?.type === "profileAddSkillList" && !actionMode.manualInput && (
+        <Box flexDirection="column" paddingX={1}>
+          <Text bold color="green">Add skill to {actionMode.profileName}:</Text>
+          {actionMode.registrySkills.length === 0 ? (
+            <Text dimColor>(no registry skills available — press / for manual input)</Text>
+          ) : (
+            actionMode.registrySkills.map((s, i) => (
+              <Text key={s} inverse={i === modalListIndex}>
+                {i === modalListIndex ? "\u25B8 " : "  "}{s}
+              </Text>
+            ))
+          )}
+          <Text dimColor>j/k:navigate  Enter:add  /:manual input  Esc:cancel</Text>
+        </Box>
+      )}
+      {actionMode?.type === "profileAddSkillList" && actionMode.manualInput && (
         <Box paddingX={1}>
           <Text>
             <Text bold color="green">Add skill to {actionMode.profileName}: </Text>
@@ -121,13 +196,19 @@ export function ProfilesView({
           </Text>
         </Box>
       )}
-      {actionMode?.type === "profileRemoveSkill" && (
-        <Box paddingX={1}>
-          <Text>
-            <Text bold color="red">Remove skill from {actionMode.profileName}: </Text>
-            <Text>{profileInput}</Text>
-            <Text dimColor>_</Text>
-          </Text>
+      {actionMode?.type === "profileSwitchVersion" && (
+        <Box flexDirection="column" paddingX={1}>
+          <Text bold color="cyan">Switch version for {actionMode.skillName}:</Text>
+          {actionMode.versions
+            .sort((a, b) => b.v - a.v)
+            .map((ver, i) => (
+              <Text key={ver.v} inverse={i === modalListIndex}>
+                {i === modalListIndex ? "\u25B8 " : "  "}
+                v{ver.v} {ver.hash.slice(0, 8)} ({ver.source})
+                {ver.v === actionMode.currentV ? " (current)" : ""}
+              </Text>
+            ))}
+          <Text dimColor>j/k:navigate  Enter:switch  Esc:cancel</Text>
         </Box>
       )}
       <Box flexGrow={1}>
@@ -143,6 +224,8 @@ export function ProfilesView({
         { key: "C", label: "Clone" },
         { key: "a", label: "Add skill" },
         { key: "x", label: "Rm skill" },
+        { key: "v", label: "Version" },
+        { key: "J/K", label: "Skill nav" },
         { key: "?", label: "Help" },
         { key: "q", label: "Quit" },
       ]} />

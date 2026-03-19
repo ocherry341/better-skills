@@ -1,54 +1,80 @@
 import React from "react";
 import { Box, Text, useInput } from "ink";
+import { List, type ListItem } from "./List.js";
+import { DetailPane, type DetailField } from "./DetailPane.js";
 import { StatusBar } from "./StatusBar.js";
 import { Notification } from "./Notification.js";
 import type { NotificationState } from "../hooks/useNotification.js";
+import { useStoreLs } from "../hooks/useStoreLs.js";
 import { useStore } from "../hooks/useStore.js";
 
 interface StoreViewProps {
   selectedIndex: number;
+  focusPane: "left" | "right";
+  refreshKey?: number;
   notification?: NotificationState | null;
 }
 
-export function StoreView({ selectedIndex, notification = null }: StoreViewProps) {
-  const { result, loading, refresh } = useStore();
+export function StoreView({ selectedIndex, focusPane, refreshKey = 0, notification = null }: StoreViewProps) {
+  const { result: lsResult, loading: lsLoading, refresh: refreshLs } = useStoreLs(refreshKey);
+  const { result: verifyResult, loading: verifyLoading, refresh: refreshVerify } = useStore();
 
   useInput((input) => {
-    if (input === "v") {
-      refresh();
-    }
+    if (input === "v") refreshVerify();
+    if (input === "r") refreshLs();
   });
 
-  if (loading || !result) return <Text>Verifying store...</Text>;
+  if (lsLoading || !lsResult) return <Text>Loading store...</Text>;
+
+  const entries = lsResult.entries;
+  const selected = entries[selectedIndex];
+
+  const items: ListItem[] = entries.map((entry) => {
+    const skills = entry.skills.length > 0
+      ? entry.skills.map((s) => `${s.name}@v${s.v}`).join(", ")
+      : "(orphan)";
+    return { key: entry.hash, label: entry.hash.slice(0, 12), markers: skills };
+  });
+
+  const formatSize = (bytes: number) => {
+    if (bytes > 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    if (bytes > 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${bytes} B`;
+  };
+
+  const fields: DetailField[] = selected
+    ? [
+        { label: "Hash", value: selected.hash },
+        { label: "Size", value: formatSize(selected.size) },
+        { label: "Skills", value: selected.skills.length > 0
+          ? selected.skills.map((s) => `${s.name} v${s.v}`).join(", ")
+          : "(orphan — no registry reference)" },
+      ]
+    : [];
+
+  const detailContent = selected && selected.skills.length > 0
+    ? selected.skills.map((s) => `  ${s.name} v${s.v} (${s.source})`).join("\n")
+    : "";
+
+  const healthLine = verifyResult
+    ? `Health: ${verifyResult.total} entries, ${verifyResult.ok} ok${verifyResult.corrupted.length > 0 ? `, ${verifyResult.corrupted.length} corrupted` : ""}`
+    : verifyLoading ? "Verifying..." : "";
 
   return (
     <Box flexDirection="column" flexGrow={1} width="100%">
-      <Box flexDirection="column" flexGrow={1} borderStyle="single" borderColor="gray" paddingX={1}>
-        <Text bold>Store Health</Text>
-        <Text>
-          Total: {result.total}  <Text color="green">OK: {result.ok}</Text>
-          {result.corrupted.length > 0 && (
-            <Text color="red">  Corrupted: {result.corrupted.length}</Text>
-          )}
-        </Text>
-        {result.corrupted.length > 0 && (
-          <Box flexDirection="column" marginTop={1}>
-            <Text bold color="red">Corrupted entries:</Text>
-            {result.corrupted.map((c, i) => (
-              <Text key={c.hash} inverse={i === selectedIndex}>
-                <Text color="red">{"\u2717"}</Text> {c.hash.slice(0, 8)}
-                {c.skills.length > 0 ? ` (${c.skills.join(", ")})` : ""}
-              </Text>
-            ))}
-          </Box>
-        )}
-        {result.corrupted.length === 0 && (
-          <Text color="green" bold>All store entries healthy {"\u2713"}</Text>
-        )}
+      {healthLine && (
+        <Box paddingX={1}>
+          <Text dimColor>{healthLine}</Text>
+        </Box>
+      )}
+      <Box flexGrow={1}>
+        <List items={items} selectedIndex={selectedIndex} title="Store" focused={focusPane === "left"} />
+        <DetailPane fields={fields} content={detailContent} contentTitle="Associated skills" focused={focusPane === "right"} />
       </Box>
       <Notification notification={notification} />
       <StatusBar shortcuts={[
         { key: "v", label: "Re-verify" },
+        { key: "r", label: "Refresh" },
         { key: "?", label: "Help" },
         { key: "q", label: "Quit" },
       ]} />

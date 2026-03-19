@@ -72,7 +72,7 @@ describe("useProfiles", () => {
     const hook = renderHook(() => useProfiles());
     await flush();
     expect(hook.current.profiles[0].skills).toEqual([
-      { skillName: "skill-a", v: 1, source: "owner/repo" },
+      { skillName: "skill-a", v: 1, source: "owner/repo", hash: undefined, allVersions: [] },
     ]);
     hook.unmount();
   });

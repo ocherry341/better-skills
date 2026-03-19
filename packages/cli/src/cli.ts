@@ -12,7 +12,7 @@ import { clientAdd, clientRm, clientLs } from "./commands/client.js";
 import { rm } from "./commands/rm.js";
 import { ls, printLs, lsAll, printLsAll } from "./commands/ls.js";
 import { save } from "./commands/save.js";
-import { storeVerify } from "./commands/store-cmd.js";
+import { storeVerify, storeLs } from "./commands/store-cmd.js";
 import { mvToProject, mvToGlobal } from "./commands/mv.js";
 import {
   profileCreate,
@@ -40,7 +40,10 @@ const program = new Command();
 program
   .name("bsk")
   .description("A pnpm-inspired skills management CLI with content-addressable storage")
-  .version(version);
+  .version(version)
+  .action(() => {
+    startTui(version);
+  });
 
 program
   .command("add <source>")
@@ -377,6 +380,33 @@ storeCmd
         console.log(`  ✗ ${entry.hash.slice(0, 8)}${skills}`);
       }
       console.log("\nRe-add affected skills to repair: bsk add <source> --force");
+    }
+    console.log("");
+  });
+
+storeCmd
+  .command("ls")
+  .alias("list")
+  .description("List all store entries with skill/version info")
+  .action(async () => {
+    const result = await storeLs();
+    if (result.entries.length === 0) {
+      console.log("Store is empty.");
+      return;
+    }
+    console.log(`\nStore: ${result.entries.length} entries\n`);
+    console.log(`${"  Hash".padEnd(14)} ${"Skills".padEnd(30)} ${"Size"}`);
+    console.log("  " + "-".repeat(50));
+    for (const entry of result.entries) {
+      const skills = entry.skills.length > 0
+        ? entry.skills.map((s) => `${s.name}@v${s.v}`).join(", ")
+        : "(orphan)";
+      const sizeStr = entry.size > 1024 * 1024
+        ? `${(entry.size / (1024 * 1024)).toFixed(1)} MB`
+        : entry.size > 1024
+        ? `${(entry.size / 1024).toFixed(1)} KB`
+        : `${entry.size} B`;
+      console.log(`  ${entry.hash.slice(0, 12).padEnd(14)} ${skills.padEnd(30)} ${sizeStr}`);
     }
     console.log("");
   });
