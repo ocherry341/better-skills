@@ -25,7 +25,7 @@ Tests use Bun's built-in test runner (`bun:test`). The test command filters to t
 
 ## Architecture
 
-**better-skills** (`bsk`) is a pnpm-inspired CLI for managing Agent skills (`.agents/skills/` directories) with content-addressable storage.
+**better-skills** (`bsk`) is a pnpm-inspired CLI for managing Agent skills (`.agents/skills/` directories) with content-addressable storage. Uses ink (React-based terminal UI) for the TUI interface.
 
 ### Key paths
 
@@ -47,7 +47,8 @@ Uses commander.js and zod for CLI parsing and validation. Main commands:
 - `bsk mv <skill> <global|project>` — move a skill between scopes
 - `bsk client add|rm|ls` — manage multi-client skill directories
 - `bsk profile create|ls|show|use|add|rm|delete|rename|clone` — manage skill profiles
-- `bsk store verify` — check store integrity
+- `bsk store verify|ls` — check store integrity or list store entries
+- `bsk tui` — interactive terminal UI for managing skills
 
 ## Code Conventions
 
