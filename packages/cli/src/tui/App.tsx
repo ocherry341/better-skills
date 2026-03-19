@@ -603,18 +603,19 @@ export function App({ version }: AppProps) {
               onEnableClient={(clientId) => {
                 runAction("Enabling client...", `${clientId} enabled`, async () => {
                   const { clientAdd } = await import("../commands/client.js");
-                  await clientAdd([clientId], {
+                  await clientAdd(clientId, {
                     configPath: getConfigPath(),
                     registryPath: getRegistryPath(),
                     storePath: getStorePath(),
                     skillsDir: getGlobalSkillsPath(),
+                    globalSkillsDir: getGlobalSkillsPath(),
                   });
                 }, refresh);
               }}
               onDisableClient={(clientId) => {
                 runAction("Disabling client...", `${clientId} disabled`, async () => {
                   const { clientRm } = await import("../commands/client.js");
-                  await clientRm([clientId], {
+                  await clientRm(clientId, {
                     configPath: getConfigPath(),
                     registryPath: getRegistryPath(),
                     skillsDir: getGlobalSkillsPath(),
