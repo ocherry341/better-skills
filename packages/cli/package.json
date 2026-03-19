@@ -1,6 +1,6 @@
 {
   "name": "better-skills",
-  "version": "0.7.4",
+  "version": "0.8.0",
   "description": "A pnpm-inspired skills management CLI with content-addressable storage",
   "type": "module",
   "license": "MIT",
