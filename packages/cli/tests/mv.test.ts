@@ -136,8 +136,6 @@ describe("mv to global", () => {
       projectSkillsDir,
       registryPath,
       storePath: storeDir,
-      noClients: true,
-      configPath: join(baseDir, "config.json"),
     });
 
     // Global copy exists
@@ -161,8 +159,7 @@ describe("mv to global", () => {
         projectSkillsDir,
         registryPath,
         storePath: storeDir,
-        noClients: true,
-      })
+        })
     ).rejects.toThrow("not found");
   });
 
@@ -181,8 +178,7 @@ describe("mv to global", () => {
         projectSkillsDir,
         registryPath,
         storePath: storeDir,
-        noClients: true,
-      })
+        })
     ).rejects.toThrow("already exists");
   });
 
@@ -201,8 +197,6 @@ describe("mv to global", () => {
       force: true,
       registryPath,
       storePath: storeDir,
-      noClients: true,
-      configPath: join(baseDir, "config.json"),
     });
 
     const content = await readFile(join(globalSkillsDir, "my-skill", "SKILL.md"), "utf-8");

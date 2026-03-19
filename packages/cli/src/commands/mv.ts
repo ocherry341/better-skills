@@ -4,8 +4,6 @@ import { cpRecursive, unlinkSkill } from "../core/linker.js";
 import { hashDirectory } from "../core/hasher.js";
 import * as store from "../core/store.js";
 import { verifiedLinkSkill } from "../core/store.js";
-import { linkToClients } from "../core/linker.js";
-import { resolveClientDirs } from "../core/clients.js";
 import { registerSkill } from "../core/registry.js";
 import { getGlobalSkillsPath, getProjectSkillsPath, getRegistryPath, getStorePath } from "../utils/paths.js";
 import { addSkillToProfile } from "./add.js";
@@ -51,10 +49,8 @@ export interface MvToGlobalOptions {
   projectSkillsDir?: string;
   force?: boolean;
   hardlink?: boolean;
-  noClients?: boolean;
   registryPath?: string;
   storePath?: string;
-  configPath?: string;
 }
 
 export async function mvToGlobal(
@@ -91,16 +87,6 @@ export async function mvToGlobal(
 
   console.log(`Linking to ${targetDir}...`);
   await verifiedLinkSkill(hash, targetDir, { hardlink: options.hardlink }, storePath);
-
-  // Link to client directories
-  if (!options.noClients) {
-    const clientDirs = await resolveClientDirs(options.configPath);
-    if (clientDirs.length > 0) {
-      await linkToClients(name, store.getHashPath(hash), clientDirs, {
-        hardlink: options.hardlink,
-      });
-    }
-  }
 
   // Register
   const v = await registerSkill(name, hash, "local", registryPath, storePath);
