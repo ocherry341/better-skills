@@ -1,4 +1,4 @@
-import { lstat, mkdir, readlink, rm, stat, symlink } from "fs/promises";
+import { lstat, mkdir, readdir, readlink, rename, rm, stat, symlink } from "fs/promises";
 import { dirname, join } from "path";
 import {
   CLIENT_REGISTRY,
@@ -8,8 +8,7 @@ import {
   getClientSkillsDir,
   getClientProjectSubdir,
 } from "../core/clients.js";
-import { readRegistry } from "../core/registry.js";
-import { linkToClients, unlinkFromClients } from "../core/linker.js";
+import { save } from "./save.js";
 
 export interface ClientAddOptions {
   configPath: string;
@@ -18,90 +17,163 @@ export interface ClientAddOptions {
   skillsDir: string;
   /** Override client->dir mapping for testing */
   clientDirOverrides?: Record<string, string>;
-  /** Project root for creating project-level symlinks. If provided, creates .<client>/skills → ../.agents/skills */
+  /** Project root for creating project-level symlinks */
   projectRoot?: string;
+  /** Override for the global skills path (testing) */
+  globalSkillsDir?: string;
 }
 
 /**
- * Enable one or more clients. Syncs existing managed skills to new client dirs.
+ * Enable a client by symlinking its skills directory to ~/.agents/skills/.
+ * Migrates existing skills if the client dir already has content.
  */
 export async function clientAdd(
-  clientIds: string[],
+  clientId: string,
   opts: ClientAddOptions
 ): Promise<void> {
-  // Validate
-  for (const id of clientIds) {
-    if (id === "agents") {
-      throw new Error("'agents' is always enabled and cannot be added.");
-    }
-    if (!(id in CLIENT_REGISTRY)) {
-      throw new Error(`Unknown client '${id}'. Valid clients: ${VALID_CLIENT_IDS.join(", ")}`);
-    }
+  // 1. Validate
+  if (clientId === "agents") {
+    throw new Error("'agents' is always enabled and cannot be added.");
+  }
+  if (!(clientId in CLIENT_REGISTRY)) {
+    throw new Error(`Unknown client '${clientId}'. Valid clients: ${VALID_CLIENT_IDS.join(", ")}`);
   }
 
-  // Update config
-  const config = await readConfig(opts.configPath);
-  const merged = [...new Set([...config.clients, ...clientIds])];
-  await writeConfig({ clients: merged }, opts.configPath);
+  // 2. Resolve directories
+  const globalDir = opts.clientDirOverrides?.[clientId] ?? getClientSkillsDir(clientId);
+  const agentsDir = opts.globalSkillsDir ?? opts.skillsDir;
 
-  // Sync existing managed skills to new client dirs
-  const registry = await readRegistry(opts.registryPath);
-  const newIds = clientIds.filter((id) => !config.clients.includes(id));
+  // Ensure agentsDir exists
+  await mkdir(agentsDir, { recursive: true });
 
-  for (const id of newIds) {
-    const clientDir = opts.clientDirOverrides?.[id] ?? getClientSkillsDir(id);
-    for (const [name, entry] of Object.entries(registry.skills)) {
-      if (entry.versions.length === 0) continue;
-      const latest = entry.versions.reduce((best, v) => (v.v > best.v ? v : best));
-      const storeDir = join(opts.storePath, latest.hash);
-      try {
-        await stat(storeDir);
-        await linkToClients(name, storeDir, [clientDir]);
-        console.log(`  Linked ${name} → ${clientDir}`);
-      } catch {
-        // Hash missing from store, skip
+  // 3. Check globalDir state
+  try {
+    const st = await lstat(globalDir);
+
+    if (st.isSymbolicLink()) {
+      const target = await readlink(globalDir);
+      if (target === agentsDir) {
+        // Already correct symlink
+        console.log(`${clientId} is already enabled (symlink exists).`);
+      } else {
+        throw new Error(
+          `${globalDir} is a symlink to ${target}, not ${agentsDir}. Remove it manually first.`
+        );
+      }
+    } else if (st.isDirectory()) {
+      // Check if empty
+      const entries = await readdir(globalDir);
+      const subdirs = [];
+      for (const name of entries) {
+        try {
+          const s = await stat(join(globalDir, name));
+          if (s.isDirectory()) subdirs.push(name);
+        } catch {
+          // skip non-stat-able entries
+        }
+      }
+
+      if (subdirs.length === 0 && entries.length === 0) {
+        // Empty directory — remove and create symlink
+        await rm(globalDir, { recursive: true, force: true });
+        await createSymlink(agentsDir, globalDir);
+      } else {
+        // Has content — check for conflicts and migrate
+        const agentsEntries = await safeReaddir(agentsDir);
+        const conflicts = subdirs.filter((name) => agentsEntries.includes(name));
+
+        if (conflicts.length > 0) {
+          throw new Error(
+            `Cannot migrate: skills [${conflicts.join(", ")}] exist in both ${globalDir} and ${agentsDir}. Resolve conflicts manually.`
+          );
+        }
+
+        // Move each subdir to agentsDir
+        for (const name of subdirs) {
+          try {
+            await rename(join(globalDir, name), join(agentsDir, name));
+          } catch (err: any) {
+            if (err.code === "EXDEV") {
+              // Cross-device: copy + remove
+              const { cpRecursive } = await import("../core/linker.js");
+              await cpRecursive(join(globalDir, name), join(agentsDir, name));
+              await rm(join(globalDir, name), { recursive: true, force: true });
+            } else {
+              throw err;
+            }
+          }
+          console.log(`  Migrated ${name} → ${agentsDir}`);
+        }
+
+        // Save migrated skills to store/registry
+        await save({
+          skillsDir: agentsDir,
+          registryPath: opts.registryPath,
+          storePath: opts.storePath,
+        });
+
+        // Remove now-empty globalDir and create symlink
+        await rm(globalDir, { recursive: true, force: true });
+        await createSymlink(agentsDir, globalDir);
       }
     }
+  } catch (err: any) {
+    if (err.code === "ENOENT") {
+      // Does not exist — create symlink
+      await createSymlink(agentsDir, globalDir);
+    } else {
+      throw err;
+    }
   }
 
-  // Create project-level symlinks
-  if (opts.projectRoot) {
-    for (const id of clientIds) {
-      const subdir = getClientProjectSubdir(id);
-      if (!subdir) continue;
+  // 6. Update config
+  const config = await readConfig(opts.configPath);
+  const merged = [...new Set([...config.clients, clientId])];
+  await writeConfig({ clients: merged }, opts.configPath);
 
+  // 7. Project-level symlink logic
+  if (opts.projectRoot) {
+    const subdir = getClientProjectSubdir(clientId);
+    if (subdir) {
       const symlinkPath = join(opts.projectRoot, subdir);
       const agentsSkillsDir = join(opts.projectRoot, ".agents", "skills");
 
-      // Ensure .agents/skills exists
       await mkdir(agentsSkillsDir, { recursive: true });
 
-      // Check if target already exists
       try {
         const st = await lstat(symlinkPath);
         if (st.isSymbolicLink()) {
-          // Already a symlink — check if it points to the right place
           const existing = await readlink(symlinkPath);
           if (existing === join("..", ".agents", "skills")) {
-            continue; // Correct symlink already exists
+            // Correct symlink already exists — skip
           }
-        }
-        if (st.isDirectory()) {
+        } else if (st.isDirectory()) {
           console.warn(`  ⚠ ${subdir} already exists as a directory, skipping symlink`);
-          continue;
         }
       } catch {
-        // Does not exist — good, we'll create it
+        // Does not exist — create it
+        await mkdir(dirname(symlinkPath), { recursive: true });
+        await symlink(join("..", ".agents", "skills"), symlinkPath);
+        console.log(`  Symlinked ${subdir} → .agents/skills`);
       }
-
-      // Create parent directory (e.g. .claude/)
-      await mkdir(dirname(symlinkPath), { recursive: true });
-      await symlink(join("..", ".agents", "skills"), symlinkPath);
-      console.log(`  Symlinked ${subdir} → .agents/skills`);
     }
   }
 
-  console.log(`✓ Enabled client(s): ${clientIds.join(", ")}`);
+  console.log(`✓ Enabled client: ${clientId}`);
+}
+
+async function createSymlink(target: string, path: string): Promise<void> {
+  await mkdir(dirname(path), { recursive: true });
+  await symlink(target, path);
+  console.log(`  Symlinked ${path} → ${target}`);
+}
+
+async function safeReaddir(dir: string): Promise<string[]> {
+  try {
+    return await readdir(dir);
+  } catch {
+    return [];
+  }
 }
 
 export interface ClientRmOptions {
