@@ -313,7 +313,7 @@ export function App({ version }: AppProps) {
             skillsDir: getGlobalSkillsPath(),
             profileName,
             registryPath: getRegistryPath(),
-            configPath: getConfigPath(),
+
           });
         }, () => { setSelectedIndex(0); refresh(); });
         return;
@@ -352,7 +352,7 @@ export function App({ version }: AppProps) {
               storePath: getStorePath(),
               profileName,
               registryPath: getRegistryPath(),
-              configPath: getConfigPath(),
+  
             });
           }, () => { setSelectedIndex(0); refresh(); });
           return;
@@ -400,7 +400,7 @@ export function App({ version }: AppProps) {
             storePath: getStorePath(),
             profileName,
             registryPath: getRegistryPath(),
-            configPath: getConfigPath(),
+
           });
         }, () => { setSelectedIndex(0); refresh(); });
         return;
@@ -444,7 +444,7 @@ export function App({ version }: AppProps) {
             storePath: getStorePath(),
             profileName,
             registryPath: getRegistryPath(),
-            configPath: getConfigPath(),
+
           });
         }, () => { setSelectedIndex(0); refresh(); });
         return;
@@ -562,7 +562,7 @@ export function App({ version }: AppProps) {
                     skillsDir: getGlobalSkillsPath(),
                     storePath: getStorePath(),
                     registryPath: getRegistryPath(),
-                    configPath: getConfigPath(),
+        
                   });
                 }, refresh);
               }}
