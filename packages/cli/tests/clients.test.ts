@@ -9,7 +9,6 @@ import {
   getEnabledClients,
   getClientSkillsDir,
   getClientProjectSubdir,
-  resolveClientDirs,
 } from "../src/core/clients.js";
 
 describe("clients", () => {
@@ -133,18 +132,4 @@ describe("clients", () => {
     });
   });
 
-  describe("resolveClientDirs", () => {
-    test("returns dirs for enabled clients", async () => {
-      await writeConfig({ clients: ["claude", "cursor"] }, configPath);
-      const dirs = await resolveClientDirs(configPath);
-      expect(dirs).toHaveLength(2);
-      expect(dirs[0]).toMatch(/\.claude\/skills$/);
-      expect(dirs[1]).toMatch(/\.cursor\/skills$/);
-    });
-
-    test("returns empty array when no clients configured", async () => {
-      const dirs = await resolveClientDirs(configPath);
-      expect(dirs).toEqual([]);
-    });
-  });
 });

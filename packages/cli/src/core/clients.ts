@@ -109,12 +109,3 @@ export function getClientProjectSubdir(clientId: string): string | null {
   }
   return entry.projectSubdir;
 }
-
-/**
- * Resolve all enabled client directories from config.
- * Returns absolute paths (does NOT include ~/.agents/skills/).
- */
-export async function resolveClientDirs(configPath?: string): Promise<string[]> {
-  const clients = await getEnabledClients(configPath);
-  return clients.map((c) => CLIENT_REGISTRY[c].globalDir);
-}

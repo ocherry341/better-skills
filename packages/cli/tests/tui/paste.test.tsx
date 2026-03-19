@@ -50,7 +50,6 @@ mock.module("../../src/core/clients.js", () => ({
   writeConfig: mock(() => Promise.resolve()),
   getClientSkillsDir: mock(() => "/tmp/bsk-test-client"),
   getClientProjectSubdir: mock(() => null),
-  resolveClientDirs: mock(() => Promise.resolve([])),
   CLIENT_REGISTRY: {},
   VALID_CLIENT_IDS: [],
 }));
