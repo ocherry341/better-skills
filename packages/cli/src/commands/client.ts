@@ -187,38 +187,45 @@ export interface ClientRmOptions {
 }
 
 /**
- * Disable one or more clients. Removes managed skill links from client dirs.
+ * Disable a client. If its skills dir is a symlink, removes it.
+ * If it's a real directory, errors and asks user to migrate first.
  */
 export async function clientRm(
-  clientIds: string[],
+  clientId: string,
   opts: ClientRmOptions
 ): Promise<void> {
-  for (const id of clientIds) {
-    if (id === "agents") {
-      throw new Error("'agents' is always enabled and cannot be removed.");
-    }
+  if (clientId === "agents") {
+    throw new Error("'agents' is always enabled and cannot be removed.");
   }
 
-  // Remove managed skill links from client dirs
-  const registry = await readRegistry(opts.registryPath);
-  for (const id of clientIds) {
-    const clientDir = opts.clientDirOverrides?.[id] ?? getClientSkillsDir(id);
-    for (const name of Object.keys(registry.skills)) {
-      await unlinkFromClients(name, [clientDir]);
+  const globalDir = opts.clientDirOverrides?.[clientId] ?? getClientSkillsDir(clientId);
+
+  // Check globalDir state
+  try {
+    const st = await lstat(globalDir);
+    if (st.isSymbolicLink()) {
+      // Just remove the symlink — skills remain in ~/.agents/skills/
+      await rm(globalDir);
+    } else if (st.isDirectory()) {
+      // Real directory — refuse to delete, ask user to migrate first
+      throw new Error(
+        `${globalDir} is a real directory, not a symlink. Run 'bsk client add ${clientId}' first to migrate it.`
+      );
     }
+  } catch (err: any) {
+    if (err.code !== "ENOENT") throw err;
+    // Does not exist — no-op
   }
 
   // Update config
   const config = await readConfig(opts.configPath);
-  const filtered = config.clients.filter((c) => !clientIds.includes(c));
+  const filtered = config.clients.filter((c) => c !== clientId);
   await writeConfig({ clients: filtered }, opts.configPath);
 
   // Remove project-level symlinks
   if (opts.projectRoot) {
-    for (const id of clientIds) {
-      const subdir = getClientProjectSubdir(id);
-      if (!subdir) continue;
-
+    const subdir = getClientProjectSubdir(clientId);
+    if (subdir) {
       const symlinkPath = join(opts.projectRoot, subdir);
       try {
         const st = await lstat(symlinkPath);
@@ -233,7 +240,7 @@ export async function clientRm(
     }
   }
 
-  console.log(`✓ Disabled client(s): ${clientIds.join(", ")}`);
+  console.log(`✓ Disabled client: ${clientId}`);
 }
 
 export interface ClientLsOptions {
