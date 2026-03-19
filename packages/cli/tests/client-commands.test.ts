@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtemp, rm, writeFile, mkdir, readFile, stat, lstat, readlink } from "fs/promises";
+import { mkdtemp, rm, writeFile, mkdir, readFile, readdir, stat, lstat, readlink } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
 import { clientAdd, clientRm, clientLs } from "../src/commands/client.js";
@@ -27,67 +27,145 @@ describe("client commands", () => {
   });
 
   describe("clientAdd", () => {
-    test("adds client to config", async () => {
-      await clientAdd(["claude"], {
+    test("fresh add creates symlink to agents dir", async () => {
+      const clientDir = join(baseDir, "claude-skills");
+
+      await clientAdd("claude", {
         configPath,
         registryPath,
         storePath: storeDir,
         skillsDir,
+        clientDirOverrides: { claude: clientDir },
+        globalSkillsDir: skillsDir,
       });
 
       const config = await readConfig(configPath);
       expect(config.clients).toContain("claude");
+
+      const linkStat = await lstat(clientDir);
+      expect(linkStat.isSymbolicLink()).toBe(true);
+
+      const target = await readlink(clientDir);
+      expect(target).toBe(skillsDir);
     });
 
-    test("adds multiple clients", async () => {
-      await clientAdd(["claude", "cursor"], {
+    test("already correct symlink prints already enabled", async () => {
+      const clientDir = join(baseDir, "claude-skills");
+      const { symlink: symlinkFn } = await import("fs/promises");
+      await symlinkFn(skillsDir, clientDir);
+
+      await clientAdd("claude", {
         configPath,
         registryPath,
         storePath: storeDir,
         skillsDir,
+        clientDirOverrides: { claude: clientDir },
+        globalSkillsDir: skillsDir,
       });
 
+      // Still a symlink pointing to correct target
+      const linkStat = await lstat(clientDir);
+      expect(linkStat.isSymbolicLink()).toBe(true);
+      const target = await readlink(clientDir);
+      expect(target).toBe(skillsDir);
+
+      // Config should still have client
       const config = await readConfig(configPath);
       expect(config.clients).toContain("claude");
-      expect(config.clients).toContain("cursor");
     });
 
-    test("syncs existing skills to new client", async () => {
-      // Set up a managed skill in the store and registry
-      const hash = "abc123def456";
-      const skillStore = join(storeDir, hash);
-      await mkdir(skillStore, { recursive: true });
-      await writeFile(join(skillStore, "SKILL.md"), "---\nname: my-skill\n---\n# Test");
+    test("symlink to wrong target throws error", async () => {
+      const clientDir = join(baseDir, "claude-skills");
+      const wrongTarget = join(baseDir, "wrong-dir");
+      await mkdir(wrongTarget, { recursive: true });
+      const { symlink: symlinkFn } = await import("fs/promises");
+      await symlinkFn(wrongTarget, clientDir);
 
-      // Register it
-      await writeFile(
-        registryPath,
-        JSON.stringify({ skills: { "my-skill": { versions: [{ v: 1, hash, source: "test/repo", addedAt: "2026-03-01T00:00:00.000Z" }] } } })
-      );
+      await expect(
+        clientAdd("claude", {
+          configPath,
+          registryPath,
+          storePath: storeDir,
+          skillsDir,
+          clientDirOverrides: { claude: clientDir },
+          globalSkillsDir: skillsDir,
+        })
+      ).rejects.toThrow("symlink");
+    });
 
-      // Link to agents dir
-      const agentSkillDir = join(skillsDir, "my-skill");
-      await mkdir(agentSkillDir, { recursive: true });
-      await writeFile(join(agentSkillDir, "SKILL.md"), "---\nname: my-skill\n---\n# Test");
+    test("empty existing dir is replaced with symlink", async () => {
+      const clientDir = join(baseDir, "claude-skills");
+      await mkdir(clientDir, { recursive: true });
 
-      // Now add a client — should sync existing skill
-      const clientSkillsBase = join(baseDir, "claude-skills");
-      await clientAdd(["claude"], {
+      await clientAdd("claude", {
         configPath,
         registryPath,
         storePath: storeDir,
         skillsDir,
-        clientDirOverrides: { claude: clientSkillsBase },
+        clientDirOverrides: { claude: clientDir },
+        globalSkillsDir: skillsDir,
       });
 
-      // Verify skill was linked to client dir
-      const content = await readFile(join(clientSkillsBase, "my-skill", "SKILL.md"), "utf-8");
-      expect(content).toContain("my-skill");
+      const linkStat = await lstat(clientDir);
+      expect(linkStat.isSymbolicLink()).toBe(true);
+      const target = await readlink(clientDir);
+      expect(target).toBe(skillsDir);
+    });
+
+    test("existing dir with skills migrates to agents dir and creates symlink", async () => {
+      const clientDir = join(baseDir, "claude-skills");
+      const skillDir = join(clientDir, "my-skill");
+      await mkdir(skillDir, { recursive: true });
+      await writeFile(join(skillDir, "SKILL.md"), "# My Skill");
+
+      await clientAdd("claude", {
+        configPath,
+        registryPath,
+        storePath: storeDir,
+        skillsDir,
+        clientDirOverrides: { claude: clientDir },
+        globalSkillsDir: skillsDir,
+      });
+
+      // Skill should now be in agents dir
+      const movedContent = await readFile(join(skillsDir, "my-skill", "SKILL.md"), "utf-8");
+      expect(movedContent).toBe("# My Skill");
+
+      // Client dir should be a symlink
+      const linkStat = await lstat(clientDir);
+      expect(linkStat.isSymbolicLink()).toBe(true);
+    });
+
+    test("existing dir with conflicting skills throws error", async () => {
+      const clientDir = join(baseDir, "claude-skills");
+
+      // Same skill name in both dirs
+      await mkdir(join(clientDir, "my-skill"), { recursive: true });
+      await writeFile(join(clientDir, "my-skill", "SKILL.md"), "# Client Version");
+
+      await mkdir(join(skillsDir, "my-skill"), { recursive: true });
+      await writeFile(join(skillsDir, "my-skill", "SKILL.md"), "# Agents Version");
+
+      await expect(
+        clientAdd("claude", {
+          configPath,
+          registryPath,
+          storePath: storeDir,
+          skillsDir,
+          clientDirOverrides: { claude: clientDir },
+          globalSkillsDir: skillsDir,
+        })
+      ).rejects.toThrow("conflict");
+
+      // Client dir should still be a real directory (unchanged)
+      const linkStat = await lstat(clientDir);
+      expect(linkStat.isDirectory()).toBe(true);
+      expect(linkStat.isSymbolicLink()).toBe(false);
     });
 
     test("rejects unknown client ID", async () => {
       await expect(
-        clientAdd(["bogus"], {
+        clientAdd("bogus", {
           configPath,
           registryPath,
           storePath: storeDir,
@@ -98,7 +176,7 @@ describe("client commands", () => {
 
     test("rejects agents as client", async () => {
       await expect(
-        clientAdd(["agents"], {
+        clientAdd("agents", {
           configPath,
           registryPath,
           storePath: storeDir,
@@ -112,11 +190,15 @@ describe("client commands", () => {
       const agentsSkills = join(projectDir, ".agents", "skills");
       await mkdir(agentsSkills, { recursive: true });
 
-      await clientAdd(["claude"], {
+      const clientDir = join(baseDir, "claude-skills");
+
+      await clientAdd("claude", {
         configPath,
         registryPath,
         storePath: storeDir,
         skillsDir,
+        clientDirOverrides: { claude: clientDir },
+        globalSkillsDir: skillsDir,
         projectRoot: projectDir,
       });
 
@@ -132,11 +214,15 @@ describe("client commands", () => {
       const projectDir = join(baseDir, "my-project");
       await mkdir(projectDir, { recursive: true });
 
-      await clientAdd(["claude"], {
+      const clientDir = join(baseDir, "claude-skills");
+
+      await clientAdd("claude", {
         configPath,
         registryPath,
         storePath: storeDir,
         skillsDir,
+        clientDirOverrides: { claude: clientDir },
+        globalSkillsDir: skillsDir,
         projectRoot: projectDir,
       });
 
@@ -151,11 +237,15 @@ describe("client commands", () => {
       await mkdir(claudeSkills, { recursive: true });
       await writeFile(join(claudeSkills, "existing.md"), "keep me");
 
-      await clientAdd(["claude"], {
+      const clientDir = join(baseDir, "claude-skills");
+
+      await clientAdd("claude", {
         configPath,
         registryPath,
         storePath: storeDir,
         skillsDir,
+        clientDirOverrides: { claude: clientDir },
+        globalSkillsDir: skillsDir,
         projectRoot: projectDir,
       });
 
@@ -170,19 +260,25 @@ describe("client commands", () => {
       const agentsSkills = join(projectDir, ".agents", "skills");
       await mkdir(agentsSkills, { recursive: true });
 
+      const clientDir = join(baseDir, "claude-skills");
+
       // Run twice
-      await clientAdd(["claude"], {
+      await clientAdd("claude", {
         configPath,
         registryPath,
         storePath: storeDir,
         skillsDir,
+        clientDirOverrides: { claude: clientDir },
+        globalSkillsDir: skillsDir,
         projectRoot: projectDir,
       });
-      await clientAdd(["claude"], {
+      await clientAdd("claude", {
         configPath,
         registryPath,
         storePath: storeDir,
         skillsDir,
+        clientDirOverrides: { claude: clientDir },
+        globalSkillsDir: skillsDir,
         projectRoot: projectDir,
       });
 
@@ -195,11 +291,15 @@ describe("client commands", () => {
       const projectDir = join(baseDir, "my-project");
       await mkdir(projectDir, { recursive: true });
 
-      await clientAdd(["amp"], {
+      const clientDir = join(baseDir, "amp-skills");
+
+      await clientAdd("amp", {
         configPath,
         registryPath,
         storePath: storeDir,
         skillsDir,
+        clientDirOverrides: { amp: clientDir },
+        globalSkillsDir: skillsDir,
         projectRoot: projectDir,
       });
 
@@ -213,11 +313,15 @@ describe("client commands", () => {
       const agentsSkills = join(projectDir, ".agents", "skills");
       await mkdir(agentsSkills, { recursive: true });
 
-      await clientAdd(["copilot"], {
+      const clientDir = join(baseDir, "copilot-skills");
+
+      await clientAdd("copilot", {
         configPath,
         registryPath,
         storePath: storeDir,
         skillsDir,
+        clientDirOverrides: { copilot: clientDir },
+        globalSkillsDir: skillsDir,
         projectRoot: projectDir,
       });
 
