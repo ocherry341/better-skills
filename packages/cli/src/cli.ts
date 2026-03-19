@@ -53,16 +53,12 @@ program
   .option("-n, --name <name>", "Override the skill name")
   .option("-f, --force", "Overwrite unmanaged skills")
   .option("-y, --yes", "Skip confirmation prompts")
-  .option("--clients <clients>", "Link to specific clients only (comma-separated)")
-  .option("--no-clients", "Skip linking to client directories")
   .action(async (source: string, opts) => {
     await add(source, {
       global: opts.global,
       hardlink: opts.hardlink,
       name: opts.name,
       force: opts.force,
-      clients: typeof opts.clients === "string" ? opts.clients.split(",") : undefined,
-      noClients: opts.clients === false,
     });
   });
 
@@ -75,16 +71,12 @@ program
   .option("-n, --name <name>", "Override the skill name")
   .option("-f, --force", "Overwrite unmanaged skills")
   .option("-y, --yes", "Skip confirmation prompts")
-  .option("--clients <clients>", "Link to specific clients only (comma-separated)")
-  .option("--no-clients", "Skip linking to client directories")
   .action(async (source: string, opts) => {
     await add(source, {
       global: opts.global,
       hardlink: opts.hardlink,
       name: opts.name,
       force: opts.force,
-      clients: typeof opts.clients === "string" ? opts.clients.split(",") : undefined,
-      noClients: opts.clients === false,
     });
   });
 
@@ -125,13 +117,11 @@ program
   .description("Move a skill between project and global scope")
   .option("-f, --force", "Overwrite if skill already exists in target")
   .option("--hardlink", "Use hard links instead of file copy (project → global only)")
-  .option("--no-clients", "Skip linking to client directories (project → global only)")
   .action(async (skillName: string, target: string, opts) => {
     if (target === "global") {
       await mvToGlobal(skillName, {
         force: opts.force,
         hardlink: opts.hardlink,
-        noClients: opts.clients === false,
       });
     } else if (target === "project") {
       await mvToProject(skillName, {
@@ -148,24 +138,25 @@ const client = program
   .description("Manage multi-client skill directories");
 
 client
-  .command("add <clients...>")
-  .description("Enable client(s) for skill syncing")
-  .action(async (clients: string[]) => {
-    await clientAdd(clients, {
+  .command("add <client>")
+  .description("Enable a client for skill syncing")
+  .action(async (client: string) => {
+    await clientAdd(client, {
       configPath: getConfigPath(),
       registryPath: getRegistryPath(),
       storePath: getStorePath(),
       skillsDir: getGlobalSkillsPath(),
+      globalSkillsDir: getGlobalSkillsPath(),
       projectRoot: process.cwd(),
     });
   });
 
 client
-  .command("rm <clients...>")
+  .command("rm <client>")
   .alias("remove")
-  .description("Disable client(s) and remove linked skills")
-  .action(async (clients: string[]) => {
-    await clientRm(clients, {
+  .description("Disable a client and remove its skills symlink")
+  .action(async (client: string) => {
+    await clientRm(client, {
       configPath: getConfigPath(),
       registryPath: getRegistryPath(),
       skillsDir: getGlobalSkillsPath(),
