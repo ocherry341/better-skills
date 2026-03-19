@@ -132,17 +132,4 @@ export async function save(options: SaveOptions = {}): Promise<void> {
     console.log("All skills are up to date.");
   }
 
-  // Sync to enabled client directories
-  const { resolveClientDirs } = await import("../core/clients.js");
-  const { linkToClients } = await import("../core/linker.js");
-  const clientDirs = await resolveClientDirs();
-  if (clientDirs.length > 0 && saved > 0) {
-    const updatedRegistry = await readRegistry(registryPath);
-    for (const [name, entry] of Object.entries(updatedRegistry.skills)) {
-      const latestVer = entry.versions.reduce((best, v) => (v.v > best.v ? v : best));
-      const storeDir = join(storePath, latestVer.hash);
-      await linkToClients(name, storeDir, clientDirs);
-    }
-    console.log(`Synced to ${clientDirs.length} client dir(s).`);
-  }
 }
