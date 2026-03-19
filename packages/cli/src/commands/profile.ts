@@ -1,8 +1,7 @@
 import { stat, readdir, mkdir as fsMkdir, unlink } from "fs/promises";
 import { join, basename } from "path";
-import { unlinkSkill, linkToClients, unlinkFromClients } from "../core/linker.js";
+import { unlinkSkill } from "../core/linker.js";
 import { verifiedLinkSkill } from "../core/store.js";
-import { resolveClientDirs } from "../core/clients.js";
 import {
   type Profile,
   type ProfileSkillEntry,
@@ -119,7 +118,6 @@ export interface ProfileUseInternalOptions {
   storePath: string;
   hardlink?: boolean;
   registryPath?: string;
-  configPath?: string;
 }
 
 /**
@@ -132,9 +130,6 @@ export async function profileUse(
   const filePath = join(opts.profilesDir, `${name}.json`);
   const profile = await readProfile(filePath);
 
-  // Resolve enabled client dirs
-  const clientDirs = await resolveClientDirs(opts.configPath);
-
   // Clear only managed skills from agents dir; preserve unmanaged
   try {
     const existing = await readdir(opts.skillsDir, { withFileTypes: true });
@@ -143,10 +138,6 @@ export async function profileUse(
       const managed = await isManaged(entry.name, opts.registryPath);
       if (managed) {
         await unlinkSkill(join(opts.skillsDir, entry.name));
-        // Also clear from client dirs
-        if (clientDirs.length > 0) {
-          await unlinkFromClients(entry.name, clientDirs);
-        }
       } else {
         console.warn(`⚠ Skipping unmanaged skill '${entry.name}'`);
       }
@@ -177,10 +168,6 @@ export async function profileUse(
     }
     const targetDir = join(opts.skillsDir, skill.skillName);
     await verifiedLinkSkill(version.hash, targetDir, { hardlink: opts.hardlink }, opts.storePath);
-    // Also link to client dirs
-    if (clientDirs.length > 0) {
-      await linkToClients(skill.skillName, storeDir, clientDirs, { hardlink: opts.hardlink });
-    }
     await registerSkill(skill.skillName, version.hash, skill.source, opts.registryPath, opts.storePath);
   }
 
@@ -199,7 +186,6 @@ export interface ProfileAddInternalOptions {
   hardlink?: boolean;
   name?: string;
   registryPath?: string;
-  configPath?: string;
 }
 
 /**
@@ -264,10 +250,6 @@ export async function profileAdd(
         const storeDir = join(opts.storePath, version.hash);
         const targetDir = join(opts.skillsDir, skillName);
         await verifiedLinkSkill(version.hash, targetDir, { hardlink: opts.hardlink }, opts.storePath);
-        const clientDirs = await resolveClientDirs(opts.configPath);
-        if (clientDirs.length > 0) {
-          await linkToClients(skillName, storeDir, clientDirs, { hardlink: opts.hardlink });
-        }
       }
 
       console.log(`✓ Added ${skillName} v${version.v} (${version.hash.slice(0, 8)}) to profile '${targetName}'`);
@@ -325,11 +307,6 @@ export async function profileAdd(
       console.log(`Linking to ${targetDir}...`);
       const storeDir = store.getHashPath(hash);
       await verifiedLinkSkill(hash, targetDir, { hardlink: opts.hardlink });
-      // Link to client dirs
-      const clientDirs = await resolveClientDirs(opts.configPath);
-      if (clientDirs.length > 0) {
-        await linkToClients(skillName, storeDir, clientDirs, { hardlink: opts.hardlink });
-      }
     }
 
     console.log(`✓ Added ${skillName} (${hash.slice(0, 8)}) to profile '${targetName}'`);
@@ -347,7 +324,6 @@ export interface ProfileRmInternalOptions {
   skillsDir: string;
   profileName?: string;
   registryPath?: string;
-  configPath?: string;
 }
 
 /**
@@ -388,11 +364,6 @@ export async function profileRm(
       await unlinkSkill(targetDir);
     } catch {
       // Skill dir doesn't exist on disk — already removed, just update profile
-    }
-    // Unlink from client dirs
-    const clientDirs = await resolveClientDirs(opts.configPath);
-    if (clientDirs.length > 0) {
-      await unlinkFromClients(skillName, clientDirs);
     }
   }
 

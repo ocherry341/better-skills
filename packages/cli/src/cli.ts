@@ -253,7 +253,6 @@ profile
       skillsDir: getGlobalSkillsPath(),
       storePath: getStorePath(),
       hardlink: opts.hardlink,
-      configPath: getConfigPath(),
     });
   });
 
@@ -272,7 +271,6 @@ profile
       profileName: opts.profile,
       hardlink: opts.hardlink,
       name: opts.name,
-      configPath: getConfigPath(),
     });
   });
 
@@ -287,7 +285,6 @@ profile
       activeFile: getActiveProfileFilePath(),
       skillsDir: getGlobalSkillsPath(),
       profileName: opts.profile,
-      configPath: getConfigPath(),
     });
   });
 
