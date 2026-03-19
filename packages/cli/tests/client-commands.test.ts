@@ -338,10 +338,15 @@ describe("client commands", () => {
     test("removes client from config", async () => {
       await writeFile(configPath, JSON.stringify({ clients: ["claude", "cursor"] }));
 
-      await clientRm(["claude"], {
+      const clientDir = join(baseDir, "claude-skills");
+      const { symlink: symlinkFn } = await import("fs/promises");
+      await symlinkFn(skillsDir, clientDir);
+
+      await clientRm("claude", {
         configPath,
         registryPath,
         skillsDir,
+        clientDirOverrides: { claude: clientDir },
       });
 
       const config = await readConfig(configPath);
@@ -349,34 +354,52 @@ describe("client commands", () => {
       expect(config.clients).toContain("cursor");
     });
 
-    test("removes managed skill links from client dir", async () => {
+    test("removes symlink on clientRm", async () => {
       await writeFile(configPath, JSON.stringify({ clients: ["claude"] }));
 
-      // Create a skill in the client dir
-      const clientSkillsBase = join(baseDir, "claude-skills");
-      const clientSkillDir = join(clientSkillsBase, "my-skill");
-      await mkdir(clientSkillDir, { recursive: true });
-      await writeFile(join(clientSkillDir, "SKILL.md"), "test");
+      const clientDir = join(baseDir, "claude-skills");
+      const { symlink: symlinkFn } = await import("fs/promises");
+      await symlinkFn(skillsDir, clientDir);
 
-      // Register in registry so it's managed
-      await writeFile(
-        registryPath,
-        JSON.stringify({ skills: { "my-skill": { versions: [{ v: 1, hash: "abc", source: "test", addedAt: "2026-03-01T00:00:00.000Z" }] } } })
-      );
-
-      await clientRm(["claude"], {
+      await clientRm("claude", {
         configPath,
         registryPath,
         skillsDir,
-        clientDirOverrides: { claude: clientSkillsBase },
+        clientDirOverrides: { claude: clientDir },
       });
 
-      await expect(stat(clientSkillDir)).rejects.toThrow();
+      // Symlink should be gone
+      await expect(lstat(clientDir)).rejects.toThrow();
+      // But agents dir should still exist
+      const s = await stat(skillsDir);
+      expect(s.isDirectory()).toBe(true);
+    });
+
+    test("errors when globalDir is a real directory", async () => {
+      await writeFile(configPath, JSON.stringify({ clients: ["claude"] }));
+
+      // Create a real directory (legacy state, not a symlink)
+      const clientDir = join(baseDir, "claude-skills");
+      await mkdir(join(clientDir, "my-skill"), { recursive: true });
+      await writeFile(join(clientDir, "my-skill", "SKILL.md"), "test");
+
+      await expect(
+        clientRm("claude", {
+          configPath,
+          registryPath,
+          skillsDir,
+          clientDirOverrides: { claude: clientDir },
+        })
+      ).rejects.toThrow("real directory");
+
+      // Directory should be untouched
+      const s = await stat(join(clientDir, "my-skill", "SKILL.md"));
+      expect(s.isFile()).toBe(true);
     });
 
     test("rejects agents removal", async () => {
       await expect(
-        clientRm(["agents"], {
+        clientRm("agents", {
           configPath,
           registryPath,
           skillsDir,
@@ -398,17 +421,21 @@ describe("client commands", () => {
 
       await writeFile(configPath, JSON.stringify({ clients: ["claude"] }));
 
-      await clientRm(["claude"], {
+      const clientDir = join(baseDir, "claude-skills");
+      await symlinkFn(skillsDir, clientDir);
+
+      await clientRm("claude", {
         configPath,
         registryPath,
         skillsDir,
+        clientDirOverrides: { claude: clientDir },
         projectRoot: projectDir,
       });
 
       await expect(lstat(symlinkPath)).rejects.toThrow();
     });
 
-    test("does not remove real directory on clientRm", async () => {
+    test("does not remove real directory on clientRm project-level", async () => {
       const projectDir = join(baseDir, "my-project");
       const claudeSkills = join(projectDir, ".claude", "skills");
       await mkdir(claudeSkills, { recursive: true });
@@ -416,10 +443,15 @@ describe("client commands", () => {
 
       await writeFile(configPath, JSON.stringify({ clients: ["claude"] }));
 
-      await clientRm(["claude"], {
+      const clientDir = join(baseDir, "claude-skills");
+      const { symlink: symlinkFn } = await import("fs/promises");
+      await symlinkFn(skillsDir, clientDir);
+
+      await clientRm("claude", {
         configPath,
         registryPath,
         skillsDir,
+        clientDirOverrides: { claude: clientDir },
         projectRoot: projectDir,
       });
 
@@ -428,17 +460,39 @@ describe("client commands", () => {
       expect(s.isDirectory()).toBe(true);
     });
 
+    test("no-op when globalDir does not exist", async () => {
+      await writeFile(configPath, JSON.stringify({ clients: ["claude"] }));
+
+      const clientDir = join(baseDir, "nonexistent-claude-skills");
+
+      // Should not throw
+      await clientRm("claude", {
+        configPath,
+        registryPath,
+        skillsDir,
+        clientDirOverrides: { claude: clientDir },
+      });
+
+      const config = await readConfig(configPath);
+      expect(config.clients).not.toContain("claude");
+    });
+
     test("skips project removal for client with null projectSubdir", async () => {
       const projectDir = join(baseDir, "my-project");
       await mkdir(projectDir, { recursive: true });
 
       await writeFile(configPath, JSON.stringify({ clients: ["amp"] }));
 
+      const clientDir = join(baseDir, "amp-skills");
+      const { symlink: symlinkFn } = await import("fs/promises");
+      await symlinkFn(skillsDir, clientDir);
+
       // Should not throw
-      await clientRm(["amp"], {
+      await clientRm("amp", {
         configPath,
         registryPath,
         skillsDir,
+        clientDirOverrides: { amp: clientDir },
         projectRoot: projectDir,
       });
     });
