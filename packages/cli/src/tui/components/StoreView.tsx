@@ -32,7 +32,7 @@ export function StoreView({ selectedIndex, focusPane, refreshKey = 0, notificati
   const items: ListItem[] = entries.map((entry) => {
     const skills = entry.skills.length > 0
       ? entry.skills.map((s) => `${s.name}@v${s.v}`).join(", ")
-      : "(orphan)";
+      : entry.orphanName ? `(orphan) ${entry.orphanName}` : "(orphan)";
     return { key: entry.hash, label: entry.hash.slice(0, 12), markers: skills };
   });
 
@@ -48,13 +48,15 @@ export function StoreView({ selectedIndex, focusPane, refreshKey = 0, notificati
         { label: "Size", value: formatSize(selected.size) },
         { label: "Skills", value: selected.skills.length > 0
           ? selected.skills.map((s) => `${s.name} v${s.v}`).join(", ")
-          : "(orphan — no registry reference)" },
+          : selected.orphanName
+            ? `(orphan) ${selected.orphanName} — no registry reference`
+            : "(orphan — no registry reference)" },
       ]
     : [];
 
   const detailContent = selected && selected.skills.length > 0
     ? selected.skills.map((s) => `  ${s.name} v${s.v} (${s.source})`).join("\n")
-    : "";
+    : selected?.orphanName ? `  ${selected.orphanName} (orphan — from SKILL.md)` : "";
 
   const healthLine = verifyResult
     ? `Health: ${verifyResult.total} entries, ${verifyResult.ok} ok${verifyResult.corrupted.length > 0 ? `, ${verifyResult.corrupted.length} corrupted` : ""}`
