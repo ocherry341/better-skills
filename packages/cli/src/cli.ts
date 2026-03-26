@@ -388,7 +388,7 @@ storeCmd
     for (const entry of result.entries) {
       const skills = entry.skills.length > 0
         ? entry.skills.map((s) => `${s.name}@v${s.v}`).join(", ")
-        : "(orphan)";
+        : entry.orphanName ? `(orphan) ${entry.orphanName}` : "(orphan)";
       const sizeStr = entry.size > 1024 * 1024
         ? `${(entry.size / (1024 * 1024)).toFixed(1)} MB`
         : entry.size > 1024
