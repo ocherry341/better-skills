@@ -56,4 +56,27 @@ describe("bsk store ls", () => {
     expect(result.entries[0].hash).toBe(orphanHash);
     expect(result.entries[0].skills).toHaveLength(0);
   });
+
+  test("populates orphanName from SKILL.md for orphan entries", async () => {
+    const orphanDir = join(storeDir, "deadbeef1234567890abcdef");
+    await mkdir(orphanDir);
+    await writeFile(
+      join(orphanDir, "SKILL.md"),
+      "---\nname: my-orphan-skill\ndescription: A lost skill\n---\n# My Orphan Skill\n"
+    );
+
+    const result = await storeLs({ storePath: storeDir, registryPath });
+    expect(result.entries).toHaveLength(1);
+    expect(result.entries[0].skills).toHaveLength(0);
+    expect(result.entries[0].orphanName).toBe("my-orphan-skill");
+  });
+
+  test("orphanName is undefined when SKILL.md is missing", async () => {
+    const orphanDir = join(storeDir, "deadbeef1234567890abcdef");
+    await mkdir(orphanDir);
+
+    const result = await storeLs({ storePath: storeDir, registryPath });
+    expect(result.entries).toHaveLength(1);
+    expect(result.entries[0].orphanName).toBeUndefined();
+  });
 });

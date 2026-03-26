@@ -3,6 +3,7 @@ import { join } from "path";
 import { getStorePath, getRegistryPath } from "../utils/paths.js";
 import { verifyStoreEntry } from "../core/store.js";
 import { readRegistry } from "../core/registry.js";
+import { readSkillMd } from "../utils/skill-md.js";
 
 export interface CorruptedEntry {
   hash: string;
@@ -64,6 +65,7 @@ export interface StoreEntry {
   hash: string;
   skills: { name: string; v: number; source: string }[];
   size: number;
+  orphanName?: string;
 }
 
 export interface StoreLsResult {
@@ -107,10 +109,19 @@ export async function storeLs(options: { storePath?: string; registryPath?: stri
       }
     } catch { /* skip */ }
 
+    let orphanName: string | undefined;
+    if (!hashToSkills.has(hash)) {
+      try {
+        const meta = await readSkillMd(join(storePath, hash));
+        orphanName = meta.name;
+      } catch { /* no SKILL.md or parse error */ }
+    }
+
     entries.push({
       hash,
       skills: hashToSkills.get(hash) ?? [],
       size,
+      orphanName,
     });
   }
 
