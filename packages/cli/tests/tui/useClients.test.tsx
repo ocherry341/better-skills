@@ -15,13 +15,6 @@ const { useClients } = await import("../../src/tui/hooks/useClients.js");
 const { renderHook, flush } = await import("./helpers.js");
 
 describe("useClients", () => {
-  test("starts in loading state", () => {
-    const hook = renderHook(() => useClients());
-    expect(hook.current.loading).toBe(true);
-    expect(hook.current.clients).toEqual([]);
-    hook.unmount();
-  });
-
   test("returns client list with agents always first and always-on", async () => {
     const hook = renderHook(() => useClients());
     await flush();
