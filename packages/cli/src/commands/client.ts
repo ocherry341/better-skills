@@ -1,7 +1,7 @@
 import { lstat, mkdir, readdir, readlink, rename, rm, stat, symlink } from "fs/promises";
 import { dirname, join } from "path";
 import {
-  CLIENT_REGISTRY,
+  getClientRegistry,
   VALID_CLIENT_IDS,
   readConfig,
   writeConfig,
@@ -35,7 +35,7 @@ export async function clientAdd(
   if (clientId === "agents") {
     throw new Error("'agents' is always enabled and cannot be added.");
   }
-  if (!(clientId in CLIENT_REGISTRY)) {
+  if (!VALID_CLIENT_IDS.includes(clientId)) {
     throw new Error(`Unknown client '${clientId}'. Valid clients: ${VALID_CLIENT_IDS.join(", ")}`);
   }
 
@@ -259,10 +259,11 @@ export interface ClientListItem {
  */
 export async function clientLs(opts: ClientLsOptions): Promise<ClientListItem[]> {
   const config = await readConfig(opts.configPath);
+  const registry = getClientRegistry();
   return VALID_CLIENT_IDS.map((id) => ({
     id,
-    path: CLIENT_REGISTRY[id].globalDir,
-    projectSubdir: CLIENT_REGISTRY[id].projectSubdir,
+    path: registry[id].globalDir,
+    projectSubdir: registry[id].projectSubdir,
     enabled: config.clients.includes(id),
   }));
 }

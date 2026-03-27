@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { CLIENT_REGISTRY, VALID_CLIENT_IDS, getEnabledClients } from "../../core/clients.js";
+import { getClientRegistry, VALID_CLIENT_IDS, getEnabledClients } from "../../core/clients.js";
 import { getGlobalSkillsPath } from "../../utils/paths.js";
 
 export interface ClientInfo {
@@ -22,11 +22,12 @@ export function useClients(externalRefreshKey = 0) {
       const enabled = await getEnabledClients();
       const enabledSet = new Set(enabled);
 
+      const registry = getClientRegistry();
       const list: ClientInfo[] = [
         { id: "agents", path: getGlobalSkillsPath(), enabled: true, alwaysOn: true },
         ...VALID_CLIENT_IDS.map((id) => ({
           id,
-          path: CLIENT_REGISTRY[id].globalDir,
+          path: registry[id].globalDir,
           enabled: enabledSet.has(id),
           alwaysOn: false,
         })),

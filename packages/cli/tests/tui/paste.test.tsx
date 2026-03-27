@@ -15,19 +15,6 @@ mock.module("../../src/core/registry.js", () => ({
   readRegistry: mock(() => Promise.resolve({ skills: {} })),
   getLatestVersion: mock(() => null),
 }));
-mock.module("../../src/utils/paths.js", () => ({
-  getStorePath: () => "/tmp/bsk-test-store",
-  getGlobalSkillsPath: () => "/tmp/bsk-test-global",
-  getProjectSkillsPath: () => "/tmp/bsk-test-project",
-  getSkillsPath: (global: boolean) => global ? "/tmp/bsk-test-global" : "/tmp/bsk-test-project",
-  getProfilesPath: () => "/tmp/bsk-test-profiles",
-  getProfilePath: (name: string) => `/tmp/bsk-test-profiles/${name}.json`,
-  getActiveProfileFilePath: () => "/tmp/bsk-test-profiles/.active",
-  getRegistryPath: () => "/tmp/bsk-test-registry.json",
-  getConfigPath: () => "/tmp/bsk-test-config.json",
-  getTempPath: () => "/tmp/bsk-test-tmp",
-  resolveAbsolute: (p: string) => p,
-}));
 mock.module("../../src/commands/profile.js", () => ({
   profileList: mock(() => Promise.resolve([])),
   profileShow: mock(() => Promise.resolve({ skills: [] })),
@@ -50,7 +37,7 @@ mock.module("../../src/core/clients.js", () => ({
   writeConfig: mock(() => Promise.resolve()),
   getClientSkillsDir: mock(() => "/tmp/bsk-test-client"),
   getClientProjectSubdir: mock(() => null),
-  CLIENT_REGISTRY: {},
+  getClientRegistry: () => ({}),
   VALID_CLIENT_IDS: [],
 }));
 

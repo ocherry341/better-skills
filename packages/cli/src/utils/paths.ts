@@ -1,16 +1,19 @@
 import { homedir } from "os";
 import { join, resolve } from "path";
 
-const HOME = homedir();
+// Bun's os.homedir() ignores runtime changes to $HOME, so read the env var directly.
+function home(): string {
+  return process.env.HOME ?? homedir();
+}
 
 /** Global content-addressable store */
 export function getStorePath(): string {
-  return join(HOME, ".better-skills", "store");
+  return join(home(), ".better-skills", "store");
 }
 
 /** Global skills target directory */
 export function getGlobalSkillsPath(): string {
-  return join(HOME, ".agents", "skills");
+  return join(home(), ".agents", "skills");
 }
 
 /** Project-local skills target directory */
@@ -26,7 +29,7 @@ export function getSkillsPath(global: boolean, projectRoot?: string): string {
 
 /** Directory containing all profile JSON files */
 export function getProfilesPath(): string {
-  return join(HOME, ".better-skills", "profiles");
+  return join(home(), ".better-skills", "profiles");
 }
 
 /** Path to a specific profile's JSON file */
@@ -36,22 +39,22 @@ export function getProfilePath(name: string): string {
 
 /** File that stores the name of the active profile */
 export function getActiveProfileFilePath(): string {
-  return join(HOME, ".better-skills", "active-profile");
+  return join(home(), ".better-skills", "active-profile");
 }
 
 /** Registry file tracking managed global skills */
 export function getRegistryPath(): string {
-  return join(HOME, ".better-skills", "registry.json");
+  return join(home(), ".better-skills", "registry.json");
 }
 
 /** Global config file */
 export function getConfigPath(): string {
-  return join(HOME, ".better-skills", "config.json");
+  return join(home(), ".better-skills", "config.json");
 }
 
 /** Temp directory for git clones */
 export function getTempPath(): string {
-  return join(HOME, ".better-skills", "tmp");
+  return join(home(), ".better-skills", "tmp");
 }
 
 /** Resolve a potentially relative path to absolute */

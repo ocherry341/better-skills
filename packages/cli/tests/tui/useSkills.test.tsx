@@ -22,20 +22,6 @@ mock.module("../../src/core/registry.js", () => ({
   readRegistry: mockReadRegistry,
   getLatestVersion: mockGetLatestVersion,
 }));
-mock.module("../../src/utils/paths.js", () => ({
-  getStorePath: () => "/tmp/bsk-test-store",
-  getGlobalSkillsPath: () => "/tmp/bsk-test-global",
-  getProjectSkillsPath: () => "/tmp/bsk-test-project",
-  getSkillsPath: (global: boolean) => global ? "/tmp/bsk-test-global" : "/tmp/bsk-test-project",
-  getProfilesPath: () => "/tmp/bsk-test-profiles",
-  getProfilePath: (name: string) => `/tmp/bsk-test-profiles/${name}.json`,
-  getActiveProfileFilePath: () => "/tmp/bsk-test-profiles/.active",
-  getRegistryPath: () => "/tmp/bsk-test-registry.json",
-  getConfigPath: () => "/tmp/bsk-test-config.json",
-  getTempPath: () => "/tmp/bsk-test-tmp",
-  resolveAbsolute: (p: string) => p,
-}));
-
 const { useSkills } = await import("../../src/tui/hooks/useSkills.js");
 const { renderHook, flush } = await import("./helpers.js");
 

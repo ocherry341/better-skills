@@ -3,8 +3,6 @@ import { dirname, join } from "path";
 import { homedir } from "os";
 import { getConfigPath } from "../utils/paths.js";
 
-const HOME = homedir();
-
 export interface ClientEntry {
   globalDir: string;
   projectSubdir: string | null;
@@ -14,18 +12,22 @@ export interface ClientEntry {
  * Built-in client registry: client ID -> ClientEntry.
  * Does NOT include "agents" — that's always-on and handled separately.
  */
-export const CLIENT_REGISTRY: Record<string, ClientEntry> = {
-  claude:   { globalDir: join(HOME, ".claude", "skills"),                 projectSubdir: join(".claude", "skills") },
-  cursor:   { globalDir: join(HOME, ".cursor", "skills"),                 projectSubdir: join(".cursor", "skills") },
-  opencode: { globalDir: join(HOME, ".config", "opencode", "skills"),     projectSubdir: join(".opencode", "skills") },
-  gemini:   { globalDir: join(HOME, ".gemini", "skills"),                 projectSubdir: join(".gemini", "skills") },
-  copilot:  { globalDir: join(HOME, ".copilot", "skills"),                projectSubdir: join(".github", "skills") },
-  roo:      { globalDir: join(HOME, ".roo", "skills"),                    projectSubdir: join(".roo", "skills") },
-  goose:    { globalDir: join(HOME, ".config", "goose", "skills"),        projectSubdir: join(".goose", "skills") },
-  amp:      { globalDir: join(HOME, ".config", "amp", "skills"),          projectSubdir: null },
-};
+export function getClientRegistry(): Record<string, ClientEntry> {
+  // Bun's os.homedir() ignores runtime changes to $HOME, so read the env var directly.
+  const home = process.env.HOME ?? homedir();
+  return {
+    claude:   { globalDir: join(home, ".claude", "skills"),                 projectSubdir: join(".claude", "skills") },
+    cursor:   { globalDir: join(home, ".cursor", "skills"),                 projectSubdir: join(".cursor", "skills") },
+    opencode: { globalDir: join(home, ".config", "opencode", "skills"),     projectSubdir: join(".opencode", "skills") },
+    gemini:   { globalDir: join(home, ".gemini", "skills"),                 projectSubdir: join(".gemini", "skills") },
+    copilot:  { globalDir: join(home, ".copilot", "skills"),                projectSubdir: join(".github", "skills") },
+    roo:      { globalDir: join(home, ".roo", "skills"),                    projectSubdir: join(".roo", "skills") },
+    goose:    { globalDir: join(home, ".config", "goose", "skills"),        projectSubdir: join(".goose", "skills") },
+    amp:      { globalDir: join(home, ".config", "amp", "skills"),          projectSubdir: null },
+  };
+}
 
-export const VALID_CLIENT_IDS = Object.keys(CLIENT_REGISTRY);
+export const VALID_CLIENT_IDS = ["claude", "cursor", "opencode", "gemini", "copilot", "roo", "goose", "amp"];
 
 export interface Config {
   clients: string[];
@@ -43,7 +45,7 @@ export async function readConfig(configPath?: string): Promise<Config> {
     if (parsed && Array.isArray(parsed.clients)) {
       // Filter to valid client IDs only
       const valid: string[] = parsed.clients.filter(
-        (c: unknown): c is string => typeof c === "string" && c in CLIENT_REGISTRY
+        (c: unknown): c is string => typeof c === "string" && VALID_CLIENT_IDS.includes(c)
       );
       return { clients: [...new Set(valid)] };
     }
@@ -63,7 +65,7 @@ export async function writeConfig(
 ): Promise<void> {
   const filePath = configPath ?? getConfigPath();
   const valid = config.clients.filter(
-    (c) => c in CLIENT_REGISTRY
+    (c) => VALID_CLIENT_IDS.includes(c)
   );
   const deduped = [...new Set(valid)];
 
@@ -87,7 +89,8 @@ export async function getEnabledClients(configPath?: string): Promise<string[]> 
  * Throws for unknown client IDs.
  */
 export function getClientSkillsDir(clientId: string): string {
-  const entry = CLIENT_REGISTRY[clientId];
+  const registry = getClientRegistry();
+  const entry = registry[clientId];
   if (!entry) {
     throw new Error(
       `Unknown client '${clientId}'. Valid clients: ${VALID_CLIENT_IDS.join(", ")}`
@@ -101,7 +104,8 @@ export function getClientSkillsDir(clientId: string): string {
  * Returns null if the client has no project-level path.
  */
 export function getClientProjectSubdir(clientId: string): string | null {
-  const entry = CLIENT_REGISTRY[clientId];
+  const registry = getClientRegistry();
+  const entry = registry[clientId];
   if (!entry) {
     throw new Error(
       `Unknown client '${clientId}'. Valid clients: ${VALID_CLIENT_IDS.join(", ")}`

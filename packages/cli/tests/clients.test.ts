@@ -3,7 +3,7 @@ import { mkdtemp, rm, readFile, writeFile } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
 import {
-  CLIENT_REGISTRY,
+  getClientRegistry,
   readConfig,
   writeConfig,
   getEnabledClients,
@@ -24,20 +24,22 @@ describe("clients", () => {
     await rm(baseDir, { recursive: true, force: true });
   });
 
-  describe("CLIENT_REGISTRY", () => {
+  describe("getClientRegistry", () => {
     test("contains all known clients", () => {
-      expect(CLIENT_REGISTRY).toHaveProperty("claude");
-      expect(CLIENT_REGISTRY).toHaveProperty("cursor");
-      expect(CLIENT_REGISTRY).toHaveProperty("opencode");
-      expect(CLIENT_REGISTRY).toHaveProperty("gemini");
-      expect(CLIENT_REGISTRY).toHaveProperty("copilot");
-      expect(CLIENT_REGISTRY).toHaveProperty("roo");
-      expect(CLIENT_REGISTRY).toHaveProperty("goose");
-      expect(CLIENT_REGISTRY).toHaveProperty("amp");
+      const registry = getClientRegistry();
+      expect(registry).toHaveProperty("claude");
+      expect(registry).toHaveProperty("cursor");
+      expect(registry).toHaveProperty("opencode");
+      expect(registry).toHaveProperty("gemini");
+      expect(registry).toHaveProperty("copilot");
+      expect(registry).toHaveProperty("roo");
+      expect(registry).toHaveProperty("goose");
+      expect(registry).toHaveProperty("amp");
     });
 
     test("does not contain agents (implicit)", () => {
-      expect(CLIENT_REGISTRY).not.toHaveProperty("agents");
+      const registry = getClientRegistry();
+      expect(registry).not.toHaveProperty("agents");
     });
   });
 
