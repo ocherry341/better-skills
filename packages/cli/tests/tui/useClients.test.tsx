@@ -1,5 +1,5 @@
 // packages/cli/tests/tui/useClients.test.tsx
-import { describe, test, expect, mock, beforeEach } from "bun:test";
+import { describe, test, expect, mock } from "bun:test";
 
 const mockGetEnabledClients = mock(() => Promise.resolve(["claude"]));
 
@@ -15,10 +15,6 @@ const { useClients } = await import("../../src/tui/hooks/useClients.js");
 const { renderHook, flush } = await import("./helpers.js");
 
 describe("useClients", () => {
-  beforeEach(() => {
-    mockGetEnabledClients.mockClear();
-  });
-
   test("starts in loading state", () => {
     const hook = renderHook(() => useClients());
     expect(hook.current.loading).toBe(true);
