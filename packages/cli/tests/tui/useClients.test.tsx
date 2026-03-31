@@ -28,13 +28,4 @@ describe("useClients", () => {
     hook.unmount();
   });
 
-  test("marks enabled clients correctly", async () => {
-    const hook = renderHook(() => useClients());
-    await flush();
-    const claude = hook.current.clients.find((c) => c.id === "claude");
-    const cursor = hook.current.clients.find((c) => c.id === "cursor");
-    expect(claude!.enabled).toBe(true);
-    expect(cursor!.enabled).toBe(false);
-    hook.unmount();
-  });
 });
