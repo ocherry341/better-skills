@@ -107,8 +107,9 @@ program
 program
   .command("save [skill-name]")
   .description("Save new or changed skills to bsk management")
-  .action(async (skillName?: string) => {
-    await save({ skillName });
+  .option("--adopt-orphans", "Recover orphaned store entries into registry")
+  .action(async (skillName: string | undefined, opts: { adoptOrphans?: boolean }) => {
+    await save({ skillName, adoptOrphans: opts.adoptOrphans });
   });
 
 program
