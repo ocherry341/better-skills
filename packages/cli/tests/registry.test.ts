@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtemp, rm, writeFile, mkdir } from "fs/promises";
+import { mkdtemp, rm, writeFile, mkdir, stat } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
 import {
@@ -198,6 +198,45 @@ describe("registry", () => {
       await unregisterSkill("nonexistent", registryPath, storeDir);
       const reg = await readRegistry(registryPath);
       expect(reg).toEqual({ skills: {} });
+    });
+
+    test("deletes orphaned store hash directories", async () => {
+      await mkdir(join(storeDir, "hash-a"), { recursive: true });
+      await registerSkill("skill-a", "hash-a", "src", registryPath, storeDir);
+      await unregisterSkill("skill-a", registryPath, storeDir);
+
+      const exists = await stat(join(storeDir, "hash-a")).then(() => true, () => false);
+      expect(exists).toBe(false);
+    });
+
+    test("preserves store hash still referenced by another skill", async () => {
+      await mkdir(join(storeDir, "shared-hash"), { recursive: true });
+      await registerSkill("skill-a", "shared-hash", "src", registryPath, storeDir);
+      await registerSkill("skill-b", "shared-hash", "src", registryPath, storeDir);
+      await unregisterSkill("skill-a", registryPath, storeDir);
+
+      const exists = await stat(join(storeDir, "shared-hash")).then(() => true, () => false);
+      expect(exists).toBe(true);
+    });
+
+    test("handles store deletion failure gracefully", async () => {
+      await mkdir(join(storeDir, "fail-hash"), { recursive: true });
+      await registerSkill("skill-a", "fail-hash", "src", registryPath, storeDir);
+
+      // Remove store dir so rm will encounter already-gone dir
+      await rm(join(storeDir, "fail-hash"), { recursive: true, force: true });
+      await expect(
+        unregisterSkill("skill-a", registryPath, storeDir)
+      ).resolves.toBeUndefined();
+    });
+
+    test("no-op for unknown skill does not delete any store entries", async () => {
+      await mkdir(join(storeDir, "keep-hash"), { recursive: true });
+      await registerSkill("existing-skill", "keep-hash", "src", registryPath, storeDir);
+      await unregisterSkill("nonexistent", registryPath, storeDir);
+
+      const exists = await stat(join(storeDir, "keep-hash")).then(() => true, () => false);
+      expect(exists).toBe(true);
     });
   });
 

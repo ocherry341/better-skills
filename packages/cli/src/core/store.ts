@@ -96,8 +96,8 @@ export async function list(): Promise<string[]> {
 }
 
 /** Remove a hash from the store */
-export async function remove(hash: string): Promise<void> {
-  const dest = getHashPath(hash);
+export async function remove(hash: string, storePath?: string): Promise<void> {
+  const dest = join(storePath ?? getStorePath(), hash);
   await rm(dest, { recursive: true, force: true });
 }
 

@@ -1,6 +1,7 @@
 import { readFile, writeFile, mkdir, stat } from "fs/promises";
 import { dirname, join } from "path";
 import { getRegistryPath, getStorePath } from "../utils/paths.js";
+import { remove as removeFromStore } from "./store.js";
 
 export interface VersionEntry {
   v: number;
@@ -121,6 +122,7 @@ export async function registerSkill(
 
 /**
  * Unregister a skill (remove all versions).
+ * Cleans up orphaned store entries that are no longer referenced by any skill.
  */
 export async function unregisterSkill(
   name: string,
@@ -128,7 +130,34 @@ export async function unregisterSkill(
   storePath?: string
 ): Promise<void> {
   const registry = await readRegistry(registryPath);
+  const removedEntry = registry.skills[name];
+  if (!removedEntry) {
+    return;
+  }
+
+  const removedHashes = new Set(removedEntry.versions.map((v) => v.hash));
+
   delete registry.skills[name];
+
+  // Collect hashes still referenced by remaining skills
+  const referencedHashes = new Set<string>();
+  for (const entry of Object.values(registry.skills)) {
+    for (const ver of entry.versions) {
+      referencedHashes.add(ver.hash);
+    }
+  }
+
+  // Delete orphaned hashes
+  for (const hash of removedHashes) {
+    if (!referencedHashes.has(hash)) {
+      try {
+        await removeFromStore(hash, storePath);
+      } catch (err) {
+        console.warn(`⚠ Failed to remove store entry ${hash.slice(0, 8)}: ${err}`);
+      }
+    }
+  }
+
   await writeRegistry(registry, registryPath, storePath);
 }
 
