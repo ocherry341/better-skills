@@ -79,6 +79,18 @@ describe("store integrity", () => {
     expect(content).toBe("aaa");
   });
 
+  test("remove deletes hash directory from custom storePath", async () => {
+    const hashDir = join(storeDir, "deadbeef");
+    await mkdir(hashDir, { recursive: true });
+    await writeFile(join(hashDir, "file.txt"), "data");
+
+    const { remove } = await import("../src/core/store.js");
+    await remove("deadbeef", storeDir);
+
+    const entries = await readdir(storeDir);
+    expect(entries).not.toContain("deadbeef");
+  });
+
   test("verifiedLinkSkill throws when store entry is corrupted", async () => {
     await writeFile(join(sourceDir, "a.txt"), "aaa");
     const hash = await hashDirectory(sourceDir);
