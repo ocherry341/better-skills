@@ -18,6 +18,7 @@ async function collectFiles(dir: string, base?: string): Promise<string[]> {
       if (entry.name.startsWith(".")) continue;
       files.push(...(await collectFiles(fullPath, root)));
     } else {
+      if (entry.name === ".bsk-meta.json") continue;
       files.push(relative(root, fullPath));
     }
   }

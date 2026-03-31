@@ -112,4 +112,19 @@ describe("hasher", () => {
 
     expect(hashWithHidden).toBe(hashWithout);
   });
+
+  test("ignores .bsk-meta.json in hash calculation", async () => {
+    await writeFile(join(tempDir, "SKILL.md"), "---\nname: test\n---\n# Test");
+
+    const hashWithout = await hashDirectory(tempDir);
+
+    // Add .bsk-meta.json — hash should not change
+    await writeFile(
+      join(tempDir, ".bsk-meta.json"),
+      JSON.stringify({ storedAt: "2026-01-01T00:00:00.000Z" })
+    );
+    const hashWith = await hashDirectory(tempDir);
+
+    expect(hashWith).toBe(hashWithout);
+  });
 });
