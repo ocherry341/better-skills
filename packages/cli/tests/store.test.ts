@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtemp, rm, mkdir, writeFile, readdir, readFile } from "fs/promises";
+import { mkdtemp, rm, mkdir, writeFile, readdir, readFile, stat } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
 import { hashDirectory } from "../src/core/hasher.js";
@@ -90,5 +90,91 @@ describe("store integrity", () => {
     const targetDir = join(baseDir, "target");
     const { verifiedLinkSkill } = await import("../src/core/store.js");
     await expect(verifiedLinkSkill(hash, targetDir, {}, storeDir)).rejects.toThrow(/corrupted/i);
+  });
+});
+
+describe("store metadata (.bsk-meta.json)", () => {
+  let baseDir: string;
+  let storeDir: string;
+  let sourceDir: string;
+
+  beforeEach(async () => {
+    baseDir = await mkdtemp(join(tmpdir(), "store-meta-"));
+    storeDir = join(baseDir, "store");
+    sourceDir = join(baseDir, "source");
+    await mkdir(storeDir, { recursive: true });
+    await mkdir(sourceDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    await rm(baseDir, { recursive: true, force: true });
+  });
+
+  test("store() writes .bsk-meta.json with valid storedAt ISO string", async () => {
+    await writeFile(join(sourceDir, "SKILL.md"), "---\nname: test\n---\n# Test");
+    const hash = await hashDirectory(sourceDir);
+
+    const { store } = await import("../src/core/store.js");
+    const dest = await store(hash, sourceDir, storeDir);
+
+    const metaRaw = await readFile(join(dest, ".bsk-meta.json"), "utf-8");
+    const meta = JSON.parse(metaRaw);
+    expect(meta.storedAt).toBeDefined();
+    expect(new Date(meta.storedAt).toISOString()).toBe(meta.storedAt);
+  });
+
+  test("store() does NOT overwrite .bsk-meta.json on existing verified entry", async () => {
+    await writeFile(join(sourceDir, "SKILL.md"), "---\nname: test\n---\n# Test");
+    const hash = await hashDirectory(sourceDir);
+
+    const { store } = await import("../src/core/store.js");
+
+    await store(hash, sourceDir, storeDir);
+    const meta1Raw = await readFile(join(storeDir, hash, ".bsk-meta.json"), "utf-8");
+    const meta1 = JSON.parse(meta1Raw);
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    await store(hash, sourceDir, storeDir);
+    const meta2Raw = await readFile(join(storeDir, hash, ".bsk-meta.json"), "utf-8");
+    const meta2 = JSON.parse(meta2Raw);
+
+    expect(meta2.storedAt).toBe(meta1.storedAt);
+  });
+
+  test("readStoreMeta() returns metadata for entries with .bsk-meta.json", async () => {
+    await writeFile(join(sourceDir, "SKILL.md"), "---\nname: test\n---\n# Test");
+    const hash = await hashDirectory(sourceDir);
+
+    const { store, readStoreMeta } = await import("../src/core/store.js");
+    await store(hash, sourceDir, storeDir);
+
+    const meta = await readStoreMeta(hash, storeDir);
+    expect(meta).not.toBeNull();
+    expect(meta!.storedAt).toBeDefined();
+  });
+
+  test("readStoreMeta() returns null for entries without .bsk-meta.json", async () => {
+    const hash = "fakehash1234";
+    await mkdir(join(storeDir, hash), { recursive: true });
+    await writeFile(join(storeDir, hash, "SKILL.md"), "# test");
+
+    const { readStoreMeta } = await import("../src/core/store.js");
+    const meta = await readStoreMeta(hash, storeDir);
+    expect(meta).toBeNull();
+  });
+
+  test("verifyStoreEntry still passes after .bsk-meta.json is written", async () => {
+    await writeFile(join(sourceDir, "SKILL.md"), "---\nname: test\n---\n# Test");
+    const hash = await hashDirectory(sourceDir);
+
+    const { store, verifyStoreEntry } = await import("../src/core/store.js");
+    await store(hash, sourceDir, storeDir);
+
+    const metaExists = await stat(join(storeDir, hash, ".bsk-meta.json")).then(() => true).catch(() => false);
+    expect(metaExists).toBe(true);
+
+    const valid = await verifyStoreEntry(hash, storeDir);
+    expect(valid).toBe(true);
   });
 });

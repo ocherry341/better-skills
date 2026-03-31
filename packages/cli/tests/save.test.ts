@@ -230,12 +230,12 @@ describe("save command", () => {
     await save(opts());
 
     const entries = (await readdir(skill1)).sort();
-    expect(entries).toEqual(["SKILL.md", "data.txt"]);
+    expect(entries).toEqual([".bsk-meta.json", "SKILL.md", "data.txt"]);
 
     const content = await readFile(join(skill1, "data.txt"), "utf-8");
     expect(content).toBe("important data");
 
     const storeEntries = (await readdir(hashPath)).sort();
-    expect(storeEntries).toEqual(["SKILL.md", "data.txt"]);
+    expect(storeEntries).toEqual([".bsk-meta.json", "SKILL.md", "data.txt"]);
   });
 });

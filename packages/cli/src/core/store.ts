@@ -1,8 +1,14 @@
-import { mkdir, readdir, rm, stat } from "fs/promises";
+import { mkdir, readdir, readFile, rm, stat, writeFile } from "fs/promises";
 import { join } from "path";
 import { getStorePath } from "../utils/paths.js";
 import { hashDirectory } from "./hasher.js";
 import { cpRecursive, linkSkill, type LinkOptions } from "./linker.js";
+
+export interface StoreMetadata {
+  storedAt: string;
+}
+
+const META_FILENAME = ".bsk-meta.json";
 
 /** Get the path for a hash in the content-addressable store */
 export function getHashPath(hash: string): string {
@@ -16,6 +22,20 @@ export async function has(hash: string): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+/** Read store metadata for a given hash, or null if not found */
+export async function readStoreMeta(
+  hash: string,
+  storePath?: string
+): Promise<StoreMetadata | null> {
+  const metaPath = join(storePath ?? getStorePath(), hash, META_FILENAME);
+  try {
+    const raw = await readFile(metaPath, "utf-8");
+    return JSON.parse(raw) as StoreMetadata;
+  } catch {
+    return null;
   }
 }
 
@@ -54,6 +74,12 @@ export async function store(
   await rm(dest, { recursive: true, force: true });
   await mkdir(dest, { recursive: true });
   await cpRecursive(sourceDir, dest);
+
+  // Write store metadata
+  const meta: StoreMetadata = {
+    storedAt: new Date().toISOString(),
+  };
+  await writeFile(join(dest, META_FILENAME), JSON.stringify(meta, null, 2) + "\n");
 
   return dest;
 }
