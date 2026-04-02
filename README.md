@@ -36,6 +36,9 @@ You can also download binaries directly from the [GitHub Releases](https://githu
 ## Quick Start
 
 ```bash
+# Launch interactive TUI
+bsk
+
 # Add a skill from GitHub
 bsk add owner/repo
 
@@ -68,10 +71,22 @@ Versioning, deduplication, profile switching — all yours, instantly.
 
 ```bash
 bsk add <source>          # Add a skill (github, git, local path)
+bsk install <source>      # Alias for add (also: bsk i)
 bsk rm <name>             # Remove a skill
 bsk ls [-a]               # List skills (-a for all managed)
-bsk save [name]           # Save new/changed skills to management
+bsk save [name]           # Save new/changed skills to management (--adopt-orphans)
 bsk mv <skill> <scope>    # Move skill between global/project scope
+bsk tui                   # Launch interactive TUI (also: bare bsk)
+```
+
+Options for `add` / `install`:
+
+```bash
+-g, --global        # Install to global skills directory
+-n, --name <name>   # Override the skill name
+-f, --force         # Overwrite unmanaged skills
+-y, --yes           # Skip confirmation prompts
+--hardlink           # Use hard links instead of file copy
 ```
 
 ### Source Formats
@@ -81,8 +96,9 @@ bsk add owner/repo                              # GitHub repo root
 bsk add owner/repo/subdir                       # GitHub subdirectory
 bsk add https://github.com/owner/repo           # Full GitHub URL
 bsk add https://github.com/owner/repo/tree/main/subdir  # Branch + path
+bsk add https://gitlab.com/owner/repo           # Any HTTPS git URL
 bsk add git@github.com:owner/repo.git           # Git SSH
-bsk add ./local/path                            # Local directory
+bsk add ./local/path                            # Local directory (also ../ and /abs)
 ```
 
 ### Profiles
@@ -108,6 +124,7 @@ bsk profile add my-skill@latest     # Latest version
 bsk profile add my-skill@previous   # Previous version
 bsk profile add my-skill@v2         # Specific version
 bsk profile add my-skill@~1         # Relative (latest minus 1)
+bsk profile add my-skill@abc123     # Hash prefix match
 ```
 
 ### Multi-Client
@@ -126,6 +143,7 @@ Supported clients: `claude`, `cursor`, `opencode`, `gemini`, `copilot`, `roo`, `
 
 ```bash
 bsk store verify    # Check integrity of all store entries
+bsk store ls        # List all store entries with skill/version info
 ```
 
 ## How It Works
@@ -152,15 +170,17 @@ Instructions for the AI agent...
 ├── store/{hash}/        # Content-addressable store (immutable)
 ├── registry.json        # Tracks all skill versions and hashes
 ├── profiles/            # Named skill collections
-└── config.json          # Enabled clients
+├── active-profile       # Currently active profile name
+├── config.json          # Enabled clients
+└── tmp/                 # Temporary directory for git clones
 
-~/.agents/skills/        # Global skills (symlinked from store)
+~/.agents/skills/        # Global skills (copied from store)
 ./.agents/skills/        # Project skills
 ```
 
 1. **Add** — Skill is fetched, hashed, and stored in `~/.better-skills/store/{hash}/`
-2. **Link** — Hard links are created from the store to skill directories
-3. **Sync** — Links are replicated to all enabled client directories (e.g., `~/.claude/skills/`, `~/.cursor/skills/`)
+2. **Link** — Files are copied from the store to skill directories (use `--hardlink` for hard links)
+3. **Sync** — Copies are replicated to all enabled client directories (e.g., `~/.claude/skills/`, `~/.cursor/skills/`)
 4. **Version** — Each save creates a new registry entry; old versions remain in store
 
 ### Deduplication
@@ -169,7 +189,7 @@ Identical skills across projects share a single store entry. The SHA-256 hash is
 
 ## Roadmap
 
-- [ ] **TUI** — Interactive terminal UI for managing skills (in development)
+- [x] **TUI** — Interactive terminal UI for managing skills
 - [ ] **Built-in `use better-skills` skill** — A bundled skill that teaches agents how to use `bsk`
 - [ ] **Git repo linking** — Link your skill storage to git repo
 - [ ] **Skills security audit** — Security review and sandboxing for skill content
