@@ -18,6 +18,7 @@ interface SkillsViewProps {
   onMove?: (name: string, isGlobal: boolean) => void;
   onAdd?: () => void;
   onSave?: (skillName?: string) => void;
+  onEdit?: (skill: SkillDetail) => void;
   addSource?: string;
   refreshKey?: number;
   showAll?: boolean;
@@ -34,6 +35,7 @@ export function SkillsView({
   onMove,
   onAdd,
   onSave,
+  onEdit,
   addSource = "",
   refreshKey = 0,
   showAll = false,
@@ -60,6 +62,10 @@ export function SkillsView({
       return;
     }
     if (!selected) return;
+    if (input === "e" && onEdit) {
+      onEdit(selected);
+      return;
+    }
     if (input === "d" && onDelete) {
       onDelete(selected.name, selected.global, selected.project);
     }
@@ -95,6 +101,7 @@ export function SkillsView({
 
   const shortcuts: Shortcut[] = [
     { key: "a", label: "Add" },
+    { key: "e", label: "Edit" },
     { key: "d", label: "Delete" },
     { key: "m", label: "Move" },
     { key: "s", label: "Save" },
