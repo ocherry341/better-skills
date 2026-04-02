@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from "react";
 import { Box, useApp, useInput } from "ink";
+import { join } from "node:path";
 import { useKeyboard } from "./hooks/useKeyboard.js";
 import { TabBar, TABS, type TabName } from "./components/TabBar.js";
 import { SkillsView } from "./components/SkillsView.js";
@@ -10,12 +11,14 @@ import {
   getProfilesPath,
   getActiveProfileFilePath,
   getGlobalSkillsPath,
+  getProjectSkillsPath,
   getStorePath,
   getConfigPath,
   getRegistryPath,
 } from "../utils/paths.js";
 import { HelpOverlay } from "./components/HelpOverlay.js";
 import { useNotification } from "./hooks/useNotification.js";
+import { openInEditor } from "./utils/openEditor.js";
 
 export type ActionMode =
   | null
@@ -542,6 +545,24 @@ export function App({ version }: AppProps) {
                   const { save } = await import("../commands/save.js");
                   await save({ skillName });
                 }, () => { setSelectedIndex(0); refresh(); });
+              }}
+              onEdit={(skill) => {
+                if (skill.inactive) {
+                  showNotification("Skill has no linked directory", "error");
+                  return;
+                }
+                const dir = skill.global
+                  ? join(getGlobalSkillsPath(), skill.name)
+                  : join(getProjectSkillsPath(), skill.name);
+                setActionMode({ type: "editing" });
+                openInEditor(dir)
+                  .catch((err) => {
+                    showNotification(`Failed to open editor: ${err instanceof Error ? err.message : String(err)}`, "error");
+                  })
+                  .finally(() => {
+                    setActionMode(null);
+                    refresh();
+                  });
               }}
             />
           )}
