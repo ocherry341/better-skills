@@ -29,7 +29,7 @@ Requires Node.js >= 18.
 curl -fsSL https://raw.githubusercontent.com/ocherry341/better-skills/main/packages/install/install.sh | bash
 ```
 
-Installs a platform-specific binary to `~/.better-skills/bin/`. Supports Linux (x64/arm64) and macOS (x64/arm64).
+Installs a platform-specific binary to `~/.local/bin/`. Supports Linux (x64/arm64) and macOS (x64/arm64).
 
 You can also download binaries directly from the [GitHub Releases](https://github.com/ocherry341/better-skills/releases) page.
 

@@ -1,4 +1,4 @@
-import { homedir } from "os";
+import { homedir, tmpdir } from "os";
 import { join, resolve } from "path";
 
 // Bun's os.homedir() ignores runtime changes to $HOME, so read the env var directly.
@@ -54,7 +54,7 @@ export function getConfigPath(): string {
 
 /** Temp directory for git clones */
 export function getTempPath(): string {
-  return join(home(), ".better-skills", "tmp");
+  return join(tmpdir(), "better-skills");
 }
 
 /** Resolve a potentially relative path to absolute */
