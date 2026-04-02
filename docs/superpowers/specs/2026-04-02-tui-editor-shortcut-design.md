@@ -72,10 +72,14 @@ onEdit={(skill) => {
     ? join(getGlobalSkillsPath(), skill.name)
     : join(getProjectSkillsPath(), skill.name);
   setActionMode({ type: "editing" });
-  openInEditor(dir).finally(() => {
-    setActionMode(null);
-    refresh();
-  });
+  openInEditor(dir)
+    .catch((err) => {
+      showNotification(`Failed to open editor: ${err.message}`, "error");
+    })
+    .finally(() => {
+      setActionMode(null);
+      refresh();
+    });
 }}
 ```
 
@@ -167,7 +171,7 @@ Skills: [
 |---|---|
 | `$EDITOR` not set | Falls back to `vi` |
 | Inactive skill (no linked directory) | Shows error notification: "Skill has no linked directory" |
-| Editor binary not found | `spawn` emits `error` event; alternate buffer is restored; promise rejects; `App.tsx` `.finally()` clears `actionMode`. The error is silently swallowed (no notification) since the user will see the shell error in the brief moment before the buffer switches back. |
+| Editor binary not found | `spawn` emits `error` event; alternate buffer is restored; promise rejects; `.catch()` shows an error notification ("Failed to open editor: ..."); `.finally()` clears `actionMode` and refreshes. |
 | Editor crashes / non-zero exit | `close` event fires regardless; alternate buffer is restored; TUI resumes normally |
 | Skill exists in both global and project | Opens the one matching the `global` field on the selected `SkillDetail` (global if `global` is true, project otherwise) |
 | User presses `e` with no skill selected | Blocked by existing `if (!selected) return` guard in `SkillsView` |
