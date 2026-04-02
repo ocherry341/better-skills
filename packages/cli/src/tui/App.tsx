@@ -19,6 +19,7 @@ import { useNotification } from "./hooks/useNotification.js";
 
 export type ActionMode =
   | null
+  | { type: "editing" }
   | { type: "search" }
   | { type: "confirmDelete"; skillName: string; isGlobal: boolean; deleteBoth?: boolean }
   | { type: "confirmDeleteScope"; skillName: string }
