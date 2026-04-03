@@ -15,13 +15,15 @@ A pnpm-inspired CLI for managing Agent skills with content-addressable storage.
 
 ## Installation
 
-### npm
+### npm / pnpm / bun
 
 ```bash
 npm install -g better-skills
+pnpm add -g better-skills
+bun add -g better-skills
 ```
 
-Requires Node.js >= 18.
+Requires Node.js >= 18 (or Bun).
 
 ### Binary
 
@@ -32,6 +34,16 @@ curl -fsSL https://raw.githubusercontent.com/ocherry341/better-skills/main/packa
 Installs a platform-specific binary to `~/.local/bin/`. Supports Linux (x64/arm64) and macOS (x64/arm64).
 
 You can also download binaries directly from the [GitHub Releases](https://github.com/ocherry341/better-skills/releases) page.
+
+## Already Have Skills?
+
+Still managing your skills manually? Just one command to unlock the full power of `bsk`:
+
+```bash
+bsk save
+```
+
+Versioning, deduplication, profile switching — all yours, instantly.
 
 ## Quick Start
 
@@ -54,16 +66,6 @@ bsk ls
 # List all managed skills (including inactive)
 bsk ls -a
 ```
-
-## Already Have Skills?
-
-Still managing your skills manually? Just one command to unlock the full power of `bsk`:
-
-```bash
-bsk save
-```
-
-Versioning, deduplication, profile switching — all yours, instantly.
 
 ## Commands
 
@@ -146,16 +148,46 @@ bsk store verify    # Check integrity of all store entries
 bsk store ls        # List all store entries with skill/version info
 ```
 
-### Sync & Backup
+### Sync
+
+`~/.better-skills/` is a self-contained data directory. Sync it with any tool you prefer.
 
 ```bash
-bsk sync restore                    # Restore skills from active profile + rebuild client symlinks
-bsk sync export [-o <path>]         # Export ~/.better-skills to a tar.gz archive
-bsk sync import <file> [-y]         # Import from archive and auto-restore
-bsk cd                              # Open a shell in ~/.better-skills
+bsk sync restore          # Rebuild live skills from store and profile
+bsk sync export           # Export ~/.better-skills/ as tar.gz
+bsk sync import <file>    # Import tar.gz and restore
+bsk cd                    # Open a shell in ~/.better-skills/
 ```
 
-Use `sync restore` after syncing your `~/.better-skills` directory (e.g., via git, Syncthing, or cloud storage). Use `export`/`import` for one-time backups.
+**Quick start with git:**
+
+```bash
+cd ~/.better-skills
+git init && git add -A && git commit -m "init"
+git remote add origin <your-repo> && git push
+
+# On another machine:
+git clone <your-repo> ~/.better-skills
+bsk sync restore
+```
+
+**Simple backup/transfer (no git needed):**
+
+```bash
+bsk sync export                          # Machine A
+bsk sync import better-skills-backup.tar.gz  # Machine B
+```
+
+**rsync:**
+
+```bash
+rsync -az ~/.better-skills/ remote:~/.better-skills/
+ssh remote bsk sync restore
+```
+
+**Syncthing / other:**
+
+Sync `~/.better-skills/` as a shared folder, then run `bsk sync restore` on each machine.
 
 ## How It Works
 
@@ -202,7 +234,6 @@ Identical skills across projects share a single store entry. The SHA-256 hash is
 
 - [x] **TUI** — Interactive terminal UI for managing skills
 - [ ] **Built-in `use better-skills` skill** — A bundled skill that teaches agents how to use `bsk`
-- [ ] **Git repo linking** — Link your skill storage to git repo
 - [ ] **Skills security audit** — Security review and sandboxing for skill content
 
 ## Development
