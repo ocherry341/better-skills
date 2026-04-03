@@ -146,6 +146,17 @@ bsk store verify    # Check integrity of all store entries
 bsk store ls        # List all store entries with skill/version info
 ```
 
+### Sync & Backup
+
+```bash
+bsk sync restore                    # Restore skills from active profile + rebuild client symlinks
+bsk sync export [-o <path>]         # Export ~/.better-skills to a tar.gz archive
+bsk sync import <file> [-y]         # Import from archive and auto-restore
+bsk cd                              # Open a shell in ~/.better-skills
+```
+
+Use `sync restore` after syncing your `~/.better-skills` directory (e.g., via git, Syncthing, or cloud storage). Use `export`/`import` for one-time backups.
+
 ## How It Works
 
 ### Skill Format
