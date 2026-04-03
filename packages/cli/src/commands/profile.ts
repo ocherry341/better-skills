@@ -1,4 +1,4 @@
-import { stat, readdir, mkdir as fsMkdir, unlink } from "fs/promises";
+import { stat, readdir, unlink } from "fs/promises";
 import { join, basename } from "path";
 import { unlinkSkill } from "../core/linker.js";
 import { verifiedLinkSkill } from "../core/store.js";
@@ -11,12 +11,13 @@ import {
   getActiveProfileName,
   setActiveProfileName,
 } from "../core/profile.js";
-import { isManaged, registerSkill, readRegistry, resolveVersion } from "../core/registry.js";
+import { registerSkill, readRegistry, resolveVersion } from "../core/registry.js";
 import { hashDirectory } from "../core/hasher.js";
 import { resolve as resolveSource, toSourceString, type SourceDescriptor } from "../core/resolver.js";
 import { fetch } from "../core/fetcher.js";
 import * as store from "../core/store.js";
 import { readSkillMd } from "../utils/skill-md.js";
+import { restoreSkillsFromProfile } from "../core/restore.js";
 
 export interface ProfileCreateInternalOptions {
   profilesDir: string;
@@ -130,50 +131,14 @@ export async function profileUse(
   const filePath = join(opts.profilesDir, `${name}.json`);
   const profile = await readProfile(filePath);
 
-  // Clear only managed skills from agents dir; preserve unmanaged
-  try {
-    const existing = await readdir(opts.skillsDir, { withFileTypes: true });
-    for (const entry of existing) {
-      if (!entry.isDirectory()) continue;
-      const managed = await isManaged(entry.name, opts.registryPath);
-      if (managed) {
-        await unlinkSkill(join(opts.skillsDir, entry.name));
-      } else {
-        console.warn(`⚠ Skipping unmanaged skill '${entry.name}'`);
-      }
-    }
-  } catch {
-    // Directory doesn't exist, will be created by linkSkill
-  }
+  await restoreSkillsFromProfile(profile, {
+    skillsDir: opts.skillsDir,
+    storePath: opts.storePath,
+    registryPath: opts.registryPath,
+    hardlink: opts.hardlink,
+  });
 
-  await fsMkdir(opts.skillsDir, { recursive: true });
-
-  // Read registry to resolve v -> hash
-  const registry = await readRegistry(opts.registryPath);
-
-  // Link each skill from store and register
-  for (const skill of profile.skills) {
-    const entry = registry.skills[skill.skillName];
-    const version = entry?.versions.find((ver) => ver.v === skill.v);
-    if (!version) {
-      console.warn(`⚠ Skill '${skill.skillName}' v${skill.v} not found in registry, skipping.`);
-      continue;
-    }
-    const storeDir = join(opts.storePath, version.hash);
-    try {
-      await stat(storeDir);
-    } catch {
-      console.warn(`⚠ Skill '${skill.skillName}' (${version.hash.slice(0, 8)}) not found in store, skipping.`);
-      continue;
-    }
-    const targetDir = join(opts.skillsDir, skill.skillName);
-    await verifiedLinkSkill(version.hash, targetDir, { hardlink: opts.hardlink }, opts.storePath);
-    await registerSkill(skill.skillName, version.hash, skill.source, opts.registryPath, opts.storePath);
-  }
-
-  // Update active profile
   await setActiveProfileName(opts.activeFile, name);
-
   console.log(`✓ Switched to profile '${name}' (${profile.skills.length} skill(s))`);
 }
 
