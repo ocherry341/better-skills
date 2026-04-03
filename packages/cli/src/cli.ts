@@ -25,6 +25,7 @@ import {
   profileRename,
   profileClone,
 } from "./commands/profile.js";
+import { syncRestore, syncExport, syncImport, bskCd } from "./commands/sync.js";
 import { getActiveProfileName } from "./core/profile.js";
 import {
   getProfilesPath,
@@ -33,6 +34,7 @@ import {
   getStorePath,
   getConfigPath,
   getRegistryPath,
+  getBskDir,
 } from "./utils/paths.js";
 
 const program = new Command();
@@ -398,6 +400,58 @@ storeCmd
       console.log(`  ${entry.hash.slice(0, 12).padEnd(14)} ${skills.padEnd(30)} ${sizeStr}`);
     }
     console.log("");
+  });
+
+const sync = program
+  .command("sync")
+  .description("Sync and backup utilities");
+
+sync
+  .command("restore")
+  .description("Restore skills from active profile and rebuild client symlinks")
+  .option("--hardlink", "Use hard links instead of file copy")
+  .action(async (opts) => {
+    await syncRestore({
+      profilesDir: getProfilesPath(),
+      activeFile: getActiveProfileFilePath(),
+      skillsDir: getGlobalSkillsPath(),
+      storePath: getStorePath(),
+      registryPath: getRegistryPath(),
+      configPath: getConfigPath(),
+      hardlink: opts.hardlink,
+    });
+  });
+
+sync
+  .command("export")
+  .description("Export bsk data directory to a tar.gz archive")
+  .option("-o, --output <path>", "Output file path")
+  .action(async (opts) => {
+    await syncExport({
+      bskDir: getBskDir(),
+      output: opts.output,
+    });
+  });
+
+sync
+  .command("import <file>")
+  .description("Import bsk data from a tar.gz archive and restore")
+  .option("-y, --yes", "Skip confirmation prompt")
+  .option("--hardlink", "Use hard links instead of file copy")
+  .action(async (file: string, opts) => {
+    await syncImport(file, {
+      yes: opts.yes,
+      hardlink: opts.hardlink,
+      bskDir: getBskDir(),
+      skillsDir: getGlobalSkillsPath(),
+    });
+  });
+
+program
+  .command("cd")
+  .description("Open a shell in the bsk data directory (~/.better-skills)")
+  .action(async () => {
+    await bskCd(getBskDir());
   });
 
 program
