@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir } from "fs/promises";
+import { readFile, writeFile, mkdir, lstat, readlink, symlink } from "fs/promises";
 import { dirname, join } from "path";
 import { homedir } from "os";
 import { getConfigPath } from "../utils/paths.js";
@@ -112,4 +112,36 @@ export function getClientProjectSubdir(clientId: string): string | null {
     );
   }
   return entry.projectSubdir;
+}
+
+export async function ensureClientSymlink(
+  clientId: string,
+  agentsDir: string,
+  clientDirOverride?: string
+): Promise<"created" | "exists" | "skipped"> {
+  const globalDir = clientDirOverride ?? getClientSkillsDir(clientId);
+
+  try {
+    const st = await lstat(globalDir);
+    if (st.isSymbolicLink()) {
+      const target = await readlink(globalDir);
+      if (target === agentsDir) {
+        return "exists";
+      }
+      console.warn(`⚠ ${globalDir} symlinks to ${target}, not ${agentsDir}. Run 'bsk client add ${clientId}' to fix.`);
+      return "skipped";
+    }
+    if (st.isDirectory()) {
+      console.warn(`⚠ ${globalDir} is a real directory. Run 'bsk client add ${clientId}' to migrate.`);
+      return "skipped";
+    }
+    return "skipped";
+  } catch (err: any) {
+    if (err.code === "ENOENT") {
+      await mkdir(dirname(globalDir), { recursive: true });
+      await symlink(agentsDir, globalDir);
+      return "created";
+    }
+    throw err;
+  }
 }

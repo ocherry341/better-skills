@@ -6,6 +6,11 @@ function home(): string {
   return process.env.HOME ?? homedir();
 }
 
+/** Root of the bsk data directory */
+export function getBskDir(): string {
+  return join(home(), ".better-skills");
+}
+
 /** Global content-addressable store */
 export function getStorePath(): string {
   return join(home(), ".better-skills", "store");
