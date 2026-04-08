@@ -78,8 +78,9 @@ describe("ProfilesView", () => {
     );
     await flush();
     const frame = stripAnsi(lastFrame()!);
-    expect(frame).toContain("Enter:Swit");
-    expect(frame).toContain("q:Qui");
+    expect(frame).toContain("Enter:Sw");
+    expect(frame).toContain("p:Apply");
+    expect(frame).toContain("q:Qu");
     unmount();
   });
 });

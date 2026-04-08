@@ -36,7 +36,8 @@ export type ActionMode =
   | { type: "profileClone"; profileName: string }
   | { type: "profileRemoveSkillList"; profileName: string; skills: string[] }
   | { type: "profileAddSkillList"; profileName: string; registrySkills: string[]; manualInput: boolean }
-  | { type: "profileSwitchVersion"; profileName: string; skillName: string; versions: { v: number; hash: string; source: string }[]; currentV: number };
+  | { type: "profileSwitchVersion"; profileName: string; skillName: string; versions: { v: number; hash: string; source: string }[]; currentV: number }
+  | { type: "profileApply"; profileName: string };
 
 interface AppProps {
   version: string;
@@ -456,6 +457,44 @@ export function App({ version }: AppProps) {
       return;
     }
 
+    // Profile apply to project modal
+    if (actionMode.type === "profileApply") {
+      if (input === "y" || input === "Y") {
+        const name = actionMode.profileName;
+        setActionMode(null);
+        runAction("Applying to project...", `Applied ${name} to project`, async () => {
+          const { profileApply } = await import("../commands/profile.js");
+          await profileApply(name, {
+            profilesDir: getProfilesPath(),
+            storePath: getStorePath(),
+            projectSkillsDir: getProjectSkillsPath(),
+            registryPath: getRegistryPath(),
+            replace: false,
+          });
+        }, refresh);
+        return;
+      }
+      if (input === "r" || input === "R") {
+        const name = actionMode.profileName;
+        setActionMode(null);
+        runAction("Replacing project skills...", `Applied ${name} to project (replaced)`, async () => {
+          const { profileApply } = await import("../commands/profile.js");
+          await profileApply(name, {
+            profilesDir: getProfilesPath(),
+            storePath: getStorePath(),
+            projectSkillsDir: getProjectSkillsPath(),
+            registryPath: getRegistryPath(),
+            replace: true,
+          });
+        }, refresh);
+        return;
+      }
+      if (input === "n" || input === "N" || key.escape) {
+        setActionMode(null);
+      }
+      return;
+    }
+
     // Profile confirm modal: delete
     if (actionMode.type === "profileDelete") {
       if (input === "y" || input === "Y") {
@@ -603,6 +642,7 @@ export function App({ version }: AppProps) {
                 setModalListIndex(0);
                 setActionMode({ type: "profileRemoveSkillList", profileName, skills: profileSkills });
               }}
+              onApplyToProject={(name) => setActionMode({ type: "profileApply", profileName: name })}
               onSwitchVersion={(profileName, skillName, versions, currentV) => {
                 setModalListIndex(0);
                 setActionMode({ type: "profileSwitchVersion", profileName, skillName, versions, currentV });

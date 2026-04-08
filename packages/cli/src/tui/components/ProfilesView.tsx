@@ -23,6 +23,7 @@ interface ProfilesViewProps {
   onAddSkill?: (profileName: string, profileSkills: string[], registrySkills: string[]) => void;
   onRemoveSkill?: (profileName: string, profileSkills: string[]) => void;
   onSwitchVersion?: (profileName: string, skillName: string, versions: { v: number; hash: string; source: string }[], currentV: number) => void;
+  onApplyToProject?: (profileName: string) => void;
   notification?: NotificationState | null;
 }
 
@@ -41,6 +42,7 @@ export function ProfilesView({
   onAddSkill,
   onRemoveSkill,
   onSwitchVersion,
+  onApplyToProject,
   notification = null,
 }: ProfilesViewProps) {
   const { profiles, registrySkillNames, loading } = useProfiles(refreshKey);
@@ -68,6 +70,7 @@ export function ProfilesView({
       const profileSkills = selected.skills.map((s) => s.skillName);
       onAddSkill(selected.name, profileSkills, registrySkillNames);
     }
+    if (input === "p" && selected && onApplyToProject) onApplyToProject(selected.name);
     if (input === "x" && selected && onRemoveSkill) {
       const profileSkills = selected.skills.map((s) => s.skillName);
       onRemoveSkill(selected.name, profileSkills);
@@ -196,6 +199,13 @@ export function ProfilesView({
           </Text>
         </Box>
       )}
+      {actionMode?.type === "profileApply" && (
+        <Box paddingX={1}>
+          <Text bold color="cyan">
+            Apply profile {actionMode.profileName} to project? (y:merge / r:replace / n:cancel)
+          </Text>
+        </Box>
+      )}
       {actionMode?.type === "profileSwitchVersion" && (
         <Box flexDirection="column" paddingX={1}>
           <Text bold color="cyan">Switch version for {actionMode.skillName}:</Text>
@@ -224,6 +234,7 @@ export function ProfilesView({
         { key: "C", label: "Clone" },
         { key: "a", label: "Add skill" },
         { key: "x", label: "Rm skill" },
+        { key: "p", label: "Apply to project" },
         { key: "v", label: "Version" },
         { key: "J/K", label: "Skill nav" },
         { key: "?", label: "Help" },
