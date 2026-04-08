@@ -1,7 +1,7 @@
 import { readdir, stat as fsStat } from "fs/promises";
 import { join } from "path";
 import { getStorePath, getRegistryPath } from "../utils/paths.js";
-import { verifyStoreEntry } from "../core/store.js";
+import { verifyStoreEntry, remove as removeFromStore } from "../core/store.js";
 import { readRegistry } from "../core/registry.js";
 import { readSkillMd } from "../utils/skill-md.js";
 
@@ -126,4 +126,46 @@ export async function storeLs(options: { storePath?: string; registryPath?: stri
   }
 
   return { entries };
+}
+
+export interface StorePruneOptions {
+  storePath?: string;
+  registryPath?: string;
+}
+
+export interface StorePruneResult {
+  pruned: number;
+  prunedHashes: string[];
+}
+
+export async function storePrune(options: StorePruneOptions = {}): Promise<StorePruneResult> {
+  const storePath = options.storePath ?? getStorePath();
+  const registryPath = options.registryPath ?? getRegistryPath();
+
+  let hashes: string[];
+  try {
+    hashes = await readdir(storePath);
+  } catch {
+    return { pruned: 0, prunedHashes: [] };
+  }
+
+  // Build referenced hash set from registry
+  const registry = await readRegistry(registryPath);
+  const referencedHashes = new Set<string>();
+  for (const entry of Object.values(registry.skills)) {
+    for (const ver of entry.versions) {
+      referencedHashes.add(ver.hash);
+    }
+  }
+
+  // Find and delete orphans
+  const prunedHashes: string[] = [];
+  for (const hash of hashes) {
+    if (!referencedHashes.has(hash)) {
+      await removeFromStore(hash, storePath);
+      prunedHashes.push(hash);
+    }
+  }
+
+  return { pruned: prunedHashes.length, prunedHashes };
 }
