@@ -1,7 +1,7 @@
 import { readdir, stat as fsStat } from "fs/promises";
 import { join } from "path";
 import { getStorePath, getRegistryPath } from "../utils/paths.js";
-import { verifyStoreEntry } from "../core/store.js";
+import { verifyStoreEntry, remove as removeStoreEntry } from "../core/store.js";
 import { readRegistry } from "../core/registry.js";
 import { readSkillMd } from "../utils/skill-md.js";
 
@@ -126,4 +126,39 @@ export async function storeLs(options: { storePath?: string; registryPath?: stri
   }
 
   return { entries };
+}
+
+export interface StorePruneResult {
+  pruned: number;
+  prunedHashes: string[];
+}
+
+export async function storePrune(options: { storePath?: string; registryPath?: string } = {}): Promise<StorePruneResult> {
+  const storePath = options.storePath ?? getStorePath();
+  const registryPath = options.registryPath ?? getRegistryPath();
+
+  const registry = await readRegistry(registryPath);
+  const referencedHashes = new Set<string>();
+  for (const entry of Object.values(registry.skills)) {
+    for (const ver of entry.versions) {
+      referencedHashes.add(ver.hash);
+    }
+  }
+
+  let storeHashes: string[];
+  try {
+    storeHashes = await readdir(storePath);
+  } catch {
+    return { pruned: 0, prunedHashes: [] };
+  }
+
+  const orphans = storeHashes.filter((h) => !referencedHashes.has(h));
+  const prunedHashes: string[] = [];
+
+  for (const hash of orphans) {
+    await removeStoreEntry(hash, storePath);
+    prunedHashes.push(hash);
+  }
+
+  return { pruned: prunedHashes.length, prunedHashes };
 }
