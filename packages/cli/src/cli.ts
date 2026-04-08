@@ -24,6 +24,7 @@ import {
   profileDelete,
   profileRename,
   profileClone,
+  profileApply,
 } from "./commands/profile.js";
 import { syncRestore, syncExport, syncImport, bskCd } from "./commands/sync.js";
 import { getActiveProfileName } from "./core/profile.js";
@@ -35,6 +36,7 @@ import {
   getConfigPath,
   getRegistryPath,
   getBskDir,
+  getProjectSkillsPath,
 } from "./utils/paths.js";
 
 const program = new Command();
@@ -351,6 +353,20 @@ profile
     }
     await profileClone(sourceName, targetName, {
       profilesDir: getProfilesPath(),
+    });
+  });
+
+profile
+  .command("apply <name>")
+  .description("Deploy a profile's skills to the project .agents/skills/ directory")
+  .option("--replace", "Replace all existing project skills with the profile's skills")
+  .action(async (name: string, opts) => {
+    await profileApply(name, {
+      profilesDir: getProfilesPath(),
+      storePath: getStorePath(),
+      projectSkillsDir: getProjectSkillsPath(),
+      registryPath: getRegistryPath(),
+      replace: opts.replace,
     });
   });
 
