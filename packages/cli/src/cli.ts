@@ -12,7 +12,7 @@ import { clientAdd, clientRm, clientLs } from "./commands/client.js";
 import { rm } from "./commands/rm.js";
 import { ls, printLs, lsAll, printLsAll } from "./commands/ls.js";
 import { save } from "./commands/save.js";
-import { storeVerify, storeLs } from "./commands/store-cmd.js";
+import { storeVerify, storeLs, storePrune, storeAdopt } from "./commands/store-cmd.js";
 import { mvToProject, mvToGlobal } from "./commands/mv.js";
 import {
   profileCreate,
@@ -399,6 +399,34 @@ storeCmd
       console.log(`  ${entry.hash.slice(0, 12).padEnd(14)} ${skills.padEnd(30)} ${sizeStr}`);
     }
     console.log("");
+  });
+
+storeCmd
+  .command("prune")
+  .description("Delete all orphan entries from the store")
+  .action(async () => {
+    const result = await storePrune();
+    if (result.pruned === 0) {
+      console.log("No orphan entries found. Store is clean.");
+    } else {
+      console.log(`\nPruned ${result.pruned} orphan ${result.pruned !== 1 ? "entries" : "entry"}:\n`);
+      for (const hash of result.prunedHashes) {
+        console.log(`  - ${hash.slice(0, 12)}`);
+      }
+      console.log("");
+    }
+  });
+
+storeCmd
+  .command("adopt")
+  .description("Re-register orphan store entries into registry and active profile")
+  .action(async () => {
+    const result = await storeAdopt();
+    if (result.adopted === 0) {
+      console.log("No orphan entries found to adopt.");
+    } else {
+      console.log(`\nAdopted ${result.adopted} orphan ${result.adopted !== 1 ? "entries" : "entry"}.`);
+    }
   });
 
 const sync = program
