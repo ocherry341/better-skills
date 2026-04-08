@@ -216,8 +216,7 @@ Instructions for the AI agent...
 ├── registry.json        # Tracks all skill versions and hashes
 ├── profiles/            # Named skill collections
 ├── active-profile       # Currently active profile name
-├── config.json          # Enabled clients
-└── tmp/                 # Temporary directory for git clones
+└── config.json          # Enabled clients
 
 ~/.agents/skills/        # Global skills (copied from store)
 ./.agents/skills/        # Project skills
