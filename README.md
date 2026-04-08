@@ -76,7 +76,7 @@ bsk add <source>          # Add a skill (github, git, local path)
 bsk install <source>      # Alias for add (also: bsk i)
 bsk rm <name>             # Remove a skill
 bsk ls [-a]               # List skills (-a for all managed)
-bsk save [name]           # Save new/changed skills to management (--adopt-orphans)
+bsk save [name]           # Save new/changed skills to management
 bsk mv <skill> <scope>    # Move skill between global/project scope
 bsk tui                   # Launch interactive TUI (also: bare bsk)
 ```
@@ -146,6 +146,8 @@ Supported clients: `claude`, `cursor`, `opencode`, `gemini`, `copilot`, `roo`, `
 ```bash
 bsk store verify    # Check integrity of all store entries
 bsk store ls        # List all store entries with skill/version info
+bsk store prune     # Delete all orphan entries from the store
+bsk store adopt     # Re-register orphan store entries into registry
 ```
 
 ### Sync

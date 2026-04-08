@@ -1,9 +1,10 @@
 import { readdir, stat as fsStat } from "fs/promises";
 import { join } from "path";
-import { getStorePath, getRegistryPath } from "../utils/paths.js";
-import { verifyStoreEntry } from "../core/store.js";
-import { readRegistry } from "../core/registry.js";
+import { getStorePath, getRegistryPath, getProfilesPath, getActiveProfileFilePath } from "../utils/paths.js";
+import { verifyStoreEntry, remove as removeFromStore, readStoreMeta } from "../core/store.js";
+import { readRegistry, registerSkill } from "../core/registry.js";
 import { readSkillMd } from "../utils/skill-md.js";
+import { addSkillToProfile } from "./add.js";
 
 export interface CorruptedEntry {
   hash: string;
@@ -126,4 +127,140 @@ export async function storeLs(options: { storePath?: string; registryPath?: stri
   }
 
   return { entries };
+}
+
+export interface StorePruneOptions {
+  storePath?: string;
+  registryPath?: string;
+}
+
+export interface StorePruneResult {
+  pruned: number;
+  prunedHashes: string[];
+}
+
+export async function storePrune(options: StorePruneOptions = {}): Promise<StorePruneResult> {
+  const storePath = options.storePath ?? getStorePath();
+  const registryPath = options.registryPath ?? getRegistryPath();
+
+  let hashes: string[];
+  try {
+    hashes = await readdir(storePath);
+  } catch {
+    return { pruned: 0, prunedHashes: [] };
+  }
+
+  // Build referenced hash set from registry
+  const registry = await readRegistry(registryPath);
+  const referencedHashes = new Set<string>();
+  for (const entry of Object.values(registry.skills)) {
+    for (const ver of entry.versions) {
+      referencedHashes.add(ver.hash);
+    }
+  }
+
+  // Find and delete orphans
+  const prunedHashes: string[] = [];
+  for (const hash of hashes) {
+    if (!referencedHashes.has(hash)) {
+      await removeFromStore(hash, storePath);
+      prunedHashes.push(hash);
+    }
+  }
+
+  return { pruned: prunedHashes.length, prunedHashes };
+}
+
+export interface StoreAdoptOptions {
+  storePath?: string;
+  registryPath?: string;
+  profilesDir?: string;
+  activeFile?: string;
+}
+
+export interface StoreAdoptResult {
+  adopted: number;
+}
+
+export async function storeAdopt(options: StoreAdoptOptions = {}): Promise<StoreAdoptResult> {
+  const storePath = options.storePath ?? getStorePath();
+  const registryPath = options.registryPath ?? getRegistryPath();
+  const profilesDir = options.profilesDir ?? getProfilesPath();
+  const activeFile = options.activeFile ?? getActiveProfileFilePath();
+
+  const registry = await readRegistry(registryPath);
+
+  let storeHashes: string[];
+  try {
+    storeHashes = await readdir(storePath);
+  } catch {
+    return { adopted: 0 };
+  }
+
+  const referencedHashes = new Set<string>();
+  for (const entry of Object.values(registry.skills)) {
+    for (const ver of entry.versions) {
+      referencedHashes.add(ver.hash);
+    }
+  }
+
+  const orphanHashes = storeHashes.filter((h) => !referencedHashes.has(h));
+  if (orphanHashes.length === 0) return { adopted: 0 };
+
+  const orphans: { hash: string; skillName: string; sortTime: number }[] = [];
+
+  for (const hash of orphanHashes) {
+    const hashDir = join(storePath, hash);
+
+    let skillName: string;
+    try {
+      const meta = await readSkillMd(hashDir);
+      skillName = meta.name;
+    } catch {
+      console.warn(`Skipping orphan ${hash.slice(0, 8)}: no valid SKILL.md`);
+      continue;
+    }
+
+    const storeMeta = await readStoreMeta(hash, storePath);
+    let sortTime: number;
+    if (storeMeta?.storedAt) {
+      sortTime = new Date(storeMeta.storedAt).getTime();
+    } else {
+      try {
+        const s = await fsStat(hashDir);
+        sortTime = s.mtimeMs;
+      } catch {
+        sortTime = 0;
+      }
+    }
+
+    orphans.push({ hash, skillName, sortTime });
+  }
+
+  orphans.sort((a, b) => a.sortTime - b.sortTime);
+
+  let adopted = 0;
+  for (const orphan of orphans) {
+    const v = await registerSkill(
+      orphan.skillName,
+      orphan.hash,
+      "local",
+      registryPath,
+      storePath
+    );
+
+    await addSkillToProfile({
+      skillName: orphan.skillName,
+      v,
+      source: "local",
+      global: true,
+      profilesDir,
+      activeFile,
+    });
+
+    console.log(`Adopted: ${orphan.skillName} v${v} (${orphan.hash.slice(0, 8)})`);
+    adopted++;
+  }
+
+  return { adopted };
 }

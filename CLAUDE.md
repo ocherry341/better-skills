@@ -47,7 +47,7 @@ Uses commander.js and zod for CLI parsing and validation. Main commands:
 - `bsk mv <skill> <global|project>` — move a skill between scopes
 - `bsk client add|rm|ls` — manage multi-client skill directories
 - `bsk profile create|ls|show|use|add|rm|delete|rename|clone` — manage skill profiles
-- `bsk store verify|ls` — check store integrity or list store entries
+- `bsk store verify|ls|prune|adopt` — check integrity, list, prune orphans, or adopt orphans
 - `bsk tui` — interactive terminal UI for managing skills
 
 ## Code Conventions
