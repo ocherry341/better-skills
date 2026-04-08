@@ -5,6 +5,7 @@ import { DetailPane, type DetailField } from "./DetailPane.js";
 import { StatusBar } from "./StatusBar.js";
 import { Notification } from "./Notification.js";
 import type { NotificationState } from "../hooks/useNotification.js";
+import type { ActionMode } from "../App.js";
 import { useStoreLs } from "../hooks/useStoreLs.js";
 import { useStore } from "../hooks/useStore.js";
 
@@ -13,15 +14,26 @@ interface StoreViewProps {
   focusPane: "left" | "right";
   refreshKey?: number;
   notification?: NotificationState | null;
+  actionMode: ActionMode;
+  onPrune: (orphanCount: number) => void;
+  onAdopt: (orphanCount: number) => void;
 }
 
-export function StoreView({ selectedIndex, focusPane, refreshKey = 0, notification = null }: StoreViewProps) {
+export function StoreView({ selectedIndex, focusPane, refreshKey = 0, notification = null, actionMode, onPrune, onAdopt }: StoreViewProps) {
   const { result: lsResult, loading: lsLoading, refresh: refreshLs } = useStoreLs(refreshKey);
   const { result: verifyResult, loading: verifyLoading, refresh: refreshVerify } = useStore();
 
+  const orphanCount = lsResult
+    ? lsResult.entries.filter((e) => e.skills.length === 0).length
+    : 0;
+  const hasOrphans = orphanCount > 0;
+
   useInput((input) => {
+    if (actionMode) return;
     if (input === "v") refreshVerify();
     if (input === "r") refreshLs();
+    if (input === "p" && hasOrphans) onPrune(orphanCount);
+    if (input === "a" && hasOrphans) onAdopt(orphanCount);
   });
 
   if (lsLoading || !lsResult) return <Text>Loading store...</Text>;
@@ -73,10 +85,28 @@ export function StoreView({ selectedIndex, focusPane, refreshKey = 0, notificati
         <List items={items} selectedIndex={selectedIndex} title="Store" focused={focusPane === "left"} />
         <DetailPane fields={fields} content={detailContent} contentTitle="Associated skills" focused={focusPane === "right"} />
       </Box>
+      {actionMode?.type === "confirmPrune" && (
+        <Box paddingX={1}>
+          <Text color="yellow">
+            Delete {actionMode.orphanCount} orphan store {actionMode.orphanCount === 1 ? "entry" : "entries"}? (y/n)
+          </Text>
+        </Box>
+      )}
+      {actionMode?.type === "confirmAdopt" && (
+        <Box paddingX={1}>
+          <Text color="yellow">
+            Adopt {actionMode.orphanCount} orphan store {actionMode.orphanCount === 1 ? "entry" : "entries"}? (y/n)
+          </Text>
+        </Box>
+      )}
       <Notification notification={notification} />
       <StatusBar shortcuts={[
         { key: "v", label: "Re-verify" },
         { key: "r", label: "Refresh" },
+        ...(hasOrphans ? [
+          { key: "p", label: `Prune ${orphanCount} orphans` },
+          { key: "a", label: `Adopt ${orphanCount} orphans` },
+        ] : []),
         { key: "?", label: "Help" },
         { key: "q", label: "Quit" },
       ]} />
