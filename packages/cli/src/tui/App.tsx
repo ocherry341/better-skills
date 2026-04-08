@@ -37,7 +37,9 @@ export type ActionMode =
   | { type: "profileRemoveSkillList"; profileName: string; skills: string[] }
   | { type: "profileAddSkillList"; profileName: string; registrySkills: string[]; manualInput: boolean }
   | { type: "profileSwitchVersion"; profileName: string; skillName: string; versions: { v: number; hash: string; source: string }[]; currentV: number }
-  | { type: "profileApply"; profileName: string };
+  | { type: "profileApply"; profileName: string }
+  | { type: "confirmPrune"; orphanCount: number }
+  | { type: "confirmAdopt"; orphanCount: number };
 
 interface AppProps {
   version: string;
@@ -514,6 +516,38 @@ export function App({ version }: AppProps) {
       }
       return;
     }
+
+    if (actionMode.type === "confirmPrune") {
+      if (input === "y" || input === "Y") {
+        const count = actionMode.orphanCount;
+        setActionMode(null);
+        runAction("Pruning orphans...", `Pruned ${count} orphan(s)`, async () => {
+          const { storePrune } = await import("../commands/store-cmd.js");
+          await storePrune();
+        }, refresh);
+        return;
+      }
+      if (input === "n" || input === "N" || key.escape) {
+        setActionMode(null);
+      }
+      return;
+    }
+
+    if (actionMode.type === "confirmAdopt") {
+      if (input === "y" || input === "Y") {
+        const count = actionMode.orphanCount;
+        setActionMode(null);
+        runAction("Adopting orphans...", `Adopted ${count} orphan(s)`, async () => {
+          const { storeAdopt } = await import("../commands/store-cmd.js");
+          await storeAdopt();
+        }, refresh);
+        return;
+      }
+      if (input === "n" || input === "N" || key.escape) {
+        setActionMode(null);
+      }
+      return;
+    }
   }, { isActive: isModal });
 
   useKeyboard({
@@ -655,6 +689,9 @@ export function App({ version }: AppProps) {
               focusPane={focusPane}
               refreshKey={refreshKey}
               notification={notification}
+              actionMode={actionMode}
+              onPrune={(orphanCount) => setActionMode({ type: "confirmPrune", orphanCount })}
+              onAdopt={(orphanCount) => setActionMode({ type: "confirmAdopt", orphanCount })}
             />
           )}
           {activeTab === "Clients" && (
