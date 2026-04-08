@@ -1,4 +1,4 @@
-import { stat, readdir, unlink } from "fs/promises";
+import { stat, readdir, unlink, rm, mkdir } from "fs/promises";
 import { join, basename } from "path";
 import { unlinkSkill } from "../core/linker.js";
 import { verifiedLinkSkill } from "../core/store.js";
@@ -441,6 +441,71 @@ export async function profileClone(
   await writeProfile(targetPath, clone);
 
   console.log(`✓ Cloned profile '${sourceName}' → '${targetName}'`);
+}
+
+export interface ProfileApplyInternalOptions {
+  profilesDir: string;
+  storePath: string;
+  projectSkillsDir: string;
+  registryPath?: string;
+  replace?: boolean;
+}
+
+/**
+ * Deploy a profile's skills to the project-level .agents/skills/ directory.
+ * In merge mode (default), existing project skills are preserved.
+ * In replace mode, all existing project skills are removed first.
+ */
+export async function profileApply(
+  name: string,
+  opts: ProfileApplyInternalOptions
+): Promise<void> {
+  const filePath = join(opts.profilesDir, `${name}.json`);
+  const profile = await readProfile(filePath);
+
+  if (profile.skills.length === 0) {
+    console.log(`Profile '${name}' has no skills to apply.`);
+    return;
+  }
+
+  const registry = await readRegistry(opts.registryPath);
+
+  if (opts.replace) {
+    await rm(opts.projectSkillsDir, { recursive: true, force: true });
+  }
+
+  await mkdir(opts.projectSkillsDir, { recursive: true });
+
+  let applied = 0;
+  let skipped = 0;
+
+  for (const skill of profile.skills) {
+    const targetDir = join(opts.projectSkillsDir, skill.skillName);
+
+    if (!opts.replace) {
+      try {
+        await stat(targetDir);
+        console.log(`  Skipping ${skill.skillName} (already exists in project)`);
+        skipped++;
+        continue;
+      } catch {
+        // Doesn't exist — proceed to copy
+      }
+    }
+
+    const entry = registry.skills[skill.skillName];
+    const version = entry?.versions.find((ver) => ver.v === skill.v);
+    if (!version) {
+      console.warn(`⚠ Skill '${skill.skillName}' v${skill.v} not found in registry, skipping.`);
+      skipped++;
+      continue;
+    }
+
+    await verifiedLinkSkill(version.hash, targetDir, {}, opts.storePath);
+    applied++;
+  }
+
+  console.log(`✓ Applied profile '${name}' to project (${applied} copied, ${skipped} skipped)`);
 }
 
 function deriveNameFromSource(desc: SourceDescriptor): string {
