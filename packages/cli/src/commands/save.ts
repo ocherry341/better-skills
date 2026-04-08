@@ -2,8 +2,7 @@ import { readdir, stat } from "fs/promises";
 import { join } from "path";
 import { hashDirectory } from "../core/hasher.js";
 import { readRegistry, registerSkill, getLatestVersion } from "../core/registry.js";
-import { store as storeSkill, verifiedLinkSkill, readStoreMeta } from "../core/store.js";
-import { readSkillMd } from "../utils/skill-md.js";
+import { store as storeSkill, verifiedLinkSkill } from "../core/store.js";
 import {
   getGlobalSkillsPath,
   getRegistryPath,
@@ -15,7 +14,6 @@ import { addSkillToProfile } from "./add.js";
 
 export interface SaveOptions {
   skillName?: string;
-  adoptOrphans?: boolean;
   registryPath?: string;
   storePath?: string;
   skillsDir?: string;
@@ -23,107 +21,11 @@ export interface SaveOptions {
   activeFile?: string;
 }
 
-async function adoptOrphanEntries(options: SaveOptions): Promise<number> {
-  const storePath = options.storePath ?? getStorePath();
-  const registryPath = options.registryPath ?? getRegistryPath();
-  const profilesDir = options.profilesDir ?? getProfilesPath();
-  const activeFile = options.activeFile ?? getActiveProfileFilePath();
-
-  const registry = await readRegistry(registryPath);
-
-  let storeHashes: string[];
-  try {
-    storeHashes = await readdir(storePath);
-  } catch {
-    return 0;
-  }
-
-  const referencedHashes = new Set<string>();
-  for (const entry of Object.values(registry.skills)) {
-    for (const ver of entry.versions) {
-      referencedHashes.add(ver.hash);
-    }
-  }
-
-  const orphanHashes = storeHashes.filter((h) => !referencedHashes.has(h));
-  if (orphanHashes.length === 0) return 0;
-
-  const orphans: { hash: string; skillName: string; sortTime: number }[] = [];
-
-  for (const hash of orphanHashes) {
-    const hashDir = join(storePath, hash);
-
-    let skillName: string;
-    try {
-      const meta = await readSkillMd(hashDir);
-      skillName = meta.name;
-    } catch {
-      console.warn(`Skipping orphan ${hash.slice(0, 8)}: no valid SKILL.md`);
-      continue;
-    }
-
-    const storeMeta = await readStoreMeta(hash, storePath);
-    let sortTime: number;
-    if (storeMeta?.storedAt) {
-      sortTime = new Date(storeMeta.storedAt).getTime();
-    } else {
-      try {
-        const s = await stat(hashDir);
-        sortTime = s.mtimeMs;
-      } catch {
-        sortTime = 0;
-      }
-    }
-
-    orphans.push({ hash, skillName, sortTime });
-  }
-
-  orphans.sort((a, b) => a.sortTime - b.sortTime);
-
-  let adopted = 0;
-  for (const orphan of orphans) {
-    const v = await registerSkill(
-      orphan.skillName,
-      orphan.hash,
-      "local",
-      registryPath,
-      storePath
-    );
-
-    await addSkillToProfile({
-      skillName: orphan.skillName,
-      v,
-      source: "local",
-      global: true,
-      profilesDir,
-      activeFile,
-    });
-
-    console.log(`Adopted: ${orphan.skillName} v${v} (${orphan.hash.slice(0, 8)})`);
-    adopted++;
-  }
-
-  return adopted;
-}
-
 /**
  * Save new or changed skills from the skills directory to bsk management.
  * Hashes each skill, stores it, re-links, and registers a new version.
  */
 export async function save(options: SaveOptions = {}): Promise<void> {
-  // Mutual exclusion check
-  if (options.adoptOrphans && options.skillName) {
-    console.error("Cannot use --adopt-orphans with a specific skill name.");
-    return;
-  }
-
-  if (options.adoptOrphans) {
-    const adopted = await adoptOrphanEntries(options);
-    if (adopted === 0) {
-      console.log("No orphans found in store.");
-    }
-  }
-
   const skillsDir = options.skillsDir ?? getGlobalSkillsPath();
   const registryPath = options.registryPath ?? getRegistryPath();
   const storePath = options.storePath ?? getStorePath();
