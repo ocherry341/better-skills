@@ -3,6 +3,13 @@ import { join, dirname, basename } from "path";
 import { getActiveProfileName, readProfile } from "../core/profile.js";
 import { restoreSkillsFromProfile } from "../core/restore.js";
 import { readConfig, ensureClientSymlink } from "../core/clients.js";
+import {
+  getProfilesPath,
+  getActiveProfileFilePath,
+  getStorePath,
+  getRegistryPath,
+  getConfigPath,
+} from "../utils/paths.js";
 
 export interface SyncRestoreOptions {
   profilesDir: string;
@@ -137,11 +144,11 @@ export async function syncImport(
   console.log(`✓ Imported from ${file}`);
 
   // 5. Auto-restore
-  const profilesDir = join(opts.bskDir, "profiles");
-  const activeFile = join(opts.bskDir, "active-profile");
-  const storePath = join(opts.bskDir, "store");
-  const registryPath = opts.registryPath ?? join(opts.bskDir, "registry.json");
-  const configPath = opts.configPath ?? join(opts.bskDir, "config.json");
+  const profilesDir = getProfilesPath();
+  const activeFile = getActiveProfileFilePath();
+  const storePath = getStorePath();
+  const registryPath = opts.registryPath ?? getRegistryPath();
+  const configPath = opts.configPath ?? getConfigPath();
 
   try {
     await syncRestore({

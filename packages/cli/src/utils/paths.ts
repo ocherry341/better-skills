@@ -15,6 +15,17 @@ export function home(): string {
   return process.env.HOME ?? homedir();
 }
 
+/** Project root directory (for project-level skills) */
+export function getProjectRoot(): string {
+  if (process.env.NODE_ENV === "test") {
+    return join(home(), "project");
+  }
+  return process.cwd();
+}
+
+/** Relative subdirectory for project-level skills (e.g. for symlink targets) */
+export const PROJECT_SKILLS_SUBDIR = join(".agents", "skills");
+
 /** Root of the bsk data directory */
 export function getBskDir(): string {
   return join(home(), ".better-skills");
@@ -31,14 +42,13 @@ export function getGlobalSkillsPath(): string {
 }
 
 /** Project-local skills target directory */
-export function getProjectSkillsPath(projectRoot?: string): string {
-  const root = projectRoot ?? process.cwd();
-  return join(root, ".agents", "skills");
+export function getProjectSkillsPath(): string {
+  return join(getProjectRoot(), ".agents", "skills");
 }
 
 /** Resolve the skills target path based on global flag */
-export function getSkillsPath(global: boolean, projectRoot?: string): string {
-  return global ? getGlobalSkillsPath() : getProjectSkillsPath(projectRoot);
+export function getSkillsPath(global: boolean): string {
+  return global ? getGlobalSkillsPath() : getProjectSkillsPath();
 }
 
 /** Directory containing all profile JSON files */
@@ -74,4 +84,14 @@ export function getTempPath(): string {
 /** Resolve a potentially relative path to absolute */
 export function resolveAbsolute(p: string): string {
   return resolve(p);
+}
+
+/** Reset the test home directory. Call in beforeEach to isolate tests. */
+export async function cleanTestHome(): Promise<void> {
+  if (process.env.NODE_ENV !== "test") {
+    throw new Error("cleanTestHome() must only be called in test environment");
+  }
+  const { rm, mkdir } = await import("fs/promises");
+  await rm(home(), { recursive: true, force: true });
+  await mkdir(home(), { recursive: true });
 }

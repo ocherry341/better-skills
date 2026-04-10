@@ -9,6 +9,7 @@ import {
   getClientProjectSubdir,
 } from "../core/clients.js";
 import { save } from "./save.js";
+import { PROJECT_SKILLS_SUBDIR } from "../utils/paths.js";
 
 export interface ClientAddOptions {
   configPath: string;
@@ -136,7 +137,7 @@ export async function clientAdd(
     const subdir = getClientProjectSubdir(clientId);
     if (subdir) {
       const symlinkPath = join(opts.projectRoot, subdir);
-      const agentsSkillsDir = join(opts.projectRoot, ".agents", "skills");
+      const agentsSkillsDir = join(opts.projectRoot, PROJECT_SKILLS_SUBDIR);
 
       await mkdir(agentsSkillsDir, { recursive: true });
 
@@ -144,7 +145,7 @@ export async function clientAdd(
         const st = await lstat(symlinkPath);
         if (st.isSymbolicLink()) {
           const existing = await readlink(symlinkPath);
-          if (existing === join("..", ".agents", "skills")) {
+          if (existing === join("..", PROJECT_SKILLS_SUBDIR)) {
             // Correct symlink already exists — skip
           }
         } else if (st.isDirectory()) {
@@ -153,7 +154,7 @@ export async function clientAdd(
       } catch {
         // Does not exist — create it
         await mkdir(dirname(symlinkPath), { recursive: true });
-        await symlink(join("..", ".agents", "skills"), symlinkPath);
+        await symlink(join("..", PROJECT_SKILLS_SUBDIR), symlinkPath);
         console.log(`  Symlinked ${subdir} → .agents/skills`);
       }
     }
