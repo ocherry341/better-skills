@@ -1,7 +1,6 @@
 import { readFile, writeFile, mkdir, lstat, readlink, symlink } from "fs/promises";
 import { dirname, join } from "path";
-import { homedir } from "os";
-import { getConfigPath } from "../utils/paths.js";
+import { getConfigPath, home } from "../utils/paths.js";
 
 export interface ClientEntry {
   globalDir: string;
@@ -13,17 +12,16 @@ export interface ClientEntry {
  * Does NOT include "agents" — that's always-on and handled separately.
  */
 export function getClientRegistry(): Record<string, ClientEntry> {
-  // Bun's os.homedir() ignores runtime changes to $HOME, so read the env var directly.
-  const home = process.env.HOME ?? homedir();
+  const h = home();
   return {
-    claude:   { globalDir: join(home, ".claude", "skills"),                 projectSubdir: join(".claude", "skills") },
-    cursor:   { globalDir: join(home, ".cursor", "skills"),                 projectSubdir: join(".cursor", "skills") },
-    opencode: { globalDir: join(home, ".config", "opencode", "skills"),     projectSubdir: join(".opencode", "skills") },
-    gemini:   { globalDir: join(home, ".gemini", "skills"),                 projectSubdir: join(".gemini", "skills") },
-    copilot:  { globalDir: join(home, ".copilot", "skills"),                projectSubdir: join(".github", "skills") },
-    roo:      { globalDir: join(home, ".roo", "skills"),                    projectSubdir: join(".roo", "skills") },
-    goose:    { globalDir: join(home, ".config", "goose", "skills"),        projectSubdir: join(".goose", "skills") },
-    amp:      { globalDir: join(home, ".config", "amp", "skills"),          projectSubdir: null },
+    claude:   { globalDir: join(h, ".claude", "skills"),                 projectSubdir: join(".claude", "skills") },
+    cursor:   { globalDir: join(h, ".cursor", "skills"),                 projectSubdir: join(".cursor", "skills") },
+    opencode: { globalDir: join(h, ".config", "opencode", "skills"),     projectSubdir: join(".opencode", "skills") },
+    gemini:   { globalDir: join(h, ".gemini", "skills"),                 projectSubdir: join(".gemini", "skills") },
+    copilot:  { globalDir: join(h, ".copilot", "skills"),                projectSubdir: join(".github", "skills") },
+    roo:      { globalDir: join(h, ".roo", "skills"),                    projectSubdir: join(".roo", "skills") },
+    goose:    { globalDir: join(h, ".config", "goose", "skills"),        projectSubdir: join(".goose", "skills") },
+    amp:      { globalDir: join(h, ".config", "amp", "skills"),          projectSubdir: null },
   };
 }
 

@@ -1,8 +1,17 @@
+import { mkdtempSync } from "fs";
 import { homedir, tmpdir } from "os";
 import { join, resolve } from "path";
 
 // Bun's os.homedir() ignores runtime changes to $HOME, so read the env var directly.
-function home(): string {
+// Under NODE_ENV=test (set automatically by `bun test`), return a per-process
+// temp directory so tests never touch the real home.
+let _testHome: string | undefined;
+
+export function home(): string {
+  if (process.env.NODE_ENV === "test") {
+    _testHome ??= mkdtempSync(join(tmpdir(), "bsk-test-home-"));
+    return _testHome;
+  }
   return process.env.HOME ?? homedir();
 }
 
