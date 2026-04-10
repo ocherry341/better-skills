@@ -1,17 +1,21 @@
-import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtemp, rm, readFile, writeFile, mkdir } from "fs/promises";
+import { describe, test, expect, beforeEach } from "bun:test";
+import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
-import { tmpdir } from "os";
 import {
   ProfileSchema,
   type Profile,
-  type ProfileSkillEntry,
   readProfile,
   writeProfile,
   getActiveProfileName,
   setActiveProfileName,
   listProfiles,
 } from "../src/core/profile.js";
+import {
+  cleanTestHome,
+  getProfilesPath,
+  getActiveProfileFilePath,
+  getProfilePath,
+} from "../src/utils/paths.js";
 
 describe("ProfileSchema", () => {
   test("validates a correct profile", () => {
@@ -38,19 +42,9 @@ describe("ProfileSchema", () => {
 });
 
 describe("profile CRUD", () => {
-  let profilesDir: string;
-  let activeFile: string;
-
   beforeEach(async () => {
-    const base = await mkdtemp(join(tmpdir(), "profile-test-"));
-    profilesDir = join(base, "profiles");
-    activeFile = join(base, "active-profile");
-    await mkdir(profilesDir, { recursive: true });
-  });
-
-  afterEach(async () => {
-    // Clean up parent of profilesDir
-    await rm(join(profilesDir, ".."), { recursive: true, force: true });
+    await cleanTestHome();
+    await mkdir(getProfilesPath(), { recursive: true });
   });
 
   test("writeProfile + readProfile round-trips", async () => {
@@ -65,37 +59,35 @@ describe("profile CRUD", () => {
         },
       ],
     };
-    const filePath = join(profilesDir, "test.json");
-    await writeProfile(filePath, profile);
-    const loaded = await readProfile(filePath);
+    await writeProfile(getProfilePath("test"), profile);
+    const loaded = await readProfile(getProfilePath("test"));
     expect(loaded).toEqual(profile);
   });
 
   test("readProfile throws for missing file", async () => {
-    const filePath = join(profilesDir, "nonexistent.json");
-    expect(readProfile(filePath)).rejects.toThrow();
+    expect(readProfile(getProfilePath("nonexistent"))).rejects.toThrow();
   });
 
   test("listProfiles returns profile names", async () => {
-    await writeFile(join(profilesDir, "a.json"), "{}");
-    await writeFile(join(profilesDir, "b.json"), "{}");
-    const names = await listProfiles(profilesDir);
+    await writeFile(getProfilePath("a"), "{}");
+    await writeFile(getProfilePath("b"), "{}");
+    const names = await listProfiles(getProfilesPath());
     expect(names.sort()).toEqual(["a", "b"]);
   });
 
   test("listProfiles returns empty for missing dir", async () => {
-    const names = await listProfiles(join(profilesDir, "nope"));
+    const names = await listProfiles(join(getProfilesPath(), "nope"));
     expect(names).toEqual([]);
   });
 
   test("setActiveProfileName + getActiveProfileName round-trips", async () => {
-    await setActiveProfileName(activeFile, "work");
-    const name = await getActiveProfileName(activeFile);
+    await setActiveProfileName(getActiveProfileFilePath(), "work");
+    const name = await getActiveProfileName(getActiveProfileFilePath());
     expect(name).toBe("work");
   });
 
   test("getActiveProfileName returns null for missing file", async () => {
-    const name = await getActiveProfileName(activeFile);
+    const name = await getActiveProfileName(getActiveProfileFilePath());
     expect(name).toBeNull();
   });
 });

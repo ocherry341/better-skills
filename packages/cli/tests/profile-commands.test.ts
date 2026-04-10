@@ -1,7 +1,6 @@
-import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtemp, rm, mkdir, readdir, writeFile, readFile } from "fs/promises";
+import { describe, test, expect, beforeEach } from "bun:test";
+import { mkdir, readdir, writeFile, readFile } from "fs/promises";
 import { join } from "path";
-import { tmpdir } from "os";
 import { profileCreate, profileLs, profileShow, profileUse, profileAdd, profileRm, profileDelete, profileRename, profileClone } from "../src/commands/profile.js";
 import { type Profile, readProfile, writeProfile, getActiveProfileName, setActiveProfileName } from "../src/core/profile.js";
 import { addSkillToProfile } from "../src/commands/add.js";
@@ -9,90 +8,62 @@ import { removeSkillFromProfile } from "../src/commands/rm.js";
 import { registerSkill } from "../src/core/registry.js";
 import { hashDirectory } from "../src/core/hasher.js";
 import { cpRecursive } from "../src/core/linker.js";
+import { cleanTestHome, getProfilesPath, getActiveProfileFilePath, getGlobalSkillsPath, getStorePath, getRegistryPath, getProfilePath, home } from "../src/utils/paths.js";
 
 describe("profile create", () => {
-  let baseDir: string;
-  let profilesDir: string;
-  let activeFile: string;
-  let skillsDir: string;
-
   beforeEach(async () => {
-    baseDir = await mkdtemp(join(tmpdir(), "profile-cmd-"));
-    profilesDir = join(baseDir, "profiles");
-    activeFile = join(baseDir, "active-profile");
-    skillsDir = join(baseDir, "skills");
-    await mkdir(profilesDir, { recursive: true });
-  });
-
-  afterEach(async () => {
-    await rm(baseDir, { recursive: true, force: true });
+    await cleanTestHome();
+    await mkdir(getProfilesPath(), { recursive: true });
   });
 
   test("creates an empty profile and sets it active", async () => {
-    await profileCreate("work", { profilesDir, activeFile, skillsDir });
+    await profileCreate("work", {});
 
-    const profile = await readProfile(join(profilesDir, "work.json"));
+    const profile = await readProfile(getProfilePath("work"));
     expect(profile.name).toBe("work");
     expect(profile.skills).toEqual([]);
 
-    const active = await getActiveProfileName(activeFile);
+    const active = await getActiveProfileName(getActiveProfileFilePath());
     expect(active).toBe("work");
   });
 
   test("creates profile from existing skills directory", async () => {
     // Set up a skills dir with one skill that has a SKILL.md
-    const skillDir = join(skillsDir, "brainstorming");
+    const skillDir = join(getGlobalSkillsPath(), "brainstorming");
     await mkdir(skillDir, { recursive: true });
     await writeFile(
       join(skillDir, "SKILL.md"),
       "---\nname: brainstorming\n---\n# Brainstorming"
     );
 
-    await profileCreate("from-existing", {
-      profilesDir,
-      activeFile,
-      skillsDir,
-      fromExisting: true,
-    });
+    await profileCreate("from-existing", { fromExisting: true });
 
-    const profile = await readProfile(join(profilesDir, "from-existing.json"));
+    const profile = await readProfile(getProfilePath("from-existing"));
     expect(profile.name).toBe("from-existing");
     expect(profile.skills.length).toBe(1);
     expect(profile.skills[0].skillName).toBe("brainstorming");
   });
 
   test("throws if profile already exists", async () => {
-    await profileCreate("dup", { profilesDir, activeFile, skillsDir });
+    await profileCreate("dup", {});
     expect(
-      profileCreate("dup", { profilesDir, activeFile, skillsDir })
+      profileCreate("dup", {})
     ).rejects.toThrow(/already exists/);
   });
 });
 
 describe("profile ls", () => {
-  let baseDir: string;
-  let profilesDir: string;
-  let activeFile: string;
-  let skillsDir: string;
-
   beforeEach(async () => {
-    baseDir = await mkdtemp(join(tmpdir(), "profile-ls-"));
-    profilesDir = join(baseDir, "profiles");
-    activeFile = join(baseDir, "active-profile");
-    skillsDir = join(baseDir, "skills");
-    await mkdir(profilesDir, { recursive: true });
-  });
-
-  afterEach(async () => {
-    await rm(baseDir, { recursive: true, force: true });
+    await cleanTestHome();
+    await mkdir(getProfilesPath(), { recursive: true });
   });
 
   test("lists profiles and marks active", async () => {
-    await profileCreate("alpha", { profilesDir, activeFile, skillsDir });
-    await profileCreate("beta", { profilesDir, activeFile, skillsDir });
+    await profileCreate("alpha", {});
+    await profileCreate("beta", {});
     // beta is now active (last created)
 
-    const result = await profileLs({ profilesDir, activeFile });
+    const result = await profileLs();
     expect(result).toEqual([
       { name: "alpha", active: false },
       { name: "beta", active: true },
@@ -100,27 +71,15 @@ describe("profile ls", () => {
   });
 
   test("returns empty when no profiles", async () => {
-    const result = await profileLs({ profilesDir, activeFile });
+    const result = await profileLs();
     expect(result).toEqual([]);
   });
 });
 
 describe("profile show", () => {
-  let baseDir: string;
-  let profilesDir: string;
-  let activeFile: string;
-  let skillsDir: string;
-
   beforeEach(async () => {
-    baseDir = await mkdtemp(join(tmpdir(), "profile-show-"));
-    profilesDir = join(baseDir, "profiles");
-    activeFile = join(baseDir, "active-profile");
-    skillsDir = join(baseDir, "skills");
-    await mkdir(profilesDir, { recursive: true });
-  });
-
-  afterEach(async () => {
-    await rm(baseDir, { recursive: true, force: true });
+    await cleanTestHome();
+    await mkdir(getProfilesPath(), { recursive: true });
   });
 
   test("shows skills in a profile", async () => {
@@ -131,52 +90,38 @@ describe("profile show", () => {
         { skillName: "debugging", v: 2, source: "obra/superpowers", addedAt: "2026-03-03T00:00:00.000Z" },
       ],
     };
-    await writeProfile(join(profilesDir, "dev.json"), profile);
+    await writeProfile(getProfilePath("dev"), profile);
 
-    const result = await profileShow("dev", { profilesDir });
+    const result = await profileShow("dev");
     expect(result.name).toBe("dev");
     expect(result.skills.length).toBe(2);
     expect(result.skills[0].skillName).toBe("brainstorming");
   });
 
   test("throws for nonexistent profile", async () => {
-    expect(profileShow("nope", { profilesDir })).rejects.toThrow();
+    expect(profileShow("nope")).rejects.toThrow();
   });
 });
 
 describe("profile use", () => {
-  let baseDir: string;
-  let profilesDir: string;
-  let activeFile: string;
-  let skillsDir: string;
-
   beforeEach(async () => {
-    baseDir = await mkdtemp(join(tmpdir(), "profile-use-"));
-    profilesDir = join(baseDir, "profiles");
-    activeFile = join(baseDir, "active-profile");
-    skillsDir = join(baseDir, "skills");
-    await mkdir(profilesDir, { recursive: true });
-    await mkdir(skillsDir, { recursive: true });
-  });
-
-  afterEach(async () => {
-    await rm(baseDir, { recursive: true, force: true });
+    await cleanTestHome();
+    await mkdir(getProfilesPath(), { recursive: true });
+    await mkdir(getGlobalSkillsPath(), { recursive: true });
   });
 
   test("switches skills directory to match profile", async () => {
     // Set up store with a skill using real hash
-    const storePath = join(baseDir, "store");
-    const registryPath = join(baseDir, "registry.json");
-    const tmpSkill = join(baseDir, "tmp-skill");
+    const tmpSkill = join(home(), "tmp-skill");
     await mkdir(tmpSkill, { recursive: true });
     await writeFile(join(tmpSkill, "SKILL.md"), "---\nname: test-skill\n---\n# Test");
     const skillHash = await hashDirectory(tmpSkill);
-    const storeDir = join(storePath, skillHash);
+    const storeDir = join(getStorePath(), skillHash);
     await mkdir(storeDir, { recursive: true });
     await cpRecursive(tmpSkill, storeDir);
 
     // Register in registry so profileUse can resolve v -> hash
-    await registerSkill("test-skill", skillHash, "test/repo", registryPath, storePath);
+    await registerSkill("test-skill", skillHash, "test/repo");
 
     // Create profile referencing that version
     const profile: Profile = {
@@ -185,60 +130,50 @@ describe("profile use", () => {
         { skillName: "test-skill", v: 1, source: "test/repo", addedAt: "2026-03-03T00:00:00.000Z" },
       ],
     };
-    await writeProfile(join(profilesDir, "myprofile.json"), profile);
+    await writeProfile(getProfilePath("myprofile"), profile);
 
     // Put a pre-existing managed skill in skillsDir (should be removed)
-    const oldSkill = join(skillsDir, "old-skill");
+    const oldSkill = join(getGlobalSkillsPath(), "old-skill");
     await mkdir(oldSkill, { recursive: true });
     await writeFile(join(oldSkill, "SKILL.md"), "old");
     // store/oldhash needs to exist for registry not to purge it
-    await mkdir(join(storePath, "oldhash"), { recursive: true });
-    await registerSkill("old-skill", "oldhash", "old/source", registryPath, storePath);
+    await mkdir(join(getStorePath(), "oldhash"), { recursive: true });
+    await registerSkill("old-skill", "oldhash", "old/source");
 
     // Switch to profile
-    await profileUse("myprofile", {
-      profilesDir,
-      activeFile,
-      skillsDir,
-      storePath,
-      registryPath,
-      configPath: join(baseDir, "config.json"),
-    });
+    await profileUse("myprofile", {});
 
     // old-skill should be gone, test-skill should be present
-    const entries = await readdir(skillsDir);
+    const entries = await readdir(getGlobalSkillsPath());
     expect(entries).toEqual(["test-skill"]);
 
-    const content = await readFile(join(skillsDir, "test-skill", "SKILL.md"), "utf-8");
+    const content = await readFile(join(getGlobalSkillsPath(), "test-skill", "SKILL.md"), "utf-8");
     expect(content).toContain("test-skill");
 
     // Active profile should be updated
-    const active = await getActiveProfileName(activeFile);
+    const active = await getActiveProfileName(getActiveProfileFilePath());
     expect(active).toBe("myprofile");
   });
 
   test("registry entries persist after profile switch", async () => {
-    const storePath = join(baseDir, "store");
-    const registryPath = join(baseDir, "registry.json");
-
     // Set up store with two skills using real hashes
-    const tmpA = join(baseDir, "tmp-a");
+    const tmpA = join(home(), "tmp-a");
     await mkdir(tmpA, { recursive: true });
     await writeFile(join(tmpA, "SKILL.md"), "# Skill A");
     const hashA = await hashDirectory(tmpA);
-    await mkdir(join(storePath, hashA), { recursive: true });
-    await cpRecursive(tmpA, join(storePath, hashA));
+    await mkdir(join(getStorePath(), hashA), { recursive: true });
+    await cpRecursive(tmpA, join(getStorePath(), hashA));
 
-    const tmpB = join(baseDir, "tmp-b");
+    const tmpB = join(home(), "tmp-b");
     await mkdir(tmpB, { recursive: true });
     await writeFile(join(tmpB, "SKILL.md"), "# Skill B");
     const hashB = await hashDirectory(tmpB);
-    await mkdir(join(storePath, hashB), { recursive: true });
-    await cpRecursive(tmpB, join(storePath, hashB));
+    await mkdir(join(getStorePath(), hashB), { recursive: true });
+    await cpRecursive(tmpB, join(getStorePath(), hashB));
 
     // Register both skills in registry so profileUse can resolve v -> hash
-    await registerSkill("skill-a", hashA, "a/repo", registryPath, storePath);
-    await registerSkill("skill-b", hashB, "b/repo", registryPath, storePath);
+    await registerSkill("skill-a", hashA, "a/repo");
+    await registerSkill("skill-b", hashB, "b/repo");
 
     // Profile alpha has skill-a, profile beta has skill-b
     const alpha: Profile = {
@@ -249,38 +184,24 @@ describe("profile use", () => {
       name: "beta",
       skills: [{ skillName: "skill-b", v: 1, source: "b/repo", addedAt: "2026-01-01T00:00:00.000Z" }],
     };
-    await writeProfile(join(profilesDir, "alpha.json"), alpha);
-    await writeProfile(join(profilesDir, "beta.json"), beta);
+    await writeProfile(getProfilePath("alpha"), alpha);
+    await writeProfile(getProfilePath("beta"), beta);
 
     // Switch to alpha first
-    await profileUse("alpha", {
-      profilesDir, activeFile, skillsDir,
-      storePath, registryPath,
-      configPath: join(baseDir, "config.json"),
-    });
+    await profileUse("alpha", {});
 
     // Switch to beta
-    await profileUse("beta", {
-      profilesDir, activeFile, skillsDir,
-      storePath, registryPath,
-      configPath: join(baseDir, "config.json"),
-    });
+    await profileUse("beta", {});
 
     // Registry should contain BOTH skills (lockfile behavior)
-    const reg = JSON.parse(await readFile(registryPath, "utf-8"));
+    const reg = JSON.parse(await readFile(getRegistryPath(), "utf-8"));
     expect(reg.skills).toHaveProperty("skill-a");
     expect(reg.skills).toHaveProperty("skill-b");
   });
 
   test("throws for nonexistent profile", async () => {
     expect(
-      profileUse("nope", {
-        profilesDir,
-        activeFile,
-        skillsDir,
-        storePath: join(baseDir, "store"),
-        configPath: join(baseDir, "config.json"),
-      })
+      profileUse("nope", {})
     ).rejects.toThrow();
   });
 
@@ -292,55 +213,37 @@ describe("profile use", () => {
         { skillName: "ghost", v: 99, source: "x/y", addedAt: "2026-03-03T00:00:00.000Z" },
       ],
     };
-    await writeProfile(join(profilesDir, "broken.json"), profile);
+    await writeProfile(getProfilePath("broken"), profile);
 
     // Should not throw, but log a warning
-    await profileUse("broken", {
-      profilesDir,
-      activeFile,
-      skillsDir,
-      storePath: join(baseDir, "store"),
-      configPath: join(baseDir, "config.json"),
-    });
+    await profileUse("broken", {});
 
     // Skills dir should be empty (the ghost skill wasn't linked)
-    const entries = await readdir(skillsDir);
+    const entries = await readdir(getGlobalSkillsPath());
     expect(entries).toEqual([]);
   });
 });
 
 describe("add records to active profile", () => {
-  let baseDir: string;
-  let profilesDir: string;
-  let activeFile: string;
-
   beforeEach(async () => {
-    baseDir = await mkdtemp(join(tmpdir(), "add-profile-"));
-    profilesDir = join(baseDir, "profiles");
-    activeFile = join(baseDir, "active-profile");
-    await mkdir(profilesDir, { recursive: true });
-  });
-
-  afterEach(async () => {
-    await rm(baseDir, { recursive: true, force: true });
+    await cleanTestHome();
+    await mkdir(getProfilesPath(), { recursive: true });
   });
 
   test("appends skill to active profile", async () => {
     // Create and activate a profile
     const profile: Profile = { name: "dev", skills: [] };
-    await writeProfile(join(profilesDir, "dev.json"), profile);
-    await setActiveProfileName(activeFile, "dev");
+    await writeProfile(getProfilePath("dev"), profile);
+    await setActiveProfileName(getActiveProfileFilePath(), "dev");
 
     await addSkillToProfile({
       skillName: "brainstorming",
       v: 1,
       source: "obra/superpowers",
       global: true,
-      profilesDir,
-      activeFile,
     });
 
-    const updated = await readProfile(join(profilesDir, "dev.json"));
+    const updated = await readProfile(getProfilePath("dev"));
     expect(updated.skills.length).toBe(1);
     expect(updated.skills[0].skillName).toBe("brainstorming");
     expect(updated.skills[0].v).toBe(1);
@@ -354,19 +257,17 @@ describe("add records to active profile", () => {
         { skillName: "brainstorming", v: 1, source: "old/source", addedAt: "2026-01-01T00:00:00.000Z" },
       ],
     };
-    await writeProfile(join(profilesDir, "dev.json"), profile);
-    await setActiveProfileName(activeFile, "dev");
+    await writeProfile(getProfilePath("dev"), profile);
+    await setActiveProfileName(getActiveProfileFilePath(), "dev");
 
     await addSkillToProfile({
       skillName: "brainstorming",
       v: 2,
       source: "new/source",
       global: true,
-      profilesDir,
-      activeFile,
     });
 
-    const updated = await readProfile(join(profilesDir, "dev.json"));
+    const updated = await readProfile(getProfilePath("dev"));
     expect(updated.skills.length).toBe(1);
     expect(updated.skills[0].v).toBe(2);
   });
@@ -378,80 +279,54 @@ describe("add records to active profile", () => {
       v: 1,
       source: "x/y",
       global: true,
-      profilesDir,
-      activeFile,
     });
   });
 });
 
 describe("add respects profile scope constraint", () => {
-  let baseDir: string;
-  let profilesDir: string;
-  let activeFile: string;
-
   beforeEach(async () => {
-    baseDir = await mkdtemp(join(tmpdir(), "add-scope-"));
-    profilesDir = join(baseDir, "profiles");
-    activeFile = join(baseDir, "active-profile");
-    await mkdir(profilesDir, { recursive: true });
-  });
-
-  afterEach(async () => {
-    await rm(baseDir, { recursive: true, force: true });
+    await cleanTestHome();
+    await mkdir(getProfilesPath(), { recursive: true });
   });
 
   test("records to profile when global is true", async () => {
     const profile: Profile = { name: "dev", skills: [] };
-    await writeProfile(join(profilesDir, "dev.json"), profile);
-    await setActiveProfileName(activeFile, "dev");
+    await writeProfile(getProfilePath("dev"), profile);
+    await setActiveProfileName(getActiveProfileFilePath(), "dev");
 
     await addSkillToProfile({
       skillName: "brainstorming",
       v: 1,
       source: "obra/superpowers",
       global: true,
-      profilesDir,
-      activeFile,
     });
 
-    const updated = await readProfile(join(profilesDir, "dev.json"));
+    const updated = await readProfile(getProfilePath("dev"));
     expect(updated.skills.length).toBe(1);
     expect(updated.skills[0].skillName).toBe("brainstorming");
   });
 
   test("skips profile when global is false (project-level)", async () => {
     const profile: Profile = { name: "dev", skills: [] };
-    await writeProfile(join(profilesDir, "dev.json"), profile);
-    await setActiveProfileName(activeFile, "dev");
+    await writeProfile(getProfilePath("dev"), profile);
+    await setActiveProfileName(getActiveProfileFilePath(), "dev");
 
     await addSkillToProfile({
       skillName: "local-skill",
       v: 0,
       source: "./local",
       global: false,
-      profilesDir,
-      activeFile,
     });
 
-    const updated = await readProfile(join(profilesDir, "dev.json"));
+    const updated = await readProfile(getProfilePath("dev"));
     expect(updated.skills.length).toBe(0);
   });
 });
 
 describe("rm records to active profile", () => {
-  let baseDir: string;
-  let profilesDir: string;
-  let activeFile: string;
-
   beforeEach(async () => {
-    baseDir = await mkdtemp(join(tmpdir(), "rm-profile-"));
-    profilesDir = join(baseDir, "profiles");
-    activeFile = join(baseDir, "active-profile");
-    await mkdir(profilesDir, { recursive: true });
-  });
-
-  afterEach(async () => {
-    await rm(baseDir, { recursive: true, force: true });
+    await cleanTestHome();
+    await mkdir(getProfilesPath(), { recursive: true });
   });
 
   test("removes skill from active profile", async () => {
@@ -462,17 +337,15 @@ describe("rm records to active profile", () => {
         { skillName: "debugging", v: 2, source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
       ],
     };
-    await writeProfile(join(profilesDir, "dev.json"), profile);
-    await setActiveProfileName(activeFile, "dev");
+    await writeProfile(getProfilePath("dev"), profile);
+    await setActiveProfileName(getActiveProfileFilePath(), "dev");
 
     await removeSkillFromProfile({
       skillName: "brainstorming",
       global: true,
-      profilesDir,
-      activeFile,
     });
 
-    const updated = await readProfile(join(profilesDir, "dev.json"));
+    const updated = await readProfile(getProfilePath("dev"));
     expect(updated.skills.length).toBe(1);
     expect(updated.skills[0].skillName).toBe("debugging");
   });
@@ -481,26 +354,14 @@ describe("rm records to active profile", () => {
     await removeSkillFromProfile({
       skillName: "brainstorming",
       global: true,
-      profilesDir,
-      activeFile,
     });
   });
 });
 
 describe("rm respects profile scope constraint", () => {
-  let baseDir: string;
-  let profilesDir: string;
-  let activeFile: string;
-
   beforeEach(async () => {
-    baseDir = await mkdtemp(join(tmpdir(), "rm-scope-"));
-    profilesDir = join(baseDir, "profiles");
-    activeFile = join(baseDir, "active-profile");
-    await mkdir(profilesDir, { recursive: true });
-  });
-
-  afterEach(async () => {
-    await rm(baseDir, { recursive: true, force: true });
+    await cleanTestHome();
+    await mkdir(getProfilesPath(), { recursive: true });
   });
 
   test("removes from profile when global is true", async () => {
@@ -510,17 +371,15 @@ describe("rm respects profile scope constraint", () => {
         { skillName: "brainstorming", v: 1, source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
       ],
     };
-    await writeProfile(join(profilesDir, "dev.json"), profile);
-    await setActiveProfileName(activeFile, "dev");
+    await writeProfile(getProfilePath("dev"), profile);
+    await setActiveProfileName(getActiveProfileFilePath(), "dev");
 
     await removeSkillFromProfile({
       skillName: "brainstorming",
       global: true,
-      profilesDir,
-      activeFile,
     });
 
-    const updated = await readProfile(join(profilesDir, "dev.json"));
+    const updated = await readProfile(getProfilePath("dev"));
     expect(updated.skills.length).toBe(0);
   });
 
@@ -531,41 +390,30 @@ describe("rm respects profile scope constraint", () => {
         { skillName: "brainstorming", v: 1, source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
       ],
     };
-    await writeProfile(join(profilesDir, "dev.json"), profile);
-    await setActiveProfileName(activeFile, "dev");
+    await writeProfile(getProfilePath("dev"), profile);
+    await setActiveProfileName(getActiveProfileFilePath(), "dev");
 
     await removeSkillFromProfile({
       skillName: "brainstorming",
       global: false,
-      profilesDir,
-      activeFile,
     });
 
-    const updated = await readProfile(join(profilesDir, "dev.json"));
+    const updated = await readProfile(getProfilePath("dev"));
     expect(updated.skills.length).toBe(1);
   });
 });
 
 describe("profile add", () => {
-  let baseDir: string;
-  let profilesDir: string;
-  let activeFile: string;
-  let skillsDir: string;
-  let storePath: string;
   let localSkillDir: string;
 
   beforeEach(async () => {
-    baseDir = await mkdtemp(join(tmpdir(), "profile-add-"));
-    profilesDir = join(baseDir, "profiles");
-    activeFile = join(baseDir, "active-profile");
-    skillsDir = join(baseDir, "skills");
-    storePath = join(baseDir, "store");
-    localSkillDir = join(baseDir, "local-skill");
-    await mkdir(profilesDir, { recursive: true });
-    await mkdir(skillsDir, { recursive: true });
-    await mkdir(storePath, { recursive: true });
+    await cleanTestHome();
+    await mkdir(getProfilesPath(), { recursive: true });
+    await mkdir(getGlobalSkillsPath(), { recursive: true });
+    await mkdir(getStorePath(), { recursive: true });
 
     // Create a local skill source
+    localSkillDir = join(home(), "local-skill");
     await mkdir(localSkillDir, { recursive: true });
     await writeFile(
       join(localSkillDir, "SKILL.md"),
@@ -573,31 +421,21 @@ describe("profile add", () => {
     );
   });
 
-  afterEach(async () => {
-    await rm(baseDir, { recursive: true, force: true });
-  });
-
   test("adds skill to active profile and links", async () => {
     // Create and activate profile
     const profile: Profile = { name: "dev", skills: [] };
-    await writeProfile(join(profilesDir, "dev.json"), profile);
-    await setActiveProfileName(activeFile, "dev");
+    await writeProfile(getProfilePath("dev"), profile);
+    await setActiveProfileName(getActiveProfileFilePath(), "dev");
 
-    await profileAdd(localSkillDir, {
-      profilesDir,
-      activeFile,
-      skillsDir,
-      storePath,
-      configPath: join(baseDir, "config.json"),
-    });
+    await profileAdd(localSkillDir, {});
 
     // Profile should have the skill
-    const updated = await readProfile(join(profilesDir, "dev.json"));
+    const updated = await readProfile(getProfilePath("dev"));
     expect(updated.skills.length).toBe(1);
     expect(updated.skills[0].skillName).toBe("test-skill");
 
     // Skill should be linked
-    const entries = await readdir(skillsDir);
+    const entries = await readdir(getGlobalSkillsPath());
     expect(entries).toContain("test-skill");
   });
 
@@ -605,26 +443,19 @@ describe("profile add", () => {
     // Create two profiles, activate "dev"
     const devProfile: Profile = { name: "dev", skills: [] };
     const workProfile: Profile = { name: "work", skills: [] };
-    await writeProfile(join(profilesDir, "dev.json"), devProfile);
-    await writeProfile(join(profilesDir, "work.json"), workProfile);
-    await setActiveProfileName(activeFile, "dev");
+    await writeProfile(getProfilePath("dev"), devProfile);
+    await writeProfile(getProfilePath("work"), workProfile);
+    await setActiveProfileName(getActiveProfileFilePath(), "dev");
 
-    await profileAdd(localSkillDir, {
-      profilesDir,
-      activeFile,
-      skillsDir,
-      storePath,
-      profileName: "work",
-      configPath: join(baseDir, "config.json"),
-    });
+    await profileAdd(localSkillDir, { profileName: "work" });
 
     // Work profile should have the skill
-    const updated = await readProfile(join(profilesDir, "work.json"));
+    const updated = await readProfile(getProfilePath("work"));
     expect(updated.skills.length).toBe(1);
     expect(updated.skills[0].skillName).toBe("test-skill");
 
     // Skill should NOT be linked (work is not active)
-    const entries = await readdir(skillsDir);
+    const entries = await readdir(getGlobalSkillsPath());
     expect(entries).not.toContain("test-skill");
   });
 
@@ -635,183 +466,130 @@ describe("profile add", () => {
         { skillName: "test-skill", v: 0, source: "old", addedAt: "2026-01-01T00:00:00.000Z" },
       ],
     };
-    await writeProfile(join(profilesDir, "dev.json"), profile);
-    await setActiveProfileName(activeFile, "dev");
+    await writeProfile(getProfilePath("dev"), profile);
+    await setActiveProfileName(getActiveProfileFilePath(), "dev");
 
-    await profileAdd(localSkillDir, {
-      profilesDir,
-      activeFile,
-      skillsDir,
-      storePath,
-      configPath: join(baseDir, "config.json"),
-    });
+    await profileAdd(localSkillDir, {});
 
-    const updated = await readProfile(join(profilesDir, "dev.json"));
+    const updated = await readProfile(getProfilePath("dev"));
     expect(updated.skills.length).toBe(1);
     expect(updated.skills[0].v).toBeGreaterThan(0);
   });
 
   test("throws when no profile specified and no active profile", async () => {
     expect(
-      profileAdd(localSkillDir, {
-        profilesDir,
-        activeFile,
-        skillsDir,
-        storePath,
-        configPath: join(baseDir, "config.json"),
-      })
+      profileAdd(localSkillDir, {})
     ).rejects.toThrow(/No active profile/);
   });
 
   test("throws when target profile does not exist", async () => {
     expect(
-      profileAdd(localSkillDir, {
-        profilesDir,
-        activeFile,
-        skillsDir,
-        storePath,
-        profileName: "nonexistent",
-        configPath: join(baseDir, "config.json"),
-      })
+      profileAdd(localSkillDir, { profileName: "nonexistent" })
     ).rejects.toThrow();
   });
 
   test("respects --name override", async () => {
     const profile: Profile = { name: "dev", skills: [] };
-    await writeProfile(join(profilesDir, "dev.json"), profile);
-    await setActiveProfileName(activeFile, "dev");
+    await writeProfile(getProfilePath("dev"), profile);
+    await setActiveProfileName(getActiveProfileFilePath(), "dev");
 
-    await profileAdd(localSkillDir, {
-      profilesDir,
-      activeFile,
-      skillsDir,
-      storePath,
-      name: "custom-name",
-      configPath: join(baseDir, "config.json"),
-    });
+    await profileAdd(localSkillDir, { name: "custom-name" });
 
-    const updated = await readProfile(join(profilesDir, "dev.json"));
+    const updated = await readProfile(getProfilePath("dev"));
     expect(updated.skills[0].skillName).toBe("custom-name");
   });
 
   test("adds skill from registry with @latest (default)", async () => {
-    const registryPath = join(baseDir, "registry.json");
     // Create two versions with real hashes
-    const tmp1 = join(baseDir, "tmp-v1");
+    const tmp1 = join(home(), "tmp-v1");
     await mkdir(tmp1, { recursive: true });
     await writeFile(join(tmp1, "SKILL.md"), "# v1");
     const hash1 = await hashDirectory(tmp1);
-    await mkdir(join(storePath, hash1), { recursive: true });
-    await cpRecursive(tmp1, join(storePath, hash1));
+    await mkdir(join(getStorePath(), hash1), { recursive: true });
+    await cpRecursive(tmp1, join(getStorePath(), hash1));
 
-    const tmp2 = join(baseDir, "tmp-v2");
+    const tmp2 = join(home(), "tmp-v2");
     await mkdir(tmp2, { recursive: true });
     await writeFile(join(tmp2, "SKILL.md"), "# v2");
     const hash2 = await hashDirectory(tmp2);
-    await mkdir(join(storePath, hash2), { recursive: true });
-    await cpRecursive(tmp2, join(storePath, hash2));
+    await mkdir(join(getStorePath(), hash2), { recursive: true });
+    await cpRecursive(tmp2, join(getStorePath(), hash2));
 
-    await registerSkill("my-skill", hash1, "owner/repo", registryPath, storePath);
-    await registerSkill("my-skill", hash2, "owner/repo", registryPath, storePath);
+    await registerSkill("my-skill", hash1, "owner/repo");
+    await registerSkill("my-skill", hash2, "owner/repo");
 
     const profile: Profile = { name: "dev", skills: [] };
-    await writeProfile(join(profilesDir, "dev.json"), profile);
-    await setActiveProfileName(activeFile, "dev");
+    await writeProfile(getProfilePath("dev"), profile);
+    await setActiveProfileName(getActiveProfileFilePath(), "dev");
 
-    await profileAdd("my-skill", {
-      profilesDir, activeFile, skillsDir, storePath,
-      registryPath,
-      configPath: join(baseDir, "config.json"),
-    });
+    await profileAdd("my-skill", {});
 
-    const updated = await readProfile(join(profilesDir, "dev.json"));
+    const updated = await readProfile(getProfilePath("dev"));
     expect(updated.skills[0].v).toBe(2); // latest
   });
 
   test("adds skill from registry with @v1", async () => {
-    const registryPath = join(baseDir, "registry.json");
-    const tmp1 = join(baseDir, "tmp-v1");
+    const tmp1 = join(home(), "tmp-v1");
     await mkdir(tmp1, { recursive: true });
     await writeFile(join(tmp1, "SKILL.md"), "# v1");
     const hash1 = await hashDirectory(tmp1);
-    await mkdir(join(storePath, hash1), { recursive: true });
-    await cpRecursive(tmp1, join(storePath, hash1));
+    await mkdir(join(getStorePath(), hash1), { recursive: true });
+    await cpRecursive(tmp1, join(getStorePath(), hash1));
 
-    const tmp2 = join(baseDir, "tmp-v2");
+    const tmp2 = join(home(), "tmp-v2");
     await mkdir(tmp2, { recursive: true });
     await writeFile(join(tmp2, "SKILL.md"), "# v2");
     const hash2 = await hashDirectory(tmp2);
-    await mkdir(join(storePath, hash2), { recursive: true });
-    await cpRecursive(tmp2, join(storePath, hash2));
+    await mkdir(join(getStorePath(), hash2), { recursive: true });
+    await cpRecursive(tmp2, join(getStorePath(), hash2));
 
-    await registerSkill("my-skill", hash1, "owner/repo", registryPath, storePath);
-    await registerSkill("my-skill", hash2, "owner/repo", registryPath, storePath);
+    await registerSkill("my-skill", hash1, "owner/repo");
+    await registerSkill("my-skill", hash2, "owner/repo");
 
     const profile: Profile = { name: "dev", skills: [] };
-    await writeProfile(join(profilesDir, "dev.json"), profile);
-    await setActiveProfileName(activeFile, "dev");
+    await writeProfile(getProfilePath("dev"), profile);
+    await setActiveProfileName(getActiveProfileFilePath(), "dev");
 
-    await profileAdd("my-skill@v1", {
-      profilesDir, activeFile, skillsDir, storePath,
-      registryPath,
-      configPath: join(baseDir, "config.json"),
-    });
+    await profileAdd("my-skill@v1", {});
 
-    const updated = await readProfile(join(profilesDir, "dev.json"));
+    const updated = await readProfile(getProfilePath("dev"));
     expect(updated.skills[0].v).toBe(1);
   });
 
   test("adds skill from registry with @previous", async () => {
-    const registryPath = join(baseDir, "registry.json");
-    const tmp1 = join(baseDir, "tmp-v1");
+    const tmp1 = join(home(), "tmp-v1");
     await mkdir(tmp1, { recursive: true });
     await writeFile(join(tmp1, "SKILL.md"), "# v1");
     const hash1 = await hashDirectory(tmp1);
-    await mkdir(join(storePath, hash1), { recursive: true });
-    await cpRecursive(tmp1, join(storePath, hash1));
+    await mkdir(join(getStorePath(), hash1), { recursive: true });
+    await cpRecursive(tmp1, join(getStorePath(), hash1));
 
-    const tmp2 = join(baseDir, "tmp-v2");
+    const tmp2 = join(home(), "tmp-v2");
     await mkdir(tmp2, { recursive: true });
     await writeFile(join(tmp2, "SKILL.md"), "# v2");
     const hash2 = await hashDirectory(tmp2);
-    await mkdir(join(storePath, hash2), { recursive: true });
-    await cpRecursive(tmp2, join(storePath, hash2));
+    await mkdir(join(getStorePath(), hash2), { recursive: true });
+    await cpRecursive(tmp2, join(getStorePath(), hash2));
 
-    await registerSkill("my-skill", hash1, "owner/repo", registryPath, storePath);
-    await registerSkill("my-skill", hash2, "owner/repo", registryPath, storePath);
+    await registerSkill("my-skill", hash1, "owner/repo");
+    await registerSkill("my-skill", hash2, "owner/repo");
 
     const profile: Profile = { name: "dev", skills: [] };
-    await writeProfile(join(profilesDir, "dev.json"), profile);
-    await setActiveProfileName(activeFile, "dev");
+    await writeProfile(getProfilePath("dev"), profile);
+    await setActiveProfileName(getActiveProfileFilePath(), "dev");
 
-    await profileAdd("my-skill@previous", {
-      profilesDir, activeFile, skillsDir, storePath,
-      registryPath,
-      configPath: join(baseDir, "config.json"),
-    });
+    await profileAdd("my-skill@previous", {});
 
-    const updated = await readProfile(join(profilesDir, "dev.json"));
+    const updated = await readProfile(getProfilePath("dev"));
     expect(updated.skills[0].v).toBe(1);
   });
 });
 
 describe("profile rm", () => {
-  let baseDir: string;
-  let profilesDir: string;
-  let activeFile: string;
-  let skillsDir: string;
-
   beforeEach(async () => {
-    baseDir = await mkdtemp(join(tmpdir(), "profile-rm-cmd-"));
-    profilesDir = join(baseDir, "profiles");
-    activeFile = join(baseDir, "active-profile");
-    skillsDir = join(baseDir, "skills");
-    await mkdir(profilesDir, { recursive: true });
-    await mkdir(skillsDir, { recursive: true });
-  });
-
-  afterEach(async () => {
-    await rm(baseDir, { recursive: true, force: true });
+    await cleanTestHome();
+    await mkdir(getProfilesPath(), { recursive: true });
+    await mkdir(getGlobalSkillsPath(), { recursive: true });
   });
 
   test("removes skill from active profile and unlinks", async () => {
@@ -822,28 +600,23 @@ describe("profile rm", () => {
         { skillName: "debugging", v: 2, source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
       ],
     };
-    await writeProfile(join(profilesDir, "dev.json"), profile);
-    await setActiveProfileName(activeFile, "dev");
+    await writeProfile(getProfilePath("dev"), profile);
+    await setActiveProfileName(getActiveProfileFilePath(), "dev");
 
     // Create linked skill on disk
-    const skillDir = join(skillsDir, "brainstorming");
+    const skillDir = join(getGlobalSkillsPath(), "brainstorming");
     await mkdir(skillDir, { recursive: true });
     await writeFile(join(skillDir, "SKILL.md"), "# Brainstorming");
 
-    await profileRm("brainstorming", {
-      profilesDir,
-      activeFile,
-      skillsDir,
-      configPath: join(baseDir, "config.json"),
-    });
+    await profileRm("brainstorming", {});
 
     // Profile should have only debugging
-    const updated = await readProfile(join(profilesDir, "dev.json"));
+    const updated = await readProfile(getProfilePath("dev"));
     expect(updated.skills.length).toBe(1);
     expect(updated.skills[0].skillName).toBe("debugging");
 
     // Skill should be unlinked
-    const entries = await readdir(skillsDir);
+    const entries = await readdir(getGlobalSkillsPath());
     expect(entries).not.toContain("brainstorming");
   });
 
@@ -855,70 +628,45 @@ describe("profile rm", () => {
         { skillName: "brainstorming", v: 1, source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
       ],
     };
-    await writeProfile(join(profilesDir, "dev.json"), devProfile);
-    await writeProfile(join(profilesDir, "work.json"), workProfile);
-    await setActiveProfileName(activeFile, "dev");
+    await writeProfile(getProfilePath("dev"), devProfile);
+    await writeProfile(getProfilePath("work"), workProfile);
+    await setActiveProfileName(getActiveProfileFilePath(), "dev");
 
-    await profileRm("brainstorming", {
-      profilesDir,
-      activeFile,
-      skillsDir,
-      profileName: "work",
-      configPath: join(baseDir, "config.json"),
-    });
+    await profileRm("brainstorming", { profileName: "work" });
 
     // Work profile should be empty
-    const updated = await readProfile(join(profilesDir, "work.json"));
+    const updated = await readProfile(getProfilePath("work"));
     expect(updated.skills.length).toBe(0);
   });
 
   test("throws when skill not in profile", async () => {
     const profile: Profile = { name: "dev", skills: [] };
-    await writeProfile(join(profilesDir, "dev.json"), profile);
-    await setActiveProfileName(activeFile, "dev");
+    await writeProfile(getProfilePath("dev"), profile);
+    await setActiveProfileName(getActiveProfileFilePath(), "dev");
 
     expect(
-      profileRm("nonexistent", {
-        profilesDir,
-        activeFile,
-        skillsDir,
-        configPath: join(baseDir, "config.json"),
-      })
+      profileRm("nonexistent", {})
     ).rejects.toThrow(/not found in profile/);
   });
 
   test("throws when no profile specified and no active profile", async () => {
     expect(
-      profileRm("brainstorming", {
-        profilesDir,
-        activeFile,
-        skillsDir,
-        configPath: join(baseDir, "config.json"),
-      })
+      profileRm("brainstorming", {})
     ).rejects.toThrow(/No active profile/);
   });
 
   test("throws when target profile does not exist", async () => {
     expect(
-      profileRm("brainstorming", {
-        profilesDir,
-        activeFile,
-        skillsDir,
-        profileName: "nonexistent",
-        configPath: join(baseDir, "config.json"),
-      })
+      profileRm("brainstorming", { profileName: "nonexistent" })
     ).rejects.toThrow();
   });
 
   test("registry entry persists after removing skill from active profile", async () => {
-    const storePath = join(baseDir, "store");
-    const registryPath = join(baseDir, "registry.json");
-
     // Set up store
-    await mkdir(join(storePath, "abc"), { recursive: true });
+    await mkdir(join(getStorePath(), "abc"), { recursive: true });
 
     // Register the skill in registry
-    await registerSkill("brainstorming", "abc", "x/y", registryPath, storePath);
+    await registerSkill("brainstorming", "abc", "x/y");
 
     const profile: Profile = {
       name: "dev",
@@ -926,21 +674,18 @@ describe("profile rm", () => {
         { skillName: "brainstorming", v: 1, source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
       ],
     };
-    await writeProfile(join(profilesDir, "dev.json"), profile);
-    await setActiveProfileName(activeFile, "dev");
+    await writeProfile(getProfilePath("dev"), profile);
+    await setActiveProfileName(getActiveProfileFilePath(), "dev");
 
     // Create linked skill on disk
-    const skillDir = join(skillsDir, "brainstorming");
+    const skillDir = join(getGlobalSkillsPath(), "brainstorming");
     await mkdir(skillDir, { recursive: true });
     await writeFile(join(skillDir, "SKILL.md"), "# Brainstorming");
 
-    await profileRm("brainstorming", {
-      profilesDir, activeFile, skillsDir, registryPath,
-      configPath: join(baseDir, "config.json"),
-    });
+    await profileRm("brainstorming", {});
 
     // Registry should still have the entry
-    const reg = JSON.parse(await readFile(registryPath, "utf-8"));
+    const reg = JSON.parse(await readFile(getRegistryPath(), "utf-8"));
     expect(reg.skills).toHaveProperty("brainstorming");
   });
 
@@ -951,81 +696,56 @@ describe("profile rm", () => {
         { skillName: "ghost", v: 1, source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
       ],
     };
-    await writeProfile(join(profilesDir, "dev.json"), profile);
-    await setActiveProfileName(activeFile, "dev");
+    await writeProfile(getProfilePath("dev"), profile);
+    await setActiveProfileName(getActiveProfileFilePath(), "dev");
 
     // Skill not on disk — should not throw
-    await profileRm("ghost", {
-      profilesDir,
-      activeFile,
-      skillsDir,
-      configPath: join(baseDir, "config.json"),
-    });
+    await profileRm("ghost", {});
 
-    const updated = await readProfile(join(profilesDir, "dev.json"));
+    const updated = await readProfile(getProfilePath("dev"));
     expect(updated.skills.length).toBe(0);
   });
 });
 
 describe("profile delete", () => {
-  let baseDir: string;
-  let profilesDir: string;
-  let activeFile: string;
-
   beforeEach(async () => {
-    baseDir = await mkdtemp(join(tmpdir(), "profile-delete-"));
-    profilesDir = join(baseDir, "profiles");
-    activeFile = join(baseDir, "active-profile");
-    await mkdir(profilesDir, { recursive: true });
-  });
-
-  afterEach(async () => {
-    await rm(baseDir, { recursive: true, force: true });
+    await cleanTestHome();
+    await mkdir(getProfilesPath(), { recursive: true });
   });
 
   test("deletes profile JSON file", async () => {
     const profile: Profile = { name: "work", skills: [] };
-    await writeProfile(join(profilesDir, "work.json"), profile);
+    await writeProfile(getProfilePath("work"), profile);
     // Set a different profile as active
-    await setActiveProfileName(activeFile, "dev");
+    await setActiveProfileName(getActiveProfileFilePath(), "dev");
 
-    await profileDelete("work", { profilesDir, activeFile });
+    await profileDelete("work");
 
-    const names = await readdir(profilesDir);
+    const names = await readdir(getProfilesPath());
     expect(names).not.toContain("work.json");
   });
 
   test("refuses to delete active profile", async () => {
     const profile: Profile = { name: "dev", skills: [] };
-    await writeProfile(join(profilesDir, "dev.json"), profile);
-    await setActiveProfileName(activeFile, "dev");
+    await writeProfile(getProfilePath("dev"), profile);
+    await setActiveProfileName(getActiveProfileFilePath(), "dev");
 
     expect(
-      profileDelete("dev", { profilesDir, activeFile })
+      profileDelete("dev")
     ).rejects.toThrow(/Cannot delete active profile/);
   });
 
   test("throws for nonexistent profile", async () => {
     expect(
-      profileDelete("nope", { profilesDir, activeFile })
+      profileDelete("nope")
     ).rejects.toThrow();
   });
 });
 
 describe("profile rename", () => {
-  let baseDir: string;
-  let profilesDir: string;
-  let activeFile: string;
-
   beforeEach(async () => {
-    baseDir = await mkdtemp(join(tmpdir(), "profile-rename-"));
-    profilesDir = join(baseDir, "profiles");
-    activeFile = join(baseDir, "active-profile");
-    await mkdir(profilesDir, { recursive: true });
-  });
-
-  afterEach(async () => {
-    await rm(baseDir, { recursive: true, force: true });
+    await cleanTestHome();
+    await mkdir(getProfilesPath(), { recursive: true });
   });
 
   test("renames profile file and updates name field", async () => {
@@ -1035,15 +755,15 @@ describe("profile rename", () => {
         { skillName: "brainstorming", v: 1, source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" },
       ],
     };
-    await writeProfile(join(profilesDir, "old.json"), profile);
+    await writeProfile(getProfilePath("old"), profile);
 
-    await profileRename("old", "new-name", { profilesDir, activeFile });
+    await profileRename("old", "new-name");
 
-    const names = await readdir(profilesDir);
+    const names = await readdir(getProfilesPath());
     expect(names).toContain("new-name.json");
     expect(names).not.toContain("old.json");
 
-    const renamed = await readProfile(join(profilesDir, "new-name.json"));
+    const renamed = await readProfile(getProfilePath("new-name"));
     expect(renamed.name).toBe("new-name");
     expect(renamed.skills.length).toBe(1);
     expect(renamed.skills[0].skillName).toBe("brainstorming");
@@ -1051,56 +771,46 @@ describe("profile rename", () => {
 
   test("updates active-profile marker when renaming active profile", async () => {
     const profile: Profile = { name: "dev", skills: [] };
-    await writeProfile(join(profilesDir, "dev.json"), profile);
-    await setActiveProfileName(activeFile, "dev");
+    await writeProfile(getProfilePath("dev"), profile);
+    await setActiveProfileName(getActiveProfileFilePath(), "dev");
 
-    await profileRename("dev", "development", { profilesDir, activeFile });
+    await profileRename("dev", "development");
 
-    const active = await getActiveProfileName(activeFile);
+    const active = await getActiveProfileName(getActiveProfileFilePath());
     expect(active).toBe("development");
   });
 
   test("does not change active marker when renaming non-active profile", async () => {
     const profile: Profile = { name: "work", skills: [] };
-    await writeProfile(join(profilesDir, "work.json"), profile);
-    await setActiveProfileName(activeFile, "dev");
+    await writeProfile(getProfilePath("work"), profile);
+    await setActiveProfileName(getActiveProfileFilePath(), "dev");
 
-    await profileRename("work", "job", { profilesDir, activeFile });
+    await profileRename("work", "job");
 
-    const active = await getActiveProfileName(activeFile);
+    const active = await getActiveProfileName(getActiveProfileFilePath());
     expect(active).toBe("dev");
   });
 
   test("refuses if target name already exists", async () => {
-    await writeProfile(join(profilesDir, "a.json"), { name: "a", skills: [] });
-    await writeProfile(join(profilesDir, "b.json"), { name: "b", skills: [] });
+    await writeProfile(getProfilePath("a"), { name: "a", skills: [] });
+    await writeProfile(getProfilePath("b"), { name: "b", skills: [] });
 
     expect(
-      profileRename("a", "b", { profilesDir, activeFile })
+      profileRename("a", "b")
     ).rejects.toThrow(/already exists/);
   });
 
   test("throws for nonexistent source profile", async () => {
     expect(
-      profileRename("nope", "new", { profilesDir, activeFile })
+      profileRename("nope", "new")
     ).rejects.toThrow();
   });
 });
 
 describe("profile clone", () => {
-  let baseDir: string;
-  let profilesDir: string;
-  let activeFile: string;
-
   beforeEach(async () => {
-    baseDir = await mkdtemp(join(tmpdir(), "profile-clone-"));
-    profilesDir = join(baseDir, "profiles");
-    activeFile = join(baseDir, "active-profile");
-    await mkdir(profilesDir, { recursive: true });
-  });
-
-  afterEach(async () => {
-    await rm(baseDir, { recursive: true, force: true });
+    await cleanTestHome();
+    await mkdir(getProfilesPath(), { recursive: true });
   });
 
   test("creates copy with new name and same skills", async () => {
@@ -1111,17 +821,17 @@ describe("profile clone", () => {
         { skillName: "debugging", v: 2, source: "a/b", addedAt: "2026-01-02T00:00:00.000Z" },
       ],
     };
-    await writeProfile(join(profilesDir, "dev.json"), profile);
+    await writeProfile(getProfilePath("dev"), profile);
 
-    await profileClone("dev", "dev-copy", { profilesDir });
+    await profileClone("dev", "dev-copy");
 
     // Source unchanged
-    const source = await readProfile(join(profilesDir, "dev.json"));
+    const source = await readProfile(getProfilePath("dev"));
     expect(source.name).toBe("dev");
     expect(source.skills.length).toBe(2);
 
     // Clone has same skills but different name
-    const clone = await readProfile(join(profilesDir, "dev-copy.json"));
+    const clone = await readProfile(getProfilePath("dev-copy"));
     expect(clone.name).toBe("dev-copy");
     expect(clone.skills.length).toBe(2);
     expect(clone.skills[0].skillName).toBe("brainstorming");
@@ -1131,27 +841,27 @@ describe("profile clone", () => {
 
   test("does not change active profile", async () => {
     const profile: Profile = { name: "dev", skills: [] };
-    await writeProfile(join(profilesDir, "dev.json"), profile);
-    await setActiveProfileName(activeFile, "dev");
+    await writeProfile(getProfilePath("dev"), profile);
+    await setActiveProfileName(getActiveProfileFilePath(), "dev");
 
-    await profileClone("dev", "dev-copy", { profilesDir });
+    await profileClone("dev", "dev-copy");
 
-    const active = await getActiveProfileName(activeFile);
+    const active = await getActiveProfileName(getActiveProfileFilePath());
     expect(active).toBe("dev");
   });
 
   test("refuses if target already exists", async () => {
-    await writeProfile(join(profilesDir, "a.json"), { name: "a", skills: [] });
-    await writeProfile(join(profilesDir, "b.json"), { name: "b", skills: [] });
+    await writeProfile(getProfilePath("a"), { name: "a", skills: [] });
+    await writeProfile(getProfilePath("b"), { name: "b", skills: [] });
 
     expect(
-      profileClone("a", "b", { profilesDir })
+      profileClone("a", "b")
     ).rejects.toThrow(/already exists/);
   });
 
   test("throws for nonexistent source profile", async () => {
     expect(
-      profileClone("nope", "copy", { profilesDir })
+      profileClone("nope", "copy")
     ).rejects.toThrow();
   });
 });
