@@ -5,12 +5,10 @@ import { hashDirectory } from "../core/hasher.js";
 import * as store from "../core/store.js";
 import { verifiedLinkSkill } from "../core/store.js";
 import { registerSkill } from "../core/registry.js";
-import { getGlobalSkillsPath, getProjectSkillsPath, getRegistryPath, getStorePath } from "../utils/paths.js";
+import { getGlobalSkillsPath, getProjectSkillsPath } from "../utils/paths.js";
 import { addSkillToProfile } from "./add.js";
 
 export interface MvToProjectOptions {
-  globalSkillsDir?: string;
-  projectSkillsDir?: string;
   force?: boolean;
 }
 
@@ -18,8 +16,8 @@ export async function mvToProject(
   name: string,
   options: MvToProjectOptions = {}
 ): Promise<void> {
-  const globalDir = options.globalSkillsDir ?? getGlobalSkillsPath();
-  const projectDir = options.projectSkillsDir ?? getProjectSkillsPath();
+  const globalDir = getGlobalSkillsPath();
+  const projectDir = getProjectSkillsPath();
   const sourceDir = join(globalDir, name);
   const targetDir = join(projectDir, name);
 
@@ -45,24 +43,18 @@ export async function mvToProject(
 }
 
 export interface MvToGlobalOptions {
-  globalSkillsDir?: string;
-  projectSkillsDir?: string;
   force?: boolean;
   hardlink?: boolean;
-  registryPath?: string;
-  storePath?: string;
 }
 
 export async function mvToGlobal(
   name: string,
   options: MvToGlobalOptions = {}
 ): Promise<void> {
-  const projectDir = options.projectSkillsDir ?? getProjectSkillsPath();
-  const globalDir = options.globalSkillsDir ?? getGlobalSkillsPath();
+  const projectDir = getProjectSkillsPath();
+  const globalDir = getGlobalSkillsPath();
   const sourceDir = join(projectDir, name);
   const targetDir = join(globalDir, name);
-  const registryPath = options.registryPath ?? getRegistryPath();
-  const storePath = options.storePath ?? getStorePath();
 
   // 1. Verify source exists
   if (!(await dirExists(sourceDir))) {
@@ -83,13 +75,13 @@ export async function mvToGlobal(
   const hash = await hashDirectory(sourceDir);
 
   console.log(`Storing ${hash.slice(0, 8)}...`);
-  await store.store(hash, sourceDir, storePath);
+  await store.store(hash, sourceDir);
 
   console.log(`Linking to ${targetDir}...`);
-  await verifiedLinkSkill(hash, targetDir, { hardlink: options.hardlink }, storePath);
+  await verifiedLinkSkill(hash, targetDir, { hardlink: options.hardlink });
 
   // Register
-  const v = await registerSkill(name, hash, "local", registryPath, storePath);
+  const v = await registerSkill(name, hash, "local");
 
   // Add to active profile
   await addSkillToProfile({

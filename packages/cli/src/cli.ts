@@ -29,14 +29,8 @@ import {
 import { syncRestore, syncExport, syncImport, bskCd } from "./commands/sync.js";
 import { getActiveProfileName } from "./core/profile.js";
 import {
-  getProfilesPath,
   getActiveProfileFilePath,
   getGlobalSkillsPath,
-  getStorePath,
-  getConfigPath,
-  getRegistryPath,
-  getBskDir,
-  getProjectSkillsPath,
 } from "./utils/paths.js";
 
 const program = new Command();
@@ -145,14 +139,7 @@ client
   .command("add <client>")
   .description("Enable a client for skill syncing")
   .action(async (client: string) => {
-    await clientAdd(client, {
-      configPath: getConfigPath(),
-      registryPath: getRegistryPath(),
-      storePath: getStorePath(),
-      skillsDir: getGlobalSkillsPath(),
-      globalSkillsDir: getGlobalSkillsPath(),
-      projectRoot: process.cwd(),
-    });
+    await clientAdd(client);
   });
 
 client
@@ -160,12 +147,7 @@ client
   .alias("remove")
   .description("Disable a client and remove its skills symlink")
   .action(async (client: string) => {
-    await clientRm(client, {
-      configPath: getConfigPath(),
-      registryPath: getRegistryPath(),
-      skillsDir: getGlobalSkillsPath(),
-      projectRoot: process.cwd(),
-    });
+    await clientRm(client);
   });
 
 client
@@ -173,7 +155,7 @@ client
   .alias("list")
   .description("Show all supported clients and their status")
   .action(async () => {
-    const items = await clientLs({ configPath: getConfigPath() });
+    const items = await clientLs();
     console.log("");
     console.log("  agents".padEnd(14) + getGlobalSkillsPath().padEnd(38) + "(always enabled)");
     for (const item of items) {
@@ -193,9 +175,6 @@ profile
   .option("--from-existing", "Snapshot current global skills into the profile")
   .action(async (name: string, opts) => {
     await profileCreate(name, {
-      profilesDir: getProfilesPath(),
-      activeFile: getActiveProfileFilePath(),
-      skillsDir: getGlobalSkillsPath(),
       fromExisting: opts.fromExisting,
     });
   });
@@ -205,10 +184,7 @@ profile
   .alias("list")
   .description("List all profiles")
   .action(async () => {
-    const items = await profileLs({
-      profilesDir: getProfilesPath(),
-      activeFile: getActiveProfileFilePath(),
-    });
+    const items = await profileLs();
     if (items.length === 0) {
       console.log("No profiles found. Create one with: bsk profile create <name>");
       return;
@@ -225,14 +201,12 @@ profile
   .command("show [name]")
   .description("Show skills in a profile (defaults to active profile)")
   .action(async (name?: string) => {
-    const profilesDir = getProfilesPath();
-    const activeFile = getActiveProfileFilePath();
-    const targetName = name ?? await getActiveProfileName(activeFile);
+    const targetName = name ?? await getActiveProfileName(getActiveProfileFilePath());
     if (!targetName) {
       console.error("No active profile. Specify a name or create one first.");
       process.exit(1);
     }
-    const p = await profileShow(targetName, { profilesDir });
+    const p = await profileShow(targetName);
     console.log(`\nProfile: ${p.name} (${p.skills.length} skills)\n`);
     if (p.skills.length === 0) {
       console.log("  (empty)");
@@ -252,10 +226,6 @@ profile
   .option("--hardlink", "Use hard links instead of file copy")
   .action(async (name: string, opts) => {
     await profileUse(name, {
-      profilesDir: getProfilesPath(),
-      activeFile: getActiveProfileFilePath(),
-      skillsDir: getGlobalSkillsPath(),
-      storePath: getStorePath(),
       hardlink: opts.hardlink,
     });
   });
@@ -268,10 +238,6 @@ profile
   .option("-n, --name <name>", "Override the skill name")
   .action(async (source: string, opts) => {
     await profileAdd(source, {
-      profilesDir: getProfilesPath(),
-      activeFile: getActiveProfileFilePath(),
-      skillsDir: getGlobalSkillsPath(),
-      storePath: getStorePath(),
       profileName: opts.profile,
       hardlink: opts.hardlink,
       name: opts.name,
@@ -285,9 +251,6 @@ profile
   .option("-p, --profile <name>", "Target profile (defaults to active)")
   .action(async (skillName: string, opts) => {
     await profileRm(skillName, {
-      profilesDir: getProfilesPath(),
-      activeFile: getActiveProfileFilePath(),
-      skillsDir: getGlobalSkillsPath(),
       profileName: opts.profile,
     });
   });
@@ -302,10 +265,7 @@ profile
       console.error("Specify a profile name: bsk profile delete <name>");
       process.exit(1);
     }
-    await profileDelete(target, {
-      profilesDir: getProfilesPath(),
-      activeFile: getActiveProfileFilePath(),
-    });
+    await profileDelete(target);
   });
 
 profile
@@ -326,10 +286,7 @@ profile
       console.error("Usage: bsk profile rename <old> <new>");
       process.exit(1);
     }
-    await profileRename(oldName, targetName, {
-      profilesDir: getProfilesPath(),
-      activeFile: getActiveProfileFilePath(),
-    });
+    await profileRename(oldName, targetName);
   });
 
 profile
@@ -350,9 +307,7 @@ profile
       console.error("Usage: bsk profile clone <source> <target>");
       process.exit(1);
     }
-    await profileClone(sourceName, targetName, {
-      profilesDir: getProfilesPath(),
-    });
+    await profileClone(sourceName, targetName);
   });
 
 profile
@@ -361,10 +316,6 @@ profile
   .option("--replace", "Replace all existing project skills with the profile's skills")
   .action(async (name: string, opts) => {
     await profileApply(name, {
-      profilesDir: getProfilesPath(),
-      storePath: getStorePath(),
-      projectSkillsDir: getProjectSkillsPath(),
-      registryPath: getRegistryPath(),
       replace: opts.replace,
     });
   });
@@ -455,12 +406,6 @@ sync
   .option("--hardlink", "Use hard links instead of file copy")
   .action(async (opts) => {
     await syncRestore({
-      profilesDir: getProfilesPath(),
-      activeFile: getActiveProfileFilePath(),
-      skillsDir: getGlobalSkillsPath(),
-      storePath: getStorePath(),
-      registryPath: getRegistryPath(),
-      configPath: getConfigPath(),
       hardlink: opts.hardlink,
     });
   });
@@ -471,7 +416,6 @@ sync
   .option("-o, --output <path>", "Output file path")
   .action(async (opts) => {
     await syncExport({
-      bskDir: getBskDir(),
       output: opts.output,
     });
   });
@@ -485,8 +429,6 @@ sync
     await syncImport(file, {
       yes: opts.yes,
       hardlink: opts.hardlink,
-      bskDir: getBskDir(),
-      skillsDir: getGlobalSkillsPath(),
     });
   });
 
@@ -494,7 +436,7 @@ program
   .command("cd")
   .description("Open a shell in the bsk data directory (~/.better-skills)")
   .action(async () => {
-    await bskCd(getBskDir());
+    await bskCd();
   });
 
 program

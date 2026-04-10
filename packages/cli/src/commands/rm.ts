@@ -1,5 +1,5 @@
 import { unlinkSkill } from "../core/linker.js";
-import { getSkillsPath, getProfilesPath, getActiveProfileFilePath, getRegistryPath, getStorePath } from "../utils/paths.js";
+import { getSkillsPath, getProfilesPath, getActiveProfileFilePath } from "../utils/paths.js";
 import { readProfile, writeProfile, listProfiles, getActiveProfileName } from "../core/profile.js";
 import { unregisterSkill } from "../core/registry.js";
 import { stat } from "fs/promises";
@@ -7,9 +7,6 @@ import { join } from "path";
 
 export interface RmOptions {
   global?: boolean;
-  registryPath?: string;
-  profilesDir?: string;
-  storePath?: string;
 }
 
 /**
@@ -32,16 +29,12 @@ export async function rm(name: string, options: RmOptions = {}): Promise<void> {
 
   // Clean registry entry (global only)
   if (options.global) {
-    await unregisterSkill(
-      name,
-      options.registryPath ?? getRegistryPath(),
-      options.storePath ?? getStorePath()
-    );
+    await unregisterSkill(name);
   }
 
   // Remove from ALL profiles (global only)
   if (options.global) {
-    const profilesDir = options.profilesDir ?? getProfilesPath();
+    const profilesDir = getProfilesPath();
     const profileNames = await listProfiles(profilesDir);
     for (const pName of profileNames) {
       const filePath = join(profilesDir, `${pName}.json`);
@@ -64,8 +57,6 @@ export async function rm(name: string, options: RmOptions = {}): Promise<void> {
 export interface RemoveFromProfileOptions {
   skillName: string;
   global: boolean;
-  profilesDir?: string;
-  activeFile?: string;
 }
 
 /**
@@ -75,8 +66,8 @@ export interface RemoveFromProfileOptions {
 export async function removeSkillFromProfile(opts: RemoveFromProfileOptions): Promise<void> {
   if (!opts.global) return;
 
-  const activeFile = opts.activeFile ?? getActiveProfileFilePath();
-  const profilesDir = opts.profilesDir ?? getProfilesPath();
+  const activeFile = getActiveProfileFilePath();
+  const profilesDir = getProfilesPath();
   const activeName = await getActiveProfileName(activeFile);
   if (!activeName) return;
 

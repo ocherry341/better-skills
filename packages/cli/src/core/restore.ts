@@ -4,6 +4,7 @@ import { unlinkSkill } from "./linker.js";
 import { verifiedLinkSkill } from "./store.js";
 import { type Profile } from "./profile.js";
 import { isManaged, registerSkill, readRegistry } from "./registry.js";
+import { getSkillsPath, getStorePath } from "../utils/paths.js";
 
 export interface RestoreResult {
   restored: string[];
@@ -12,9 +13,7 @@ export interface RestoreResult {
 }
 
 export interface RestoreOptions {
-  skillsDir: string;
-  storePath: string;
-  registryPath?: string;
+  global: boolean;
   hardlink?: boolean;
 }
 
@@ -22,16 +21,17 @@ export async function restoreSkillsFromProfile(
   profile: Profile,
   opts: RestoreOptions
 ): Promise<RestoreResult> {
+  const skillsDir = getSkillsPath(opts.global);
   const result: RestoreResult = { restored: [], skipped: [], unmanaged: [] };
 
   // Clear only managed skills from skills dir; preserve unmanaged
   try {
-    const existing = await readdir(opts.skillsDir, { withFileTypes: true });
+    const existing = await readdir(skillsDir, { withFileTypes: true });
     for (const entry of existing) {
       if (!entry.isDirectory()) continue;
-      const managed = await isManaged(entry.name, opts.registryPath);
+      const managed = await isManaged(entry.name);
       if (managed) {
-        await unlinkSkill(join(opts.skillsDir, entry.name));
+        await unlinkSkill(join(skillsDir, entry.name));
       } else {
         result.unmanaged.push(entry.name);
         console.warn(`⚠ Skipping unmanaged skill '${entry.name}'`);
@@ -41,9 +41,9 @@ export async function restoreSkillsFromProfile(
     // Directory doesn't exist, will be created below
   }
 
-  await mkdir(opts.skillsDir, { recursive: true });
+  await mkdir(skillsDir, { recursive: true });
 
-  const registry = await readRegistry(opts.registryPath);
+  const registry = await readRegistry();
 
   for (const skill of profile.skills) {
     const entry = registry.skills[skill.skillName];
@@ -53,7 +53,7 @@ export async function restoreSkillsFromProfile(
       console.warn(`⚠ Skill '${skill.skillName}' v${skill.v} not found in registry, skipping.`);
       continue;
     }
-    const storeDir = join(opts.storePath, version.hash);
+    const storeDir = join(getStorePath(), version.hash);
     try {
       await stat(storeDir);
     } catch {
@@ -61,9 +61,9 @@ export async function restoreSkillsFromProfile(
       console.warn(`⚠ Skill '${skill.skillName}' (${version.hash.slice(0, 8)}) not found in store, skipping.`);
       continue;
     }
-    const targetDir = join(opts.skillsDir, skill.skillName);
-    await verifiedLinkSkill(version.hash, targetDir, { hardlink: opts.hardlink }, opts.storePath);
-    await registerSkill(skill.skillName, version.hash, skill.source, opts.registryPath, opts.storePath);
+    const targetDir = join(skillsDir, skill.skillName);
+    await verifiedLinkSkill(version.hash, targetDir, { hardlink: opts.hardlink });
+    await registerSkill(skill.skillName, version.hash, skill.source);
     result.restored.push(skill.skillName);
   }
 

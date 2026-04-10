@@ -1,6 +1,6 @@
 import { readdir, stat as fsStat } from "fs/promises";
 import { join } from "path";
-import { getStorePath, getRegistryPath, getProfilesPath, getActiveProfileFilePath } from "../utils/paths.js";
+import { getStorePath } from "../utils/paths.js";
 import { verifyStoreEntry, remove as removeFromStore, readStoreMeta } from "../core/store.js";
 import { readRegistry, registerSkill } from "../core/registry.js";
 import { readSkillMd } from "../utils/skill-md.js";
@@ -17,14 +17,8 @@ export interface VerifyResult {
   corrupted: CorruptedEntry[];
 }
 
-export interface StoreVerifyOptions {
-  storePath?: string;
-  registryPath?: string;
-}
-
-export async function storeVerify(options: StoreVerifyOptions = {}): Promise<VerifyResult> {
-  const storePath = options.storePath ?? getStorePath();
-  const registryPath = options.registryPath ?? getRegistryPath();
+export async function storeVerify(): Promise<VerifyResult> {
+  const storePath = getStorePath();
 
   let entries: string[];
   try {
@@ -34,7 +28,7 @@ export async function storeVerify(options: StoreVerifyOptions = {}): Promise<Ver
   }
 
   // Build hash → skill names lookup from registry
-  const registry = await readRegistry(registryPath);
+  const registry = await readRegistry();
   const hashToSkills = new Map<string, string[]>();
   for (const [name, entry] of Object.entries(registry.skills)) {
     for (const ver of entry.versions) {
@@ -48,7 +42,7 @@ export async function storeVerify(options: StoreVerifyOptions = {}): Promise<Ver
   let ok = 0;
 
   for (const hash of entries) {
-    const valid = await verifyStoreEntry(hash, storePath);
+    const valid = await verifyStoreEntry(hash);
     if (valid) {
       ok++;
     } else {
@@ -73,9 +67,8 @@ export interface StoreLsResult {
   entries: StoreEntry[];
 }
 
-export async function storeLs(options: { storePath?: string; registryPath?: string } = {}): Promise<StoreLsResult> {
-  const storePath = options.storePath ?? getStorePath();
-  const registryPath = options.registryPath ?? getRegistryPath();
+export async function storeLs(): Promise<StoreLsResult> {
+  const storePath = getStorePath();
 
   let hashes: string[];
   try {
@@ -85,7 +78,7 @@ export async function storeLs(options: { storePath?: string; registryPath?: stri
   }
 
   // Build hash → skill info lookup from registry
-  const registry = await readRegistry(registryPath);
+  const registry = await readRegistry();
   const hashToSkills = new Map<string, { name: string; v: number; source: string }[]>();
   for (const [name, entry] of Object.entries(registry.skills)) {
     for (const ver of entry.versions) {
@@ -129,19 +122,13 @@ export async function storeLs(options: { storePath?: string; registryPath?: stri
   return { entries };
 }
 
-export interface StorePruneOptions {
-  storePath?: string;
-  registryPath?: string;
-}
-
 export interface StorePruneResult {
   pruned: number;
   prunedHashes: string[];
 }
 
-export async function storePrune(options: StorePruneOptions = {}): Promise<StorePruneResult> {
-  const storePath = options.storePath ?? getStorePath();
-  const registryPath = options.registryPath ?? getRegistryPath();
+export async function storePrune(): Promise<StorePruneResult> {
+  const storePath = getStorePath();
 
   let hashes: string[];
   try {
@@ -151,7 +138,7 @@ export async function storePrune(options: StorePruneOptions = {}): Promise<Store
   }
 
   // Build referenced hash set from registry
-  const registry = await readRegistry(registryPath);
+  const registry = await readRegistry();
   const referencedHashes = new Set<string>();
   for (const entry of Object.values(registry.skills)) {
     for (const ver of entry.versions) {
@@ -163,7 +150,7 @@ export async function storePrune(options: StorePruneOptions = {}): Promise<Store
   const prunedHashes: string[] = [];
   for (const hash of hashes) {
     if (!referencedHashes.has(hash)) {
-      await removeFromStore(hash, storePath);
+      await removeFromStore(hash);
       prunedHashes.push(hash);
     }
   }
@@ -171,24 +158,14 @@ export async function storePrune(options: StorePruneOptions = {}): Promise<Store
   return { pruned: prunedHashes.length, prunedHashes };
 }
 
-export interface StoreAdoptOptions {
-  storePath?: string;
-  registryPath?: string;
-  profilesDir?: string;
-  activeFile?: string;
-}
-
 export interface StoreAdoptResult {
   adopted: number;
 }
 
-export async function storeAdopt(options: StoreAdoptOptions = {}): Promise<StoreAdoptResult> {
-  const storePath = options.storePath ?? getStorePath();
-  const registryPath = options.registryPath ?? getRegistryPath();
-  const profilesDir = options.profilesDir ?? getProfilesPath();
-  const activeFile = options.activeFile ?? getActiveProfileFilePath();
+export async function storeAdopt(): Promise<StoreAdoptResult> {
+  const storePath = getStorePath();
 
-  const registry = await readRegistry(registryPath);
+  const registry = await readRegistry();
 
   let storeHashes: string[];
   try {
@@ -221,7 +198,7 @@ export async function storeAdopt(options: StoreAdoptOptions = {}): Promise<Store
       continue;
     }
 
-    const storeMeta = await readStoreMeta(hash, storePath);
+    const storeMeta = await readStoreMeta(hash);
     let sortTime: number;
     if (storeMeta?.storedAt) {
       sortTime = new Date(storeMeta.storedAt).getTime();
@@ -244,9 +221,7 @@ export async function storeAdopt(options: StoreAdoptOptions = {}): Promise<Store
     const v = await registerSkill(
       orphan.skillName,
       orphan.hash,
-      "local",
-      registryPath,
-      storePath
+      "local"
     );
 
     await addSkillToProfile({
@@ -254,8 +229,6 @@ export async function storeAdopt(options: StoreAdoptOptions = {}): Promise<Store
       v,
       source: "local",
       global: true,
-      profilesDir,
-      activeFile,
     });
 
     console.log(`Adopted: ${orphan.skillName} v${v} (${orphan.hash.slice(0, 8)})`);

@@ -35,8 +35,8 @@ export interface Config {
  * Read the global config file.
  * Missing or corrupted -> empty config.
  */
-export async function readConfig(configPath?: string): Promise<Config> {
-  const filePath = configPath ?? getConfigPath();
+export async function readConfig(): Promise<Config> {
+  const filePath = getConfigPath();
   try {
     const raw = await readFile(filePath, "utf-8");
     const parsed = JSON.parse(raw);
@@ -58,10 +58,9 @@ export async function readConfig(configPath?: string): Promise<Config> {
  * Filters invalid IDs, deduplicates, and excludes "agents".
  */
 export async function writeConfig(
-  config: Config,
-  configPath?: string
+  config: Config
 ): Promise<void> {
-  const filePath = configPath ?? getConfigPath();
+  const filePath = getConfigPath();
   const valid = config.clients.filter(
     (c) => VALID_CLIENT_IDS.includes(c)
   );
@@ -77,8 +76,8 @@ export async function writeConfig(
 /**
  * Get enabled client IDs from config (does NOT include "agents").
  */
-export async function getEnabledClients(configPath?: string): Promise<string[]> {
-  const config = await readConfig(configPath);
+export async function getEnabledClients(): Promise<string[]> {
+  const config = await readConfig();
   return config.clients;
 }
 
@@ -114,10 +113,9 @@ export function getClientProjectSubdir(clientId: string): string | null {
 
 export async function ensureClientSymlink(
   clientId: string,
-  agentsDir: string,
-  clientDirOverride?: string
+  agentsDir: string
 ): Promise<"created" | "exists" | "skipped"> {
-  const globalDir = clientDirOverride ?? getClientSkillsDir(clientId);
+  const globalDir = getClientSkillsDir(clientId);
 
   try {
     const st = await lstat(globalDir);

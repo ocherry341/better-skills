@@ -6,47 +6,36 @@ import { readConfig, ensureClientSymlink } from "../core/clients.js";
 import {
   getProfilesPath,
   getActiveProfileFilePath,
-  getStorePath,
-  getRegistryPath,
-  getConfigPath,
+  getGlobalSkillsPath,
+  getBskDir,
 } from "../utils/paths.js";
 
 export interface SyncRestoreOptions {
-  profilesDir: string;
-  activeFile: string;
-  skillsDir: string;
-  storePath: string;
-  registryPath?: string;
-  configPath?: string;
   hardlink?: boolean;
-  clientDirOverrides?: Record<string, string>;
 }
 
-export async function syncRestore(opts: SyncRestoreOptions): Promise<void> {
+export async function syncRestore(opts: SyncRestoreOptions = {}): Promise<void> {
   // 1. Get active profile
-  const activeName = await getActiveProfileName(opts.activeFile);
+  const activeName = await getActiveProfileName(getActiveProfileFilePath());
   if (!activeName) {
     throw new Error("No active profile found. Run 'bsk profile use <name>' first.");
   }
 
   // 2. Read profile
-  const profilePath = join(opts.profilesDir, `${activeName}.json`);
+  const profilePath = join(getProfilesPath(), `${activeName}.json`);
   const profile = await readProfile(profilePath);
 
   // 3. Restore skills
   const result = await restoreSkillsFromProfile(profile, {
-    skillsDir: opts.skillsDir,
-    storePath: opts.storePath,
-    registryPath: opts.registryPath,
+    global: true,
     hardlink: opts.hardlink,
   });
 
   // 4. Rebuild client symlinks
-  const config = await readConfig(opts.configPath);
+  const config = await readConfig();
   let clientsLinked = 0;
   for (const clientId of config.clients) {
-    const clientDir = opts.clientDirOverrides?.[clientId] ?? undefined;
-    const status = await ensureClientSymlink(clientId, opts.skillsDir, clientDir);
+    const status = await ensureClientSymlink(clientId, getGlobalSkillsPath());
     if (status === "created" || status === "exists") {
       clientsLinked++;
     }
@@ -62,15 +51,15 @@ export async function syncRestore(opts: SyncRestoreOptions): Promise<void> {
 
 export interface SyncExportOptions {
   output?: string;
-  bskDir: string;
 }
 
-export async function syncExport(opts: SyncExportOptions): Promise<void> {
+export async function syncExport(opts: SyncExportOptions = {}): Promise<void> {
+  const bskDir = getBskDir();
   // Verify bskDir exists
   try {
-    await stat(opts.bskDir);
+    await stat(bskDir);
   } catch {
-    throw new Error(`bsk directory not found at ${opts.bskDir}. Nothing to export.`);
+    throw new Error(`bsk directory not found at ${bskDir}. Nothing to export.`);
   }
 
   // Resolve output path
@@ -78,8 +67,8 @@ export async function syncExport(opts: SyncExportOptions): Promise<void> {
   const output = opts.output ?? `better-skills-backup-${today}.tar.gz`;
 
   // Create tar.gz
-  const parent = dirname(opts.bskDir);
-  const dirName = basename(opts.bskDir);
+  const parent = dirname(bskDir);
+  const dirName = basename(bskDir);
   const proc = Bun.spawn(["tar", "czf", output, "--exclude=.git", "-C", parent, dirName]);
   const exitCode = await proc.exited;
   if (exitCode !== 0) {
@@ -94,17 +83,14 @@ export async function syncExport(opts: SyncExportOptions): Promise<void> {
 export interface SyncImportOptions {
   yes?: boolean;
   hardlink?: boolean;
-  bskDir: string;
-  skillsDir: string;
-  configPath?: string;
-  registryPath?: string;
-  clientDirOverrides?: Record<string, string>;
 }
 
 export async function syncImport(
   file: string,
-  opts: SyncImportOptions
+  opts: SyncImportOptions = {}
 ): Promise<void> {
+  const bskDir = getBskDir();
+
   // 1. Verify input file exists
   try {
     await stat(file);
@@ -115,7 +101,7 @@ export async function syncImport(
   // 2. Check if bskDir has content
   let hasContent = false;
   try {
-    const entries = await readdir(opts.bskDir);
+    const entries = await readdir(bskDir);
     hasContent = entries.length > 0;
   } catch {
     // doesn't exist — fine
@@ -123,17 +109,17 @@ export async function syncImport(
 
   if (hasContent && !opts.yes) {
     throw new Error(
-      `${opts.bskDir} is not empty. Use --yes to overwrite, or remove it manually first.`
+      `${bskDir} is not empty. Use --yes to overwrite, or remove it manually first.`
     );
   }
 
   // 3. Remove bskDir contents
   if (hasContent) {
-    await rm(opts.bskDir, { recursive: true, force: true });
+    await rm(bskDir, { recursive: true, force: true });
   }
 
   // 4. Extract archive
-  const parent = dirname(opts.bskDir);
+  const parent = dirname(bskDir);
   await mkdir(parent, { recursive: true });
   const proc = Bun.spawn(["tar", "xzf", file, "-C", parent]);
   const exitCode = await proc.exited;
@@ -144,23 +130,8 @@ export async function syncImport(
   console.log(`✓ Imported from ${file}`);
 
   // 5. Auto-restore
-  const profilesDir = getProfilesPath();
-  const activeFile = getActiveProfileFilePath();
-  const storePath = getStorePath();
-  const registryPath = opts.registryPath ?? getRegistryPath();
-  const configPath = opts.configPath ?? getConfigPath();
-
   try {
-    await syncRestore({
-      profilesDir,
-      activeFile,
-      skillsDir: opts.skillsDir,
-      storePath,
-      registryPath,
-      configPath,
-      hardlink: opts.hardlink,
-      clientDirOverrides: opts.clientDirOverrides,
-    });
+    await syncRestore({ hardlink: opts.hardlink });
   } catch (err: any) {
     console.warn(`⚠ Auto-restore skipped: ${err.message}`);
     console.warn("  Run 'bsk sync restore' manually after setting up a profile.");
@@ -173,9 +144,9 @@ export async function syncImport(
  * Returns stdout when shellCmd is provided.
  */
 export async function bskCd(
-  bskDir: string,
   shellCmd?: string[]
 ): Promise<string | void> {
+  const bskDir = getBskDir();
   try {
     await stat(bskDir);
   } catch {

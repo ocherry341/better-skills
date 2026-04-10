@@ -3,22 +3,11 @@ import { join } from "path";
 import { hashDirectory } from "../core/hasher.js";
 import { readRegistry, registerSkill, getLatestVersion } from "../core/registry.js";
 import { store as storeSkill, verifiedLinkSkill } from "../core/store.js";
-import {
-  getGlobalSkillsPath,
-  getRegistryPath,
-  getStorePath,
-  getProfilesPath,
-  getActiveProfileFilePath,
-} from "../utils/paths.js";
+import { getGlobalSkillsPath } from "../utils/paths.js";
 import { addSkillToProfile } from "./add.js";
 
 export interface SaveOptions {
   skillName?: string;
-  registryPath?: string;
-  storePath?: string;
-  skillsDir?: string;
-  profilesDir?: string;
-  activeFile?: string;
 }
 
 /**
@@ -26,11 +15,7 @@ export interface SaveOptions {
  * Hashes each skill, stores it, re-links, and registers a new version.
  */
 export async function save(options: SaveOptions = {}): Promise<void> {
-  const skillsDir = options.skillsDir ?? getGlobalSkillsPath();
-  const registryPath = options.registryPath ?? getRegistryPath();
-  const storePath = options.storePath ?? getStorePath();
-  const profilesDir = options.profilesDir ?? getProfilesPath();
-  const activeFile = options.activeFile ?? getActiveProfileFilePath();
+  const skillsDir = getGlobalSkillsPath();
 
   // 1. Determine which skills to process
   let skillNames: string[];
@@ -70,7 +55,7 @@ export async function save(options: SaveOptions = {}): Promise<void> {
   }
 
   // 2. Process each skill
-  const registry = await readRegistry(registryPath);
+  const registry = await readRegistry();
   let saved = 0;
 
   for (const skillName of skillNames) {
@@ -88,13 +73,13 @@ export async function save(options: SaveOptions = {}): Promise<void> {
       }
 
       // Store
-      const hashPath = await storeSkill(hash, skillDir, storePath);
+      const hashPath = await storeSkill(hash, skillDir);
 
       // Re-link from store
-      await verifiedLinkSkill(hash, skillDir, {}, storePath);
+      await verifiedLinkSkill(hash, skillDir, {});
 
       // Register new version
-      const v = await registerSkill(skillName, hash, "local", registryPath, storePath);
+      const v = await registerSkill(skillName, hash, "local");
 
       // Update registry in-memory for subsequent iterations
       if (!registry.skills[skillName]) {
@@ -115,8 +100,6 @@ export async function save(options: SaveOptions = {}): Promise<void> {
         v,
         source: "local",
         global: true,
-        profilesDir,
-        activeFile,
       });
 
       console.log(`Saved: ${skillName} v${v} (${hash.slice(0, 8)})`);

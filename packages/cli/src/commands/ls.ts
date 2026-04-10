@@ -1,5 +1,5 @@
 import { readdir } from "fs/promises";
-import { getGlobalSkillsPath, getProjectSkillsPath, getRegistryPath } from "../utils/paths.js";
+import { getGlobalSkillsPath, getProjectSkillsPath } from "../utils/paths.js";
 import { readRegistry } from "../core/registry.js";
 
 export interface LsEntry {
@@ -8,20 +8,11 @@ export interface LsEntry {
   project: boolean;
 }
 
-export interface LsOptions {
-  globalDir?: string;
-  projectDir?: string;
-}
-
 export interface LsAllEntry {
   name: string;
   hash: string;
   source: string;
   v: number;
-}
-
-export interface LsAllOptions {
-  registryPath?: string;
 }
 
 async function listDirNames(dir: string): Promise<Set<string>> {
@@ -37,9 +28,9 @@ async function listDirNames(dir: string): Promise<Set<string>> {
  * Collect active skills from both global and project directories.
  * Returns a sorted list of LsEntry objects.
  */
-export async function ls(options: LsOptions = {}): Promise<LsEntry[]> {
-  const globalDir = options.globalDir ?? getGlobalSkillsPath();
-  const projectDir = options.projectDir ?? getProjectSkillsPath();
+export async function ls(): Promise<LsEntry[]> {
+  const globalDir = getGlobalSkillsPath();
+  const projectDir = getProjectSkillsPath();
 
   const globalNames = await listDirNames(globalDir);
   const projectNames = await listDirNames(projectDir);
@@ -80,8 +71,8 @@ export function printLs(entries: LsEntry[]): void {
 /**
  * List all skills registered (managed) by bsk.
  */
-export async function lsAll(options: LsAllOptions = {}): Promise<LsAllEntry[]> {
-  const registry = await readRegistry(options.registryPath);
+export async function lsAll(): Promise<LsAllEntry[]> {
+  const registry = await readRegistry();
   const entries = Object.entries(registry.skills);
   if (entries.length === 0) return [];
 

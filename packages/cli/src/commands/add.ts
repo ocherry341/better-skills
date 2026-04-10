@@ -3,7 +3,7 @@ import { fetchAll } from "../core/fetcher.js";
 import { hashDirectory } from "../core/hasher.js";
 import * as store from "../core/store.js";
 import { verifiedLinkSkill } from "../core/store.js";
-import { getSkillsPath, getProfilesPath, getActiveProfileFilePath, getRegistryPath, getStorePath } from "../utils/paths.js";
+import { getSkillsPath, getProfilesPath, getActiveProfileFilePath } from "../utils/paths.js";
 import { readSkillMd } from "../utils/skill-md.js";
 import { readProfile, writeProfile, getActiveProfileName, setActiveProfileName } from "../core/profile.js";
 import { registerSkill, isManaged } from "../core/registry.js";
@@ -15,7 +15,6 @@ export interface AddOptions {
   hardlink?: boolean;
   name?: string;
   force?: boolean;
-  registryPath?: string;
 }
 
 /**
@@ -75,12 +74,11 @@ async function addSingleSkill(
   // 6. Conflict detection (global only)
   const targetBase = getSkillsPath(options.global ?? false);
   const targetDir = join(targetBase, skillName);
-  const registryPath = options.registryPath ?? getRegistryPath();
 
   if (options.global) {
     const exists = await dirExists(targetDir);
     if (exists) {
-      const managed = await isManaged(skillName, registryPath);
+      const managed = await isManaged(skillName);
       if (!managed && !options.force) {
         throw new Error(
           `Skill '${skillName}' exists but is not managed by bsk. Use --force to overwrite.`
@@ -99,7 +97,7 @@ async function addSingleSkill(
   let v = 0;
   if (options.global) {
     const sourceStr = toSourceString(descriptor);
-    v = await registerSkill(skillName, hash, sourceStr, registryPath, getStorePath());
+    v = await registerSkill(skillName, hash, sourceStr);
   }
 
   // 9. Record in active profile (only for global skills)
@@ -116,8 +114,6 @@ export interface AddToProfileOptions {
   v: number;
   source: string;
   global: boolean;
-  profilesDir?: string;
-  activeFile?: string;
 }
 
 /**
@@ -127,8 +123,8 @@ export interface AddToProfileOptions {
 export async function addSkillToProfile(opts: AddToProfileOptions): Promise<void> {
   if (!opts.global) return;
 
-  const activeFile = opts.activeFile ?? getActiveProfileFilePath();
-  const profilesDir = opts.profilesDir ?? getProfilesPath();
+  const activeFile = getActiveProfileFilePath();
+  const profilesDir = getProfilesPath();
   let activeName = await getActiveProfileName(activeFile);
 
   if (!activeName) {

@@ -18,11 +18,15 @@ import { fetch } from "../core/fetcher.js";
 import * as store from "../core/store.js";
 import { readSkillMd } from "../utils/skill-md.js";
 import { restoreSkillsFromProfile } from "../core/restore.js";
+import {
+  getProfilesPath,
+  getActiveProfileFilePath,
+  getGlobalSkillsPath,
+  getStorePath,
+  getProjectSkillsPath,
+} from "../utils/paths.js";
 
 export interface ProfileCreateInternalOptions {
-  profilesDir: string;
-  activeFile: string;
-  skillsDir: string;
   fromExisting?: boolean;
 }
 
@@ -33,7 +37,8 @@ export async function profileCreate(
   name: string,
   opts: ProfileCreateInternalOptions
 ): Promise<void> {
-  const filePath = join(opts.profilesDir, `${name}.json`);
+  const profilesDir = getProfilesPath();
+  const filePath = join(profilesDir, `${name}.json`);
 
   // Check if already exists
   try {
@@ -48,11 +53,12 @@ export async function profileCreate(
 
   if (opts.fromExisting) {
     // Snapshot current skills directory
+    const skillsDir = getGlobalSkillsPath();
     try {
-      const entries = await readdir(opts.skillsDir, { withFileTypes: true });
+      const entries = await readdir(skillsDir, { withFileTypes: true });
       for (const entry of entries) {
         if (!entry.isDirectory()) continue;
-        const skillDir = join(opts.skillsDir, entry.name);
+        const skillDir = join(skillsDir, entry.name);
         skills.push({
           skillName: entry.name,
           v: 0,
@@ -67,14 +73,9 @@ export async function profileCreate(
 
   const profile: Profile = { name, skills };
   await writeProfile(filePath, profile);
-  await setActiveProfileName(opts.activeFile, name);
+  await setActiveProfileName(getActiveProfileFilePath(), name);
 
   console.log(`✓ Created profile '${name}' with ${skills.length} skill(s)`);
-}
-
-export interface ProfileLsInternalOptions {
-  profilesDir: string;
-  activeFile: string;
 }
 
 export interface ProfileListItem {
@@ -85,11 +86,9 @@ export interface ProfileListItem {
 /**
  * List all profiles, marking the active one.
  */
-export async function profileLs(
-  opts: ProfileLsInternalOptions
-): Promise<ProfileListItem[]> {
-  const names = await listProfiles(opts.profilesDir);
-  const activeName = await getActiveProfileName(opts.activeFile);
+export async function profileLs(): Promise<ProfileListItem[]> {
+  const names = await listProfiles(getProfilesPath());
+  const activeName = await getActiveProfileName(getActiveProfileFilePath());
 
   return names.sort().map((name) => ({
     name,
@@ -97,28 +96,18 @@ export async function profileLs(
   }));
 }
 
-export interface ProfileShowInternalOptions {
-  profilesDir: string;
-}
-
 /**
  * Show details of a specific profile.
  */
 export async function profileShow(
-  name: string,
-  opts: ProfileShowInternalOptions
+  name: string
 ): Promise<Profile> {
-  const filePath = join(opts.profilesDir, `${name}.json`);
+  const filePath = join(getProfilesPath(), `${name}.json`);
   return readProfile(filePath);
 }
 
 export interface ProfileUseInternalOptions {
-  profilesDir: string;
-  activeFile: string;
-  skillsDir: string;
-  storePath: string;
   hardlink?: boolean;
-  registryPath?: string;
 }
 
 /**
@@ -128,29 +117,22 @@ export async function profileUse(
   name: string,
   opts: ProfileUseInternalOptions
 ): Promise<void> {
-  const filePath = join(opts.profilesDir, `${name}.json`);
+  const filePath = join(getProfilesPath(), `${name}.json`);
   const profile = await readProfile(filePath);
 
   await restoreSkillsFromProfile(profile, {
-    skillsDir: opts.skillsDir,
-    storePath: opts.storePath,
-    registryPath: opts.registryPath,
+    global: true,
     hardlink: opts.hardlink,
   });
 
-  await setActiveProfileName(opts.activeFile, name);
+  await setActiveProfileName(getActiveProfileFilePath(), name);
   console.log(`✓ Switched to profile '${name}' (${profile.skills.length} skill(s))`);
 }
 
 export interface ProfileAddInternalOptions {
-  profilesDir: string;
-  activeFile: string;
-  skillsDir: string;
-  storePath: string;
   profileName?: string;
   hardlink?: boolean;
   name?: string;
-  registryPath?: string;
 }
 
 /**
@@ -180,19 +162,21 @@ export async function profileAdd(
   opts: ProfileAddInternalOptions
 ): Promise<void> {
   // 1. Resolve target profile
-  const activeName = await getActiveProfileName(opts.activeFile);
+  const profilesDir = getProfilesPath();
+  const skillsDir = getGlobalSkillsPath();
+  const activeName = await getActiveProfileName(getActiveProfileFilePath());
   const targetName = opts.profileName ?? activeName;
   if (!targetName) {
     throw new Error("No active profile. Specify --profile <name> or create a profile first.");
   }
 
-  const filePath = join(opts.profilesDir, `${targetName}.json`);
+  const filePath = join(profilesDir, `${targetName}.json`);
   const profile = await readProfile(filePath);
 
   // 2. Try to resolve as registry reference first
   const ref = parseRegistryRef(source);
   if (ref) {
-    const registry = await readRegistry(opts.registryPath);
+    const registry = await readRegistry();
     if (registry.skills[ref.skillName]) {
       const version = resolveVersion(registry, ref.skillName, ref.versionSpec);
       if (!version) {
@@ -212,9 +196,8 @@ export async function profileAdd(
       // Link if active
       const isActive = targetName === activeName;
       if (isActive) {
-        const storeDir = join(opts.storePath, version.hash);
-        const targetDir = join(opts.skillsDir, skillName);
-        await verifiedLinkSkill(version.hash, targetDir, { hardlink: opts.hardlink }, opts.storePath);
+        const targetDir = join(skillsDir, skillName);
+        await verifiedLinkSkill(version.hash, targetDir, { hardlink: opts.hardlink });
       }
 
       console.log(`✓ Added ${skillName} v${version.v} (${version.hash.slice(0, 8)}) to profile '${targetName}'`);
@@ -255,7 +238,7 @@ export async function profileAdd(
     await store.store(hash, result.dir);
 
     // 6. Register and record in profile
-    const v = await registerSkill(skillName, hash, toSourceString(descriptor), opts.registryPath, opts.storePath);
+    const v = await registerSkill(skillName, hash, toSourceString(descriptor));
     profile.skills = profile.skills.filter((s) => s.skillName !== skillName);
     profile.skills.push({
       skillName,
@@ -268,7 +251,7 @@ export async function profileAdd(
     // 7. Link if target is the active profile
     const isActive = targetName === activeName;
     if (isActive) {
-      const targetDir = join(opts.skillsDir, skillName);
+      const targetDir = join(skillsDir, skillName);
       console.log(`Linking to ${targetDir}...`);
       const storeDir = store.getHashPath(hash);
       await verifiedLinkSkill(hash, targetDir, { hardlink: opts.hardlink });
@@ -284,11 +267,7 @@ export async function profileAdd(
 }
 
 export interface ProfileRmInternalOptions {
-  profilesDir: string;
-  activeFile: string;
-  skillsDir: string;
   profileName?: string;
-  registryPath?: string;
 }
 
 /**
@@ -300,13 +279,13 @@ export async function profileRm(
   opts: ProfileRmInternalOptions
 ): Promise<void> {
   // 1. Resolve target profile
-  const activeName = await getActiveProfileName(opts.activeFile);
+  const activeName = await getActiveProfileName(getActiveProfileFilePath());
   const targetName = opts.profileName ?? activeName;
   if (!targetName) {
     throw new Error("No active profile. Specify --profile <name> or create a profile first.");
   }
 
-  const filePath = join(opts.profilesDir, `${targetName}.json`);
+  const filePath = join(getProfilesPath(), `${targetName}.json`);
   const profile = await readProfile(filePath);
 
   // 2. Check skill exists in profile
@@ -322,7 +301,7 @@ export async function profileRm(
   // 4. Unlink + unregister if target is the active profile
   const isActive = targetName === activeName;
   if (isActive) {
-    const targetDir = join(opts.skillsDir, skillName);
+    const targetDir = join(getGlobalSkillsPath(), skillName);
     try {
       await stat(targetDir);
       console.log(`Removing ${targetDir}...`);
@@ -338,25 +317,20 @@ export async function profileRm(
   }
 }
 
-export interface ProfileDeleteInternalOptions {
-  profilesDir: string;
-  activeFile: string;
-}
-
 /**
  * Delete a profile. Refuses to delete the active profile.
  */
 export async function profileDelete(
-  name: string,
-  opts: ProfileDeleteInternalOptions
+  name: string
 ): Promise<void> {
-  const filePath = join(opts.profilesDir, `${name}.json`);
+  const profilesDir = getProfilesPath();
+  const filePath = join(profilesDir, `${name}.json`);
 
   // Validate profile exists
   await readProfile(filePath);
 
   // Refuse if active
-  const activeName = await getActiveProfileName(opts.activeFile);
+  const activeName = await getActiveProfileName(getActiveProfileFilePath());
   if (name === activeName) {
     throw new Error(`Cannot delete active profile '${name}'. Switch to another profile first with 'profile use'.`);
   }
@@ -365,21 +339,16 @@ export async function profileDelete(
   console.log(`✓ Deleted profile '${name}'`);
 }
 
-export interface ProfileRenameInternalOptions {
-  profilesDir: string;
-  activeFile: string;
-}
-
 /**
  * Rename a profile. Updates active-profile marker if renaming the active profile.
  */
 export async function profileRename(
   oldName: string,
-  newName: string,
-  opts: ProfileRenameInternalOptions
+  newName: string
 ): Promise<void> {
-  const oldPath = join(opts.profilesDir, `${oldName}.json`);
-  const newPath = join(opts.profilesDir, `${newName}.json`);
+  const profilesDir = getProfilesPath();
+  const oldPath = join(profilesDir, `${oldName}.json`);
+  const newPath = join(profilesDir, `${newName}.json`);
 
   // Validate old exists
   const profile = await readProfile(oldPath);
@@ -399,16 +368,13 @@ export async function profileRename(
   await unlink(oldPath);
 
   // Update active marker if needed
-  const activeName = await getActiveProfileName(opts.activeFile);
+  const activeFile = getActiveProfileFilePath();
+  const activeName = await getActiveProfileName(activeFile);
   if (oldName === activeName) {
-    await setActiveProfileName(opts.activeFile, newName);
+    await setActiveProfileName(activeFile, newName);
   }
 
   console.log(`✓ Renamed profile '${oldName}' → '${newName}'`);
-}
-
-export interface ProfileCloneInternalOptions {
-  profilesDir: string;
 }
 
 /**
@@ -416,11 +382,11 @@ export interface ProfileCloneInternalOptions {
  */
 export async function profileClone(
   sourceName: string,
-  targetName: string,
-  opts: ProfileCloneInternalOptions
+  targetName: string
 ): Promise<void> {
-  const sourcePath = join(opts.profilesDir, `${sourceName}.json`);
-  const targetPath = join(opts.profilesDir, `${targetName}.json`);
+  const profilesDir = getProfilesPath();
+  const sourcePath = join(profilesDir, `${sourceName}.json`);
+  const targetPath = join(profilesDir, `${targetName}.json`);
 
   // Validate source exists
   const source = await readProfile(sourcePath);
@@ -444,10 +410,6 @@ export async function profileClone(
 }
 
 export interface ProfileApplyInternalOptions {
-  profilesDir: string;
-  storePath: string;
-  projectSkillsDir: string;
-  registryPath?: string;
   replace?: boolean;
 }
 
@@ -460,7 +422,7 @@ export async function profileApply(
   name: string,
   opts: ProfileApplyInternalOptions
 ): Promise<void> {
-  const filePath = join(opts.profilesDir, `${name}.json`);
+  const filePath = join(getProfilesPath(), `${name}.json`);
   const profile = await readProfile(filePath);
 
   if (profile.skills.length === 0) {
@@ -468,19 +430,20 @@ export async function profileApply(
     return;
   }
 
-  const registry = await readRegistry(opts.registryPath);
+  const registry = await readRegistry();
+  const projectSkillsDir = getProjectSkillsPath();
 
   if (opts.replace) {
-    await rm(opts.projectSkillsDir, { recursive: true, force: true });
+    await rm(projectSkillsDir, { recursive: true, force: true });
   }
 
-  await mkdir(opts.projectSkillsDir, { recursive: true });
+  await mkdir(projectSkillsDir, { recursive: true });
 
   let applied = 0;
   let skipped = 0;
 
   for (const skill of profile.skills) {
-    const targetDir = join(opts.projectSkillsDir, skill.skillName);
+    const targetDir = join(projectSkillsDir, skill.skillName);
 
     if (!opts.replace) {
       try {
@@ -501,7 +464,7 @@ export async function profileApply(
       continue;
     }
 
-    await verifiedLinkSkill(version.hash, targetDir, {}, opts.storePath);
+    await verifiedLinkSkill(version.hash, targetDir, {});
     applied++;
   }
 

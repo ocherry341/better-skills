@@ -27,10 +27,9 @@ export async function has(hash: string): Promise<boolean> {
 
 /** Read store metadata for a given hash, or null if not found */
 export async function readStoreMeta(
-  hash: string,
-  storePath?: string
+  hash: string
 ): Promise<StoreMetadata | null> {
-  const metaPath = join(storePath ?? getStorePath(), hash, META_FILENAME);
+  const metaPath = join(getStorePath(), hash, META_FILENAME);
   try {
     const raw = await readFile(metaPath, "utf-8");
     return JSON.parse(raw) as StoreMetadata;
@@ -44,10 +43,9 @@ export async function readStoreMeta(
  * Returns false if the directory doesn't exist, is empty, or hash mismatches.
  */
 export async function verifyStoreEntry(
-  expectedHash: string,
-  storePath?: string
+  expectedHash: string
 ): Promise<boolean> {
-  const hashPath = join(storePath ?? getStorePath(), expectedHash);
+  const hashPath = join(getStorePath(), expectedHash);
   try {
     const actualHash = await hashDirectory(hashPath);
     return actualHash === expectedHash;
@@ -59,14 +57,13 @@ export async function verifyStoreEntry(
 /** Store skill files into the content-addressable store */
 export async function store(
   hash: string,
-  sourceDir: string,
-  storePath?: string
+  sourceDir: string
 ): Promise<string> {
-  const base = storePath ?? getStorePath();
+  const base = getStorePath();
   const dest = join(base, hash);
 
   // Verify existing store entry integrity
-  if (await verifyStoreEntry(hash, base)) {
+  if (await verifyStoreEntry(hash)) {
     return dest;
   }
 
@@ -96,8 +93,8 @@ export async function list(): Promise<string[]> {
 }
 
 /** Remove a hash from the store */
-export async function remove(hash: string, storePath?: string): Promise<void> {
-  const dest = join(storePath ?? getStorePath(), hash);
+export async function remove(hash: string): Promise<void> {
+  const dest = join(getStorePath(), hash);
   await rm(dest, { recursive: true, force: true });
 }
 
@@ -108,11 +105,10 @@ export async function remove(hash: string, storePath?: string): Promise<void> {
 export async function verifiedLinkSkill(
   hash: string,
   targetDir: string,
-  options: LinkOptions = {},
-  storePath?: string
+  options: LinkOptions = {}
 ): Promise<void> {
-  const base = storePath ?? getStorePath();
-  const ok = await verifyStoreEntry(hash, base);
+  const base = getStorePath();
+  const ok = await verifyStoreEntry(hash);
   if (!ok) {
     throw new Error(
       `Store entry ${hash.slice(0, 8)} is corrupted or missing. ` +

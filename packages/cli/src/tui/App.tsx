@@ -8,13 +8,8 @@ import { ProfilesView } from "./components/ProfilesView.js";
 import { StoreView } from "./components/StoreView.js";
 import { ClientsView } from "./components/ClientsView.js";
 import {
-  getProfilesPath,
-  getActiveProfileFilePath,
   getGlobalSkillsPath,
   getProjectSkillsPath,
-  getStorePath,
-  getConfigPath,
-  getRegistryPath,
 } from "../utils/paths.js";
 import { HelpOverlay } from "./components/HelpOverlay.js";
 import { useNotification } from "./hooks/useNotification.js";
@@ -260,24 +255,12 @@ export function App({ version }: AppProps) {
             profileRename: renameProfile,
             profileClone: cloneProfile,
           } = await import("../commands/profile.js");
-          const profilesDir = getProfilesPath();
-          const activeFile = getActiveProfileFilePath();
-          const skillsDir = getGlobalSkillsPath();
           if (mode.type === "profileCreate") {
-            await createProfile(value, {
-              profilesDir,
-              activeFile,
-              skillsDir,
-            });
+            await createProfile(value, {});
           } else if (mode.type === "profileRename") {
-            await renameProfile(mode.profileName, value, {
-              profilesDir,
-              activeFile,
-            });
+            await renameProfile(mode.profileName, value);
           } else if (mode.type === "profileClone") {
-            await cloneProfile(mode.profileName, value, {
-              profilesDir,
-            });
+            await cloneProfile(mode.profileName, value);
           }
         }, () => { setSelectedIndex(0); refresh(); });
         return;
@@ -315,12 +298,7 @@ export function App({ version }: AppProps) {
         runAction("Removing skill...", "Skill removed", async () => {
           const { profileRm: rmFromProfile } = await import("../commands/profile.js");
           await rmFromProfile(skillName, {
-            profilesDir: getProfilesPath(),
-            activeFile: getActiveProfileFilePath(),
-            skillsDir: getGlobalSkillsPath(),
             profileName,
-            registryPath: getRegistryPath(),
-
           });
         }, () => { setSelectedIndex(0); refresh(); });
         return;
@@ -353,13 +331,7 @@ export function App({ version }: AppProps) {
           runAction("Adding skill...", "Skill added", async () => {
             const { profileAdd: addToProfile } = await import("../commands/profile.js");
             await addToProfile(value, {
-              profilesDir: getProfilesPath(),
-              activeFile: getActiveProfileFilePath(),
-              skillsDir: getGlobalSkillsPath(),
-              storePath: getStorePath(),
               profileName,
-              registryPath: getRegistryPath(),
-  
             });
           }, () => { setSelectedIndex(0); refresh(); });
           return;
@@ -401,13 +373,7 @@ export function App({ version }: AppProps) {
         runAction("Adding skill...", "Skill added", async () => {
           const { profileAdd: addToProfile } = await import("../commands/profile.js");
           await addToProfile(skillName, {
-            profilesDir: getProfilesPath(),
-            activeFile: getActiveProfileFilePath(),
-            skillsDir: getGlobalSkillsPath(),
-            storePath: getStorePath(),
             profileName,
-            registryPath: getRegistryPath(),
-
           });
         }, () => { setSelectedIndex(0); refresh(); });
         return;
@@ -445,13 +411,7 @@ export function App({ version }: AppProps) {
         runAction("Switching version...", `Switched ${skillName} to v${version.v}`, async () => {
           const { profileAdd: addToProfile } = await import("../commands/profile.js");
           await addToProfile(`${skillName}@v${version.v}`, {
-            profilesDir: getProfilesPath(),
-            activeFile: getActiveProfileFilePath(),
-            skillsDir: getGlobalSkillsPath(),
-            storePath: getStorePath(),
             profileName,
-            registryPath: getRegistryPath(),
-
           });
         }, () => { setSelectedIndex(0); refresh(); });
         return;
@@ -467,10 +427,6 @@ export function App({ version }: AppProps) {
         runAction("Applying to project...", `Applied ${name} to project`, async () => {
           const { profileApply } = await import("../commands/profile.js");
           await profileApply(name, {
-            profilesDir: getProfilesPath(),
-            storePath: getStorePath(),
-            projectSkillsDir: getProjectSkillsPath(),
-            registryPath: getRegistryPath(),
             replace: false,
           });
         }, refresh);
@@ -482,10 +438,6 @@ export function App({ version }: AppProps) {
         runAction("Replacing project skills...", `Applied ${name} to project (replaced)`, async () => {
           const { profileApply } = await import("../commands/profile.js");
           await profileApply(name, {
-            profilesDir: getProfilesPath(),
-            storePath: getStorePath(),
-            projectSkillsDir: getProjectSkillsPath(),
-            registryPath: getRegistryPath(),
             replace: true,
           });
         }, refresh);
@@ -504,10 +456,7 @@ export function App({ version }: AppProps) {
         setActionMode(null);
         runAction("Deleting profile...", "Profile deleted", async () => {
           const { profileDelete: deleteProfile } = await import("../commands/profile.js");
-          await deleteProfile(name, {
-            profilesDir: getProfilesPath(),
-            activeFile: getActiveProfileFilePath(),
-          });
+          await deleteProfile(name);
         }, () => { setSelectedIndex(0); refresh(); });
         return;
       }
@@ -651,14 +600,7 @@ export function App({ version }: AppProps) {
               onSwitchProfile={(name) => {
                 runAction("Switching profile...", `Switched to ${name}`, async () => {
                   const { profileUse } = await import("../commands/profile.js");
-                  await profileUse(name, {
-                    profilesDir: getProfilesPath(),
-                    activeFile: getActiveProfileFilePath(),
-                    skillsDir: getGlobalSkillsPath(),
-                    storePath: getStorePath(),
-                    registryPath: getRegistryPath(),
-        
-                  });
+                  await profileUse(name, {});
                 }, refresh);
               }}
               onCreateProfile={() => { setActionMode({ type: "profileCreate" }); setProfileInput(""); }}
@@ -702,23 +644,13 @@ export function App({ version }: AppProps) {
               onEnableClient={(clientId) => {
                 runAction("Enabling client...", `${clientId} enabled`, async () => {
                   const { clientAdd } = await import("../commands/client.js");
-                  await clientAdd(clientId, {
-                    configPath: getConfigPath(),
-                    registryPath: getRegistryPath(),
-                    storePath: getStorePath(),
-                    skillsDir: getGlobalSkillsPath(),
-                    globalSkillsDir: getGlobalSkillsPath(),
-                  });
+                  await clientAdd(clientId);
                 }, refresh);
               }}
               onDisableClient={(clientId) => {
                 runAction("Disabling client...", `${clientId} disabled`, async () => {
                   const { clientRm } = await import("../commands/client.js");
-                  await clientRm(clientId, {
-                    configPath: getConfigPath(),
-                    registryPath: getRegistryPath(),
-                    skillsDir: getGlobalSkillsPath(),
-                  });
+                  await clientRm(clientId);
                 }, refresh);
               }}
             />

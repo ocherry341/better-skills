@@ -22,10 +22,8 @@ export interface Registry {
  * Read the global skills registry.
  * Missing file → empty registry. Corrupted JSON → warn + empty registry.
  */
-export async function readRegistry(
-  registryPath?: string
-): Promise<Registry> {
-  const filePath = registryPath ?? getRegistryPath();
+export async function readRegistry(): Promise<Registry> {
+  const filePath = getRegistryPath();
   try {
     const raw = await readFile(filePath, "utf-8");
     const parsed = JSON.parse(raw);
@@ -49,12 +47,10 @@ export async function readRegistry(
  * Removes skill entries with no remaining versions.
  */
 export async function writeRegistry(
-  registry: Registry,
-  registryPath?: string,
-  storePath?: string
+  registry: Registry
 ): Promise<void> {
-  const filePath = registryPath ?? getRegistryPath();
-  const storeBase = storePath ?? getStorePath();
+  const filePath = getRegistryPath();
+  const storeBase = getStorePath();
 
   const cleaned: Record<string, RegistrySkillEntry> = {};
   for (const [name, entry] of Object.entries(registry.skills)) {
@@ -86,11 +82,9 @@ export async function writeRegistry(
 export async function registerSkill(
   name: string,
   hash: string,
-  source: string,
-  registryPath?: string,
-  storePath?: string
+  source: string
 ): Promise<number> {
-  const registry = await readRegistry(registryPath);
+  const registry = await readRegistry();
 
   if (!registry.skills[name]) {
     registry.skills[name] = { versions: [] };
@@ -101,7 +95,7 @@ export async function registerSkill(
   // Idempotent: skip if hash already registered
   const existing = entry.versions.find((v) => v.hash === hash);
   if (existing) {
-    await writeRegistry(registry, registryPath, storePath);
+    await writeRegistry(registry);
     return existing.v;
   }
 
@@ -116,7 +110,7 @@ export async function registerSkill(
     addedAt: new Date().toISOString(),
   });
 
-  await writeRegistry(registry, registryPath, storePath);
+  await writeRegistry(registry);
   return newV;
 }
 
@@ -125,11 +119,9 @@ export async function registerSkill(
  * Cleans up orphaned store entries that are no longer referenced by any skill.
  */
 export async function unregisterSkill(
-  name: string,
-  registryPath?: string,
-  storePath?: string
+  name: string
 ): Promise<void> {
-  const registry = await readRegistry(registryPath);
+  const registry = await readRegistry();
   const removedEntry = registry.skills[name];
   if (!removedEntry) {
     return;
@@ -151,24 +143,23 @@ export async function unregisterSkill(
   for (const hash of removedHashes) {
     if (!referencedHashes.has(hash)) {
       try {
-        await removeFromStore(hash, storePath);
+        await removeFromStore(hash);
       } catch (err) {
         console.warn(`⚠ Failed to remove store entry ${hash.slice(0, 8)}: ${err}`);
       }
     }
   }
 
-  await writeRegistry(registry, registryPath, storePath);
+  await writeRegistry(registry);
 }
 
 /**
  * Check if a skill is managed by bsk.
  */
 export async function isManaged(
-  name: string,
-  registryPath?: string
+  name: string
 ): Promise<boolean> {
-  const registry = await readRegistry(registryPath);
+  const registry = await readRegistry();
   return name in registry.skills && registry.skills[name].versions.length > 0;
 }
 

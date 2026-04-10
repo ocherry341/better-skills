@@ -9,28 +9,14 @@ import {
   getClientProjectSubdir,
 } from "../core/clients.js";
 import { save } from "./save.js";
-import { PROJECT_SKILLS_SUBDIR } from "../utils/paths.js";
-
-export interface ClientAddOptions {
-  configPath: string;
-  registryPath: string;
-  storePath: string;
-  skillsDir: string;
-  /** Override client->dir mapping for testing */
-  clientDirOverrides?: Record<string, string>;
-  /** Project root for creating project-level symlinks */
-  projectRoot?: string;
-  /** Override for the global skills path (testing) */
-  globalSkillsDir?: string;
-}
+import { PROJECT_SKILLS_SUBDIR, getGlobalSkillsPath, getProjectRoot } from "../utils/paths.js";
 
 /**
  * Enable a client by symlinking its skills directory to ~/.agents/skills/.
  * Migrates existing skills if the client dir already has content.
  */
 export async function clientAdd(
-  clientId: string,
-  opts: ClientAddOptions
+  clientId: string
 ): Promise<void> {
   // 1. Validate
   if (clientId === "agents") {
@@ -41,8 +27,8 @@ export async function clientAdd(
   }
 
   // 2. Resolve directories
-  const globalDir = opts.clientDirOverrides?.[clientId] ?? getClientSkillsDir(clientId);
-  const agentsDir = opts.globalSkillsDir ?? opts.skillsDir;
+  const globalDir = getClientSkillsDir(clientId);
+  const agentsDir = getGlobalSkillsPath();
 
   // Ensure agentsDir exists
   await mkdir(agentsDir, { recursive: true });
@@ -107,11 +93,7 @@ export async function clientAdd(
         }
 
         // Save migrated skills to store/registry
-        await save({
-          skillsDir: agentsDir,
-          registryPath: opts.registryPath,
-          storePath: opts.storePath,
-        });
+        await save({});
 
         // Remove now-empty globalDir and create symlink
         await rm(globalDir, { recursive: true, force: true });
@@ -128,16 +110,17 @@ export async function clientAdd(
   }
 
   // 6. Update config
-  const config = await readConfig(opts.configPath);
+  const config = await readConfig();
   const merged = [...new Set([...config.clients, clientId])];
-  await writeConfig({ clients: merged }, opts.configPath);
+  await writeConfig({ clients: merged });
 
   // 7. Project-level symlink logic
-  if (opts.projectRoot) {
+  {
+    const projectRoot = getProjectRoot();
     const subdir = getClientProjectSubdir(clientId);
     if (subdir) {
-      const symlinkPath = join(opts.projectRoot, subdir);
-      const agentsSkillsDir = join(opts.projectRoot, PROJECT_SKILLS_SUBDIR);
+      const symlinkPath = join(projectRoot, subdir);
+      const agentsSkillsDir = join(projectRoot, PROJECT_SKILLS_SUBDIR);
 
       await mkdir(agentsSkillsDir, { recursive: true });
 
@@ -177,29 +160,18 @@ async function safeReaddir(dir: string): Promise<string[]> {
   }
 }
 
-export interface ClientRmOptions {
-  configPath: string;
-  registryPath: string;
-  skillsDir: string;
-  /** Override client->dir mapping for testing */
-  clientDirOverrides?: Record<string, string>;
-  /** Project root for removing project-level symlinks */
-  projectRoot?: string;
-}
-
 /**
  * Disable a client. If its skills dir is a symlink, removes it.
  * If it's a real directory, errors and asks user to migrate first.
  */
 export async function clientRm(
-  clientId: string,
-  opts: ClientRmOptions
+  clientId: string
 ): Promise<void> {
   if (clientId === "agents") {
     throw new Error("'agents' is always enabled and cannot be removed.");
   }
 
-  const globalDir = opts.clientDirOverrides?.[clientId] ?? getClientSkillsDir(clientId);
+  const globalDir = getClientSkillsDir(clientId);
 
   // Check globalDir state
   try {
@@ -219,15 +191,16 @@ export async function clientRm(
   }
 
   // Update config
-  const config = await readConfig(opts.configPath);
+  const config = await readConfig();
   const filtered = config.clients.filter((c) => c !== clientId);
-  await writeConfig({ clients: filtered }, opts.configPath);
+  await writeConfig({ clients: filtered });
 
   // Remove project-level symlinks
-  if (opts.projectRoot) {
+  {
+    const projectRoot = getProjectRoot();
     const subdir = getClientProjectSubdir(clientId);
     if (subdir) {
-      const symlinkPath = join(opts.projectRoot, subdir);
+      const symlinkPath = join(projectRoot, subdir);
       try {
         const st = await lstat(symlinkPath);
         if (st.isSymbolicLink()) {
@@ -244,10 +217,6 @@ export async function clientRm(
   console.log(`✓ Disabled client: ${clientId}`);
 }
 
-export interface ClientLsOptions {
-  configPath: string;
-}
-
 export interface ClientListItem {
   id: string;
   path: string;
@@ -258,8 +227,8 @@ export interface ClientListItem {
 /**
  * List all supported clients with their enabled status.
  */
-export async function clientLs(opts: ClientLsOptions): Promise<ClientListItem[]> {
-  const config = await readConfig(opts.configPath);
+export async function clientLs(): Promise<ClientListItem[]> {
+  const config = await readConfig();
   const registry = getClientRegistry();
   return VALID_CLIENT_IDS.map((id) => ({
     id,
