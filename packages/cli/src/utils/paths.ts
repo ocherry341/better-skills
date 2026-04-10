@@ -81,17 +81,16 @@ export function getTempPath(): string {
   return join(tmpdir(), "better-skills");
 }
 
-/** Resolve a potentially relative path to absolute */
-export function resolveAbsolute(p: string): string {
-  return resolve(p);
-}
-
 /** Reset the test home directory. Call in beforeEach to isolate tests. */
 export async function cleanTestHome(): Promise<void> {
   if (process.env.NODE_ENV !== "test") {
     throw new Error("cleanTestHome() must only be called in test environment");
   }
+  const target = resolve(home());
+  if (target === "/home" || target === homedir()) {
+    throw new Error(`cleanTestHome() refusing to rm dangerous path: ${target}`);
+  }
   const { rm, mkdir } = await import("fs/promises");
-  await rm(home(), { recursive: true, force: true });
+  await rm(target, { recursive: true, force: true });
   await mkdir(home(), { recursive: true });
 }
