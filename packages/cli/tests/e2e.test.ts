@@ -1,20 +1,22 @@
-import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtemp, writeFile, mkdir, rm, readFile, stat } from "fs/promises";
+import { describe, test, expect, beforeEach } from "bun:test";
+import { writeFile, mkdir, readFile, stat } from "fs/promises";
 import { join } from "path";
-import { tmpdir } from "os";
 import { hashDirectory } from "../src/core/hasher.js";
 import * as store from "../src/core/store.js";
 import { linkSkill, unlinkSkill } from "../src/core/linker.js";
+import { cleanTestHome, getStorePath, home } from "../src/utils/paths.js";
 
 describe("e2e: store → link flow", () => {
   let skillDir: string;
   let targetDir: string;
-  let storeDir: string;
 
   beforeEach(async () => {
-    skillDir = await mkdtemp(join(tmpdir(), "e2e-skill-"));
-    targetDir = await mkdtemp(join(tmpdir(), "e2e-target-"));
-    storeDir = await mkdtemp(join(tmpdir(), "e2e-store-"));
+    await cleanTestHome();
+    skillDir = join(home(), "skill-source");
+    targetDir = join(home(), "target");
+    await mkdir(skillDir, { recursive: true });
+    await mkdir(targetDir, { recursive: true });
+    await mkdir(getStorePath(), { recursive: true });
 
     // Create a test skill
     await writeFile(
@@ -30,19 +32,13 @@ This is a test.`
     await writeFile(join(skillDir, "src", "index.ts"), 'console.log("hello");');
   });
 
-  afterEach(async () => {
-    await rm(skillDir, { recursive: true, force: true });
-    await rm(targetDir, { recursive: true, force: true });
-    await rm(storeDir, { recursive: true, force: true });
-  });
-
   test("hash → store → link → verify", async () => {
     // Hash
     const hash = await hashDirectory(skillDir);
     expect(hash).toMatch(/^[0-9a-f]{64}$/);
 
     // Store (use temp storeDir to avoid polluting real home)
-    const storePath = await store.store(hash, skillDir, storeDir);
+    const storePath = await store.store(hash, skillDir);
     const s = await stat(storePath);
     expect(s.isDirectory()).toBe(true);
 

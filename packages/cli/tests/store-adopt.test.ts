@@ -1,56 +1,32 @@
-import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtemp, rm, mkdir, writeFile } from "fs/promises";
+import { describe, test, expect, beforeEach } from "bun:test";
+import { mkdir, writeFile, rm } from "fs/promises";
 import { join } from "path";
-import { tmpdir } from "os";
 import { readRegistry } from "../src/core/registry.js";
 import { readProfile } from "../src/core/profile.js";
 import { hashDirectory } from "../src/core/hasher.js";
 import { storeAdopt } from "../src/commands/store-cmd.js";
+import { cleanTestHome, getStorePath, getProfilesPath, getProfilePath, home } from "../src/utils/paths.js";
 
 describe("storeAdopt", () => {
-  let baseDir: string;
-  let registryPath: string;
-  let storeDir: string;
-  let profilesDir: string;
-  let activeFile: string;
-
   beforeEach(async () => {
-    baseDir = await mkdtemp(join(tmpdir(), "store-adopt-"));
-    registryPath = join(baseDir, "registry.json");
-    storeDir = join(baseDir, "store");
-    profilesDir = join(baseDir, "profiles");
-    activeFile = join(baseDir, "active-profile");
-    await mkdir(storeDir, { recursive: true });
-    await mkdir(profilesDir, { recursive: true });
+    await cleanTestHome();
+    await mkdir(getStorePath(), { recursive: true });
+    await mkdir(getProfilesPath(), { recursive: true });
   });
-
-  afterEach(async () => {
-    await rm(baseDir, { recursive: true, force: true });
-  });
-
-  function opts(overrides: Partial<Parameters<typeof storeAdopt>[0]> = {}) {
-    return {
-      registryPath,
-      storePath: storeDir,
-      profilesDir,
-      activeFile,
-      ...overrides,
-    };
-  }
 
   async function createOrphanInStore(
     name: string,
     content: string,
     storedAt?: string
   ): Promise<string> {
-    const tmpSkill = join(baseDir, `tmp-${name}-${Date.now()}`);
+    const tmpSkill = join(home(), `tmp-${name}-${Date.now()}`);
     await mkdir(tmpSkill, { recursive: true });
     await writeFile(
       join(tmpSkill, "SKILL.md"),
       `---\nname: ${name}\n---\n${content}`
     );
     const hash = await hashDirectory(tmpSkill);
-    const dest = join(storeDir, hash);
+    const dest = join(getStorePath(), hash);
     await mkdir(dest, { recursive: true });
     await writeFile(
       join(dest, "SKILL.md"),
@@ -72,15 +48,15 @@ describe("storeAdopt", () => {
       "# Orphan v1",
       "2026-01-15T00:00:00.000Z"
     );
-    const result = await storeAdopt(opts());
+    const result = await storeAdopt();
     expect(result.adopted).toBe(1);
 
-    const reg = await readRegistry(registryPath);
+    const reg = await readRegistry();
     expect(reg.skills["orphan-skill"]).toBeDefined();
     expect(reg.skills["orphan-skill"].versions).toHaveLength(1);
     expect(reg.skills["orphan-skill"].versions[0].hash).toBe(hash);
 
-    const profile = await readProfile(join(profilesDir, "default.json"));
+    const profile = await readProfile(getProfilePath("default"));
     expect(profile.skills.some((s) => s.skillName === "orphan-skill")).toBe(
       true
     );
@@ -89,12 +65,12 @@ describe("storeAdopt", () => {
   test("skips orphans without SKILL.md", async () => {
     const hash =
       "deadbeef1234567890abcdef1234567890abcdef1234567890abcdef12345678";
-    await mkdir(join(storeDir, hash), { recursive: true });
-    await writeFile(join(storeDir, hash, "random.txt"), "not a skill");
-    const result = await storeAdopt(opts());
+    await mkdir(join(getStorePath(), hash), { recursive: true });
+    await writeFile(join(getStorePath(), hash, "random.txt"), "not a skill");
+    const result = await storeAdopt();
     expect(result.adopted).toBe(0);
 
-    const reg = await readRegistry(registryPath);
+    const reg = await readRegistry();
     expect(Object.keys(reg.skills)).toHaveLength(0);
   });
 
@@ -109,10 +85,10 @@ describe("storeAdopt", () => {
       "# New version",
       "2026-02-01T00:00:00.000Z"
     );
-    const result = await storeAdopt(opts());
+    const result = await storeAdopt();
     expect(result.adopted).toBe(2);
 
-    const reg = await readRegistry(registryPath);
+    const reg = await readRegistry();
     expect(reg.skills["my-skill"].versions).toHaveLength(2);
     const v1 = reg.skills["my-skill"].versions.find((v) => v.v === 1)!;
     const v2 = reg.skills["my-skill"].versions.find((v) => v.v === 2)!;
@@ -124,10 +100,10 @@ describe("storeAdopt", () => {
     const hash1 = await createOrphanInStore("fallback-skill", "# Version A");
     await new Promise((r) => setTimeout(r, 50));
     const hash2 = await createOrphanInStore("fallback-skill", "# Version B");
-    const result = await storeAdopt(opts());
+    const result = await storeAdopt();
     expect(result.adopted).toBe(2);
 
-    const reg = await readRegistry(registryPath);
+    const reg = await readRegistry();
     expect(reg.skills["fallback-skill"].versions).toHaveLength(2);
     const v1 = reg.skills["fallback-skill"].versions.find(
       (v) => v.v === 1
@@ -136,7 +112,7 @@ describe("storeAdopt", () => {
   });
 
   test("returns zero when no orphans exist", async () => {
-    const result = await storeAdopt(opts());
+    const result = await storeAdopt();
     expect(result.adopted).toBe(0);
   });
 
@@ -149,15 +125,15 @@ describe("storeAdopt", () => {
     );
 
     // Adopt it once
-    await storeAdopt(opts());
-    const reg1 = await readRegistry(registryPath);
+    await storeAdopt();
+    const reg1 = await readRegistry();
     expect(reg1.skills["dup-skill"].versions).toHaveLength(1);
 
     // Run adopt again — the hash is now referenced, so it shouldn't be an orphan
-    const result = await storeAdopt(opts());
+    const result = await storeAdopt();
     expect(result.adopted).toBe(0);
 
-    const reg2 = await readRegistry(registryPath);
+    const reg2 = await readRegistry();
     expect(reg2.skills["dup-skill"].versions).toHaveLength(1);
   });
 });
