@@ -185,7 +185,7 @@ describe("syncExport", () => {
     const proc = Bun.spawn(["tar", "xzf", output, "-C", extractDir]);
     await proc.exited;
 
-    const extractedEntries = await readdir(join(extractDir, "better-skills"));
+    const extractedEntries = await readdir(join(extractDir, ".better-skills"));
     expect(extractedEntries).toContain("registry.json");
     expect(extractedEntries).toContain("store");
     expect(extractedEntries).toContain("profiles");
@@ -213,7 +213,7 @@ describe("syncExport", () => {
     const proc = Bun.spawn(["tar", "xzf", output, "-C", extractDir]);
     await proc.exited;
 
-    const extractedEntries = await readdir(join(extractDir, "better-skills"));
+    const extractedEntries = await readdir(join(extractDir, ".better-skills"));
     expect(extractedEntries).not.toContain(".git");
     expect(extractedEntries).toContain("registry.json");
   });
