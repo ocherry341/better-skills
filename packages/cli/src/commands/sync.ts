@@ -4,6 +4,7 @@ import { execFile, spawn as nodeSpawn } from "child_process";
 import { promisify } from "util";
 
 const execFileAsync = promisify(execFile);
+
 import { getActiveProfileName, readProfile } from "../core/profile.js";
 import { restoreSkillsFromProfile } from "../core/restore.js";
 import { readConfig, ensureClientSymlink } from "../core/clients.js";
@@ -150,22 +151,18 @@ export async function bskCd(
 
   if (shellCmd) {
     // Testing mode: run a specific command and return output
-    const proc = Bun.spawn(shellCmd, {
-      cwd: bskDir,
-      stdout: "pipe",
-    });
-    const output = await new Response(proc.stdout).text();
-    await proc.exited;
-    return output.trim();
+    const [cmd, ...args] = shellCmd;
+    const { stdout } = await execFileAsync(cmd, args, { cwd: bskDir });
+    return stdout.trim();
   }
 
   // Interactive mode: spawn a shell
   const shell = process.env.SHELL ?? "/bin/sh";
   console.log(`Opening shell in ${bskDir}...`);
   console.log(`(Type 'exit' to return)`);
-  const proc = Bun.spawn([shell], {
-    cwd: bskDir,
-    stdio: ["inherit", "inherit", "inherit"],
+  await new Promise<void>((resolve, reject) => {
+    const proc = nodeSpawn(shell, { cwd: bskDir, stdio: "inherit" });
+    proc.on("close", () => resolve());
+    proc.on("error", reject);
   });
-  await proc.exited;
 }
