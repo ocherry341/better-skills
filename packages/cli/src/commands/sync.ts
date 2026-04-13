@@ -1,5 +1,9 @@
 import { stat, readdir, rm, mkdir } from "fs/promises";
 import { join, dirname, basename } from "path";
+import { execFile, spawn as nodeSpawn } from "child_process";
+import { promisify } from "util";
+
+const execFileAsync = promisify(execFile);
 import { getActiveProfileName, readProfile } from "../core/profile.js";
 import { restoreSkillsFromProfile } from "../core/restore.js";
 import { readConfig, ensureClientSymlink } from "../core/clients.js";
@@ -68,11 +72,7 @@ export async function syncExport(opts: SyncExportOptions = {}): Promise<void> {
   // Create tar.gz
   const parent = dirname(bskDir);
   const dirName = basename(bskDir);
-  const proc = Bun.spawn(["tar", "czf", output, "--exclude=.git", "-C", parent, dirName]);
-  const exitCode = await proc.exited;
-  if (exitCode !== 0) {
-    throw new Error(`tar failed with exit code ${exitCode}`);
-  }
+  await execFileAsync("tar", ["czf", output, "--exclude=.git", "-C", parent, dirName]);
 
   const fileStat = await stat(output);
   const sizeKB = (fileStat.size / 1024).toFixed(1);
@@ -120,11 +120,7 @@ export async function syncImport(
   // 4. Extract archive
   const parent = dirname(bskDir);
   await mkdir(parent, { recursive: true });
-  const proc = Bun.spawn(["tar", "xzf", file, "-C", parent]);
-  const exitCode = await proc.exited;
-  if (exitCode !== 0) {
-    throw new Error(`tar extract failed with exit code ${exitCode}`);
-  }
+  await execFileAsync("tar", ["xzf", file, "-C", parent]);
 
   console.log(`✓ Imported from ${file}`);
 
