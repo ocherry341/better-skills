@@ -29,7 +29,6 @@ import {
 import { syncRestore, syncExport, syncImport, bskCd } from "./commands/sync.js";
 import { getActiveProfileName } from "./core/profile.js";
 import {
-  getActiveProfileFilePath,
   getGlobalSkillsPath,
 } from "./utils/paths.js";
 
@@ -201,7 +200,7 @@ profile
   .command("show [name]")
   .description("Show skills in a profile (defaults to active profile)")
   .action(async (name?: string) => {
-    const targetName = name ?? await getActiveProfileName(getActiveProfileFilePath());
+    const targetName = name ?? await getActiveProfileName();
     if (!targetName) {
       console.error("No active profile. Specify a name or create one first.");
       process.exit(1);

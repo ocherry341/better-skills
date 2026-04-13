@@ -5,7 +5,6 @@ import { restoreSkillsFromProfile } from "../core/restore.js";
 import { readConfig, ensureClientSymlink } from "../core/clients.js";
 import {
   getProfilesPath,
-  getActiveProfileFilePath,
   getGlobalSkillsPath,
   getBskDir,
 } from "../utils/paths.js";
@@ -16,7 +15,7 @@ export interface SyncRestoreOptions {
 
 export async function syncRestore(opts: SyncRestoreOptions = {}): Promise<void> {
   // 1. Get active profile
-  const activeName = await getActiveProfileName(getActiveProfileFilePath());
+  const activeName = await getActiveProfileName();
   if (!activeName) {
     throw new Error("No active profile found. Run 'bsk profile use <name>' first.");
   }

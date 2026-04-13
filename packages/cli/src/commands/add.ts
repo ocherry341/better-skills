@@ -3,7 +3,7 @@ import { fetchAll } from "../core/fetcher.js";
 import { hashDirectory } from "../core/hasher.js";
 import * as store from "../core/store.js";
 import { verifiedLinkSkill } from "../core/store.js";
-import { getSkillsPath, getProfilesPath, getActiveProfileFilePath } from "../utils/paths.js";
+import { getSkillsPath, getProfilesPath } from "../utils/paths.js";
 import { readSkillMd } from "../utils/skill-md.js";
 import { readProfile, writeProfile, getActiveProfileName, setActiveProfileName } from "../core/profile.js";
 import { registerSkill, isManaged } from "../core/registry.js";
@@ -123,20 +123,18 @@ export interface AddToProfileOptions {
 export async function addSkillToProfile(opts: AddToProfileOptions): Promise<void> {
   if (!opts.global) return;
 
-  const activeFile = getActiveProfileFilePath();
-  const profilesDir = getProfilesPath();
-  let activeName = await getActiveProfileName(activeFile);
+  let activeName = await getActiveProfileName();
 
   if (!activeName) {
     // Auto-create default profile
     activeName = "default";
-    const filePath = join(profilesDir, `${activeName}.json`);
+    const filePath = join(getProfilesPath(), `${activeName}.json`);
     await writeProfile(filePath, { name: activeName, skills: [] });
-    await setActiveProfileName(activeFile, activeName);
+    await setActiveProfileName(activeName);
     console.log("Created default profile.");
   }
 
-  const filePath = join(profilesDir, `${activeName}.json`);
+  const filePath = join(getProfilesPath(), `${activeName}.json`);
   let profile;
   try {
     profile = await readProfile(filePath);

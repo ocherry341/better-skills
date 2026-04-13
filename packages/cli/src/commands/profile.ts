@@ -20,7 +20,6 @@ import { readSkillMd } from "../utils/skill-md.js";
 import { restoreSkillsFromProfile } from "../core/restore.js";
 import {
   getProfilesPath,
-  getActiveProfileFilePath,
   getGlobalSkillsPath,
   getStorePath,
   getProjectSkillsPath,
@@ -73,7 +72,7 @@ export async function profileCreate(
 
   const profile: Profile = { name, skills };
   await writeProfile(filePath, profile);
-  await setActiveProfileName(getActiveProfileFilePath(), name);
+  await setActiveProfileName(name);
 
   console.log(`✓ Created profile '${name}' with ${skills.length} skill(s)`);
 }
@@ -87,8 +86,8 @@ export interface ProfileListItem {
  * List all profiles, marking the active one.
  */
 export async function profileLs(): Promise<ProfileListItem[]> {
-  const names = await listProfiles(getProfilesPath());
-  const activeName = await getActiveProfileName(getActiveProfileFilePath());
+  const names = await listProfiles();
+  const activeName = await getActiveProfileName();
 
   return names.sort().map((name) => ({
     name,
@@ -125,7 +124,7 @@ export async function profileUse(
     hardlink: opts.hardlink,
   });
 
-  await setActiveProfileName(getActiveProfileFilePath(), name);
+  await setActiveProfileName(name);
   console.log(`✓ Switched to profile '${name}' (${profile.skills.length} skill(s))`);
 }
 
@@ -164,7 +163,7 @@ export async function profileAdd(
   // 1. Resolve target profile
   const profilesDir = getProfilesPath();
   const skillsDir = getGlobalSkillsPath();
-  const activeName = await getActiveProfileName(getActiveProfileFilePath());
+  const activeName = await getActiveProfileName();
   const targetName = opts.profileName ?? activeName;
   if (!targetName) {
     throw new Error("No active profile. Specify --profile <name> or create a profile first.");
@@ -279,7 +278,7 @@ export async function profileRm(
   opts: ProfileRmInternalOptions
 ): Promise<void> {
   // 1. Resolve target profile
-  const activeName = await getActiveProfileName(getActiveProfileFilePath());
+  const activeName = await getActiveProfileName();
   const targetName = opts.profileName ?? activeName;
   if (!targetName) {
     throw new Error("No active profile. Specify --profile <name> or create a profile first.");
@@ -330,7 +329,7 @@ export async function profileDelete(
   await readProfile(filePath);
 
   // Refuse if active
-  const activeName = await getActiveProfileName(getActiveProfileFilePath());
+  const activeName = await getActiveProfileName();
   if (name === activeName) {
     throw new Error(`Cannot delete active profile '${name}'. Switch to another profile first with 'profile use'.`);
   }
@@ -368,10 +367,9 @@ export async function profileRename(
   await unlink(oldPath);
 
   // Update active marker if needed
-  const activeFile = getActiveProfileFilePath();
-  const activeName = await getActiveProfileName(activeFile);
+  const activeName = await getActiveProfileName();
   if (oldName === activeName) {
-    await setActiveProfileName(activeFile, newName);
+    await setActiveProfileName(newName);
   }
 
   console.log(`✓ Renamed profile '${oldName}' → '${newName}'`);

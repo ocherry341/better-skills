@@ -1,5 +1,5 @@
 import { unlinkSkill } from "../core/linker.js";
-import { getSkillsPath, getProfilesPath, getActiveProfileFilePath } from "../utils/paths.js";
+import { getSkillsPath, getProfilesPath } from "../utils/paths.js";
 import { readProfile, writeProfile, listProfiles, getActiveProfileName } from "../core/profile.js";
 import { unregisterSkill } from "../core/registry.js";
 import { stat } from "fs/promises";
@@ -35,7 +35,7 @@ export async function rm(name: string, options: RmOptions = {}): Promise<void> {
   // Remove from ALL profiles (global only)
   if (options.global) {
     const profilesDir = getProfilesPath();
-    const profileNames = await listProfiles(profilesDir);
+    const profileNames = await listProfiles();
     for (const pName of profileNames) {
       const filePath = join(profilesDir, `${pName}.json`);
       try {
@@ -66,9 +66,8 @@ export interface RemoveFromProfileOptions {
 export async function removeSkillFromProfile(opts: RemoveFromProfileOptions): Promise<void> {
   if (!opts.global) return;
 
-  const activeFile = getActiveProfileFilePath();
   const profilesDir = getProfilesPath();
-  const activeName = await getActiveProfileName(activeFile);
+  const activeName = await getActiveProfileName();
   if (!activeName) return;
 
   const filePath = join(profilesDir, `${activeName}.json`);

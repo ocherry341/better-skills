@@ -1,6 +1,7 @@
 import { readFile, writeFile, readdir, mkdir } from "fs/promises";
 import { z } from "zod";
 import { dirname } from "path";
+import { getProfilesPath, getActiveProfileFilePath } from "../utils/paths.js";
 
 export const ProfileSkillEntrySchema = z.object({
   skillName: z.string(),
@@ -30,7 +31,8 @@ export async function writeProfile(filePath: string, profile: Profile): Promise<
 }
 
 /** List all profile names in a profiles directory */
-export async function listProfiles(profilesDir: string): Promise<string[]> {
+export async function listProfiles(): Promise<string[]> {
+  const profilesDir = getProfilesPath();
   try {
     const entries = await readdir(profilesDir);
     return entries
@@ -42,7 +44,8 @@ export async function listProfiles(profilesDir: string): Promise<string[]> {
 }
 
 /** Get the active profile name, or null if none set */
-export async function getActiveProfileName(activeFile: string): Promise<string | null> {
+export async function getActiveProfileName(): Promise<string | null> {
+  const activeFile = getActiveProfileFilePath();
   try {
     const name = (await readFile(activeFile, "utf-8")).trim();
     return name || null;
@@ -52,7 +55,8 @@ export async function getActiveProfileName(activeFile: string): Promise<string |
 }
 
 /** Set the active profile name */
-export async function setActiveProfileName(activeFile: string, name: string): Promise<void> {
+export async function setActiveProfileName(name: string): Promise<void> {
+  const activeFile = getActiveProfileFilePath();
   await mkdir(dirname(activeFile), { recursive: true });
   await writeFile(activeFile, name + "\n");
 }

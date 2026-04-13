@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { listProfiles, getActiveProfileName, readProfile } from "../../core/profile.js";
 import { readRegistry } from "../../core/registry.js";
-import { getProfilesPath, getActiveProfileFilePath } from "../../utils/paths.js";
+import { getProfilesPath } from "../../utils/paths.js";
 import { join } from "path";
 
 export interface ProfileSkillVersionInfo {
@@ -36,9 +36,8 @@ export function useProfiles(externalRefreshKey = 0) {
     async function load() {
       setLoading(true);
       const profilesDir = getProfilesPath();
-      const activeFile = getActiveProfileFilePath();
-      const names = await listProfiles(profilesDir);
-      const activeName = await getActiveProfileName(activeFile);
+      const names = await listProfiles();
+      const activeName = await getActiveProfileName();
 
       // Load registry (needed for both version info and skill names)
       let registry: Awaited<ReturnType<typeof readRegistry>> = { skills: {} };
