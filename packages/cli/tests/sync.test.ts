@@ -1,6 +1,10 @@
 import { describe, test, expect, beforeEach } from "bun:test";
+import { execFile } from "child_process";
 import { mkdir, readdir, writeFile, lstat, readlink, stat, rm } from "fs/promises";
 import { join, dirname, basename } from "path";
+import { promisify } from "util";
+
+const execFileAsync = promisify(execFile);
 import { ensureClientSymlink, writeConfig, getClientSkillsDir } from "../src/core/clients.js";
 import { type Profile, writeProfile, setActiveProfileName } from "../src/core/profile.js";
 import { registerSkill } from "../src/core/registry.js";
@@ -182,8 +186,7 @@ describe("syncExport", () => {
 
     const extractDir = join(home(), "extracted");
     await mkdir(extractDir, { recursive: true });
-    const proc = Bun.spawn(["tar", "xzf", output, "-C", extractDir]);
-    await proc.exited;
+    await execFileAsync("tar", ["xzf", output, "-C", extractDir]);
 
     const extractedEntries = await readdir(join(extractDir, ".better-skills"));
     expect(extractedEntries).toContain("registry.json");
@@ -210,8 +213,7 @@ describe("syncExport", () => {
 
     const extractDir = join(home(), "extracted");
     await mkdir(extractDir, { recursive: true });
-    const proc = Bun.spawn(["tar", "xzf", output, "-C", extractDir]);
-    await proc.exited;
+    await execFileAsync("tar", ["xzf", output, "-C", extractDir]);
 
     const extractedEntries = await readdir(join(extractDir, ".better-skills"));
     expect(extractedEntries).not.toContain(".git");
@@ -239,8 +241,7 @@ describe("syncImport", () => {
     await writeFile(getProfilePath("default"), JSON.stringify({ name: "default", skills: [] }));
 
     const archivePath = join(home(), "backup.tar.gz");
-    const proc = Bun.spawn(["tar", "czf", archivePath, "-C", dirname(getBskDir()), basename(getBskDir())]);
-    await proc.exited;
+    await execFileAsync("tar", ["czf", archivePath, "-C", dirname(getBskDir()), basename(getBskDir())]);
 
     await rm(getBskDir(), { recursive: true, force: true });
 
