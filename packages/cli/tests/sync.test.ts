@@ -62,7 +62,7 @@ describe("syncRestore", () => {
       skills: [{ skillName: "test-skill", v: 1, source: "test/repo", addedAt: "2026-01-01T00:00:00.000Z" }],
     };
     await writeProfile(getProfilePath("myprofile"), profile);
-    await setActiveProfileName(getActiveProfileFilePath(), "myprofile");
+    await setActiveProfileName("myprofile");
 
     await syncRestore();
 
@@ -95,7 +95,7 @@ describe("syncRestore", () => {
       ],
     };
     await writeProfile(getProfilePath("multi"), profile);
-    await setActiveProfileName(getActiveProfileFilePath(), "multi");
+    await setActiveProfileName("multi");
 
     await syncRestore();
 
@@ -111,7 +111,7 @@ describe("syncRestore", () => {
 
     const profile: Profile = { name: "p", skills: [] };
     await writeProfile(getProfilePath("p"), profile);
-    await setActiveProfileName(getActiveProfileFilePath(), "p");
+    await setActiveProfileName("p");
 
     await syncRestore();
 
@@ -122,7 +122,7 @@ describe("syncRestore", () => {
   test("rebuilds client symlinks for enabled clients", async () => {
     const profile: Profile = { name: "p", skills: [] };
     await writeProfile(getProfilePath("p"), profile);
-    await setActiveProfileName(getActiveProfileFilePath(), "p");
+    await setActiveProfileName("p");
 
     await writeConfig({ clients: ["claude"] });
 
@@ -147,7 +147,7 @@ describe("syncRestore", () => {
       skills: [{ skillName: "ghost", v: 99, source: "x/y", addedAt: "2026-01-01T00:00:00.000Z" }],
     };
     await writeProfile(getProfilePath("broken"), profile);
-    await setActiveProfileName(getActiveProfileFilePath(), "broken");
+    await setActiveProfileName("broken");
 
     await syncRestore();
 

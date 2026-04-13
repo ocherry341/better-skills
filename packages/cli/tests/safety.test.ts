@@ -8,7 +8,7 @@ import { registerSkill, isManaged, readRegistry } from "../src/core/registry.js"
 import { profileUse } from "../src/commands/profile.js";
 import { addSkillToProfile } from "../src/commands/add.js";
 import { type Profile, writeProfile, readProfile, getActiveProfileName, setActiveProfileName } from "../src/core/profile.js";
-import { cleanTestHome, getGlobalSkillsPath, getStorePath, getProfilesPath, getProfilePath, getActiveProfileFilePath, home } from "../src/utils/paths.js";
+import { cleanTestHome, getGlobalSkillsPath, getStorePath, getProfilesPath, getProfilePath, home } from "../src/utils/paths.js";
 
 describe("add -g conflict detection", () => {
   let localSkillDir: string;
@@ -189,7 +189,7 @@ describe("auto-create default profile", () => {
 
   test("creates default profile when no active profile exists", async () => {
     // No active profile set
-    expect(await getActiveProfileName(getActiveProfileFilePath())).toBeNull();
+    expect(await getActiveProfileName()).toBeNull();
 
     // addSkillToProfile should auto-create default profile
     await addSkillToProfile({
@@ -200,7 +200,7 @@ describe("auto-create default profile", () => {
     });
 
     // Active profile should now be "default"
-    expect(await getActiveProfileName(getActiveProfileFilePath())).toBe("default");
+    expect(await getActiveProfileName()).toBe("default");
 
     // Profile should exist with the skill
     const profile = await readProfile(getProfilePath("default"));
@@ -219,13 +219,13 @@ describe("auto-create default profile", () => {
     });
 
     // Should still have no active profile
-    expect(await getActiveProfileName(getActiveProfileFilePath())).toBeNull();
+    expect(await getActiveProfileName()).toBeNull();
   });
 
   test("uses existing active profile instead of creating default", async () => {
     // Set up an existing active profile
     await writeProfile(getProfilePath("work"), { name: "work", skills: [] });
-    await setActiveProfileName(getActiveProfileFilePath(), "work");
+    await setActiveProfileName("work");
 
     await addSkillToProfile({
       skillName: "my-skill",
@@ -235,7 +235,7 @@ describe("auto-create default profile", () => {
     });
 
     // Active profile should still be "work", not "default"
-    expect(await getActiveProfileName(getActiveProfileFilePath())).toBe("work");
+    expect(await getActiveProfileName()).toBe("work");
 
     // Skill should be in "work" profile
     const profile = await readProfile(getProfilePath("work"));

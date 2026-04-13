@@ -8,7 +8,7 @@ import { removeSkillFromProfile } from "../src/commands/rm.js";
 import { registerSkill } from "../src/core/registry.js";
 import { hashDirectory } from "../src/core/hasher.js";
 import { cpRecursive } from "../src/core/linker.js";
-import { cleanTestHome, getProfilesPath, getActiveProfileFilePath, getGlobalSkillsPath, getStorePath, getRegistryPath, getProfilePath, home } from "../src/utils/paths.js";
+import { cleanTestHome, getProfilesPath, getGlobalSkillsPath, getStorePath, getRegistryPath, getProfilePath, home } from "../src/utils/paths.js";
 
 describe("profile create", () => {
   beforeEach(async () => {
@@ -23,7 +23,7 @@ describe("profile create", () => {
     expect(profile.name).toBe("work");
     expect(profile.skills).toEqual([]);
 
-    const active = await getActiveProfileName(getActiveProfileFilePath());
+    const active = await getActiveProfileName();
     expect(active).toBe("work");
   });
 
@@ -151,7 +151,7 @@ describe("profile use", () => {
     expect(content).toContain("test-skill");
 
     // Active profile should be updated
-    const active = await getActiveProfileName(getActiveProfileFilePath());
+    const active = await getActiveProfileName();
     expect(active).toBe("myprofile");
   });
 
@@ -234,7 +234,7 @@ describe("add records to active profile", () => {
     // Create and activate a profile
     const profile: Profile = { name: "dev", skills: [] };
     await writeProfile(getProfilePath("dev"), profile);
-    await setActiveProfileName(getActiveProfileFilePath(), "dev");
+    await setActiveProfileName("dev");
 
     await addSkillToProfile({
       skillName: "brainstorming",
@@ -258,7 +258,7 @@ describe("add records to active profile", () => {
       ],
     };
     await writeProfile(getProfilePath("dev"), profile);
-    await setActiveProfileName(getActiveProfileFilePath(), "dev");
+    await setActiveProfileName("dev");
 
     await addSkillToProfile({
       skillName: "brainstorming",
@@ -292,7 +292,7 @@ describe("add respects profile scope constraint", () => {
   test("records to profile when global is true", async () => {
     const profile: Profile = { name: "dev", skills: [] };
     await writeProfile(getProfilePath("dev"), profile);
-    await setActiveProfileName(getActiveProfileFilePath(), "dev");
+    await setActiveProfileName("dev");
 
     await addSkillToProfile({
       skillName: "brainstorming",
@@ -309,7 +309,7 @@ describe("add respects profile scope constraint", () => {
   test("skips profile when global is false (project-level)", async () => {
     const profile: Profile = { name: "dev", skills: [] };
     await writeProfile(getProfilePath("dev"), profile);
-    await setActiveProfileName(getActiveProfileFilePath(), "dev");
+    await setActiveProfileName("dev");
 
     await addSkillToProfile({
       skillName: "local-skill",
@@ -338,7 +338,7 @@ describe("rm records to active profile", () => {
       ],
     };
     await writeProfile(getProfilePath("dev"), profile);
-    await setActiveProfileName(getActiveProfileFilePath(), "dev");
+    await setActiveProfileName("dev");
 
     await removeSkillFromProfile({
       skillName: "brainstorming",
@@ -372,7 +372,7 @@ describe("rm respects profile scope constraint", () => {
       ],
     };
     await writeProfile(getProfilePath("dev"), profile);
-    await setActiveProfileName(getActiveProfileFilePath(), "dev");
+    await setActiveProfileName("dev");
 
     await removeSkillFromProfile({
       skillName: "brainstorming",
@@ -391,7 +391,7 @@ describe("rm respects profile scope constraint", () => {
       ],
     };
     await writeProfile(getProfilePath("dev"), profile);
-    await setActiveProfileName(getActiveProfileFilePath(), "dev");
+    await setActiveProfileName("dev");
 
     await removeSkillFromProfile({
       skillName: "brainstorming",
@@ -425,7 +425,7 @@ describe("profile add", () => {
     // Create and activate profile
     const profile: Profile = { name: "dev", skills: [] };
     await writeProfile(getProfilePath("dev"), profile);
-    await setActiveProfileName(getActiveProfileFilePath(), "dev");
+    await setActiveProfileName("dev");
 
     await profileAdd(localSkillDir, {});
 
@@ -445,7 +445,7 @@ describe("profile add", () => {
     const workProfile: Profile = { name: "work", skills: [] };
     await writeProfile(getProfilePath("dev"), devProfile);
     await writeProfile(getProfilePath("work"), workProfile);
-    await setActiveProfileName(getActiveProfileFilePath(), "dev");
+    await setActiveProfileName("dev");
 
     await profileAdd(localSkillDir, { profileName: "work" });
 
@@ -467,7 +467,7 @@ describe("profile add", () => {
       ],
     };
     await writeProfile(getProfilePath("dev"), profile);
-    await setActiveProfileName(getActiveProfileFilePath(), "dev");
+    await setActiveProfileName("dev");
 
     await profileAdd(localSkillDir, {});
 
@@ -491,7 +491,7 @@ describe("profile add", () => {
   test("respects --name override", async () => {
     const profile: Profile = { name: "dev", skills: [] };
     await writeProfile(getProfilePath("dev"), profile);
-    await setActiveProfileName(getActiveProfileFilePath(), "dev");
+    await setActiveProfileName("dev");
 
     await profileAdd(localSkillDir, { name: "custom-name" });
 
@@ -520,7 +520,7 @@ describe("profile add", () => {
 
     const profile: Profile = { name: "dev", skills: [] };
     await writeProfile(getProfilePath("dev"), profile);
-    await setActiveProfileName(getActiveProfileFilePath(), "dev");
+    await setActiveProfileName("dev");
 
     await profileAdd("my-skill", {});
 
@@ -548,7 +548,7 @@ describe("profile add", () => {
 
     const profile: Profile = { name: "dev", skills: [] };
     await writeProfile(getProfilePath("dev"), profile);
-    await setActiveProfileName(getActiveProfileFilePath(), "dev");
+    await setActiveProfileName("dev");
 
     await profileAdd("my-skill@v1", {});
 
@@ -576,7 +576,7 @@ describe("profile add", () => {
 
     const profile: Profile = { name: "dev", skills: [] };
     await writeProfile(getProfilePath("dev"), profile);
-    await setActiveProfileName(getActiveProfileFilePath(), "dev");
+    await setActiveProfileName("dev");
 
     await profileAdd("my-skill@previous", {});
 
@@ -601,7 +601,7 @@ describe("profile rm", () => {
       ],
     };
     await writeProfile(getProfilePath("dev"), profile);
-    await setActiveProfileName(getActiveProfileFilePath(), "dev");
+    await setActiveProfileName("dev");
 
     // Create linked skill on disk
     const skillDir = join(getGlobalSkillsPath(), "brainstorming");
@@ -630,7 +630,7 @@ describe("profile rm", () => {
     };
     await writeProfile(getProfilePath("dev"), devProfile);
     await writeProfile(getProfilePath("work"), workProfile);
-    await setActiveProfileName(getActiveProfileFilePath(), "dev");
+    await setActiveProfileName("dev");
 
     await profileRm("brainstorming", { profileName: "work" });
 
@@ -642,7 +642,7 @@ describe("profile rm", () => {
   test("throws when skill not in profile", async () => {
     const profile: Profile = { name: "dev", skills: [] };
     await writeProfile(getProfilePath("dev"), profile);
-    await setActiveProfileName(getActiveProfileFilePath(), "dev");
+    await setActiveProfileName("dev");
 
     expect(
       profileRm("nonexistent", {})
@@ -675,7 +675,7 @@ describe("profile rm", () => {
       ],
     };
     await writeProfile(getProfilePath("dev"), profile);
-    await setActiveProfileName(getActiveProfileFilePath(), "dev");
+    await setActiveProfileName("dev");
 
     // Create linked skill on disk
     const skillDir = join(getGlobalSkillsPath(), "brainstorming");
@@ -697,7 +697,7 @@ describe("profile rm", () => {
       ],
     };
     await writeProfile(getProfilePath("dev"), profile);
-    await setActiveProfileName(getActiveProfileFilePath(), "dev");
+    await setActiveProfileName("dev");
 
     // Skill not on disk — should not throw
     await profileRm("ghost", {});
@@ -717,7 +717,7 @@ describe("profile delete", () => {
     const profile: Profile = { name: "work", skills: [] };
     await writeProfile(getProfilePath("work"), profile);
     // Set a different profile as active
-    await setActiveProfileName(getActiveProfileFilePath(), "dev");
+    await setActiveProfileName("dev");
 
     await profileDelete("work");
 
@@ -728,7 +728,7 @@ describe("profile delete", () => {
   test("refuses to delete active profile", async () => {
     const profile: Profile = { name: "dev", skills: [] };
     await writeProfile(getProfilePath("dev"), profile);
-    await setActiveProfileName(getActiveProfileFilePath(), "dev");
+    await setActiveProfileName("dev");
 
     expect(
       profileDelete("dev")
@@ -772,22 +772,22 @@ describe("profile rename", () => {
   test("updates active-profile marker when renaming active profile", async () => {
     const profile: Profile = { name: "dev", skills: [] };
     await writeProfile(getProfilePath("dev"), profile);
-    await setActiveProfileName(getActiveProfileFilePath(), "dev");
+    await setActiveProfileName("dev");
 
     await profileRename("dev", "development");
 
-    const active = await getActiveProfileName(getActiveProfileFilePath());
+    const active = await getActiveProfileName();
     expect(active).toBe("development");
   });
 
   test("does not change active marker when renaming non-active profile", async () => {
     const profile: Profile = { name: "work", skills: [] };
     await writeProfile(getProfilePath("work"), profile);
-    await setActiveProfileName(getActiveProfileFilePath(), "dev");
+    await setActiveProfileName("dev");
 
     await profileRename("work", "job");
 
-    const active = await getActiveProfileName(getActiveProfileFilePath());
+    const active = await getActiveProfileName();
     expect(active).toBe("dev");
   });
 
@@ -842,11 +842,11 @@ describe("profile clone", () => {
   test("does not change active profile", async () => {
     const profile: Profile = { name: "dev", skills: [] };
     await writeProfile(getProfilePath("dev"), profile);
-    await setActiveProfileName(getActiveProfileFilePath(), "dev");
+    await setActiveProfileName("dev");
 
     await profileClone("dev", "dev-copy");
 
-    const active = await getActiveProfileName(getActiveProfileFilePath());
+    const active = await getActiveProfileName();
     expect(active).toBe("dev");
   });
 

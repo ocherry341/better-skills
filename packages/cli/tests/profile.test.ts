@@ -1,6 +1,5 @@
 import { describe, test, expect, beforeEach } from "bun:test";
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
+import { writeFile, mkdir, rm } from "fs/promises";
 import {
   ProfileSchema,
   type Profile,
@@ -13,7 +12,6 @@ import {
 import {
   cleanTestHome,
   getProfilesPath,
-  getActiveProfileFilePath,
   getProfilePath,
 } from "../src/utils/paths.js";
 
@@ -71,23 +69,24 @@ describe("profile CRUD", () => {
   test("listProfiles returns profile names", async () => {
     await writeFile(getProfilePath("a"), "{}");
     await writeFile(getProfilePath("b"), "{}");
-    const names = await listProfiles(getProfilesPath());
+    const names = await listProfiles();
     expect(names.sort()).toEqual(["a", "b"]);
   });
 
   test("listProfiles returns empty for missing dir", async () => {
-    const names = await listProfiles(join(getProfilesPath(), "nope"));
+    await rm(getProfilesPath(), { recursive: true, force: true });
+    const names = await listProfiles();
     expect(names).toEqual([]);
   });
 
   test("setActiveProfileName + getActiveProfileName round-trips", async () => {
-    await setActiveProfileName(getActiveProfileFilePath(), "work");
-    const name = await getActiveProfileName(getActiveProfileFilePath());
+    await setActiveProfileName("work");
+    const name = await getActiveProfileName();
     expect(name).toBe("work");
   });
 
   test("getActiveProfileName returns null for missing file", async () => {
-    const name = await getActiveProfileName(getActiveProfileFilePath());
+    const name = await getActiveProfileName();
     expect(name).toBeNull();
   });
 });

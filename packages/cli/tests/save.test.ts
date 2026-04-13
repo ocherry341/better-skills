@@ -6,7 +6,7 @@ import { readProfile, writeProfile, setActiveProfileName, getActiveProfileName }
 import { hashDirectory } from "../src/core/hasher.js";
 import * as store from "../src/core/store.js";
 import { save } from "../src/commands/save.js";
-import { cleanTestHome, getGlobalSkillsPath, getStorePath, getProfilesPath, getActiveProfileFilePath, getProfilePath } from "../src/utils/paths.js";
+import { cleanTestHome, getGlobalSkillsPath, getStorePath, getProfilesPath, getProfilePath } from "../src/utils/paths.js";
 
 describe("save command", () => {
   beforeEach(async () => {
@@ -84,11 +84,11 @@ describe("save command", () => {
     await mkdir(skill, { recursive: true });
     await writeFile(join(skill, "SKILL.md"), "# S");
 
-    expect(await getActiveProfileName(getActiveProfileFilePath())).toBeNull();
+    expect(await getActiveProfileName()).toBeNull();
 
     await save();
 
-    expect(await getActiveProfileName(getActiveProfileFilePath())).toBe("default");
+    expect(await getActiveProfileName()).toBe("default");
     const profile = await readProfile(getProfilePath("default"));
     expect(profile.skills).toHaveLength(1);
     expect(profile.skills[0].skillName).toBe("my-skill");
@@ -97,7 +97,7 @@ describe("save command", () => {
 
   test("updates active profile with new version", async () => {
     await writeProfile(getProfilePath("dev"), { name: "dev", skills: [] });
-    await setActiveProfileName(getActiveProfileFilePath(), "dev");
+    await setActiveProfileName("dev");
 
     const skill = join(getGlobalSkillsPath(), "my-skill");
     await mkdir(skill, { recursive: true });
@@ -158,7 +158,7 @@ describe("save command", () => {
 
   test("adds to existing active profile", async () => {
     await writeProfile(getProfilePath("work"), { name: "work", skills: [] });
-    await setActiveProfileName(getActiveProfileFilePath(), "work");
+    await setActiveProfileName("work");
 
     const skill1 = join(getGlobalSkillsPath(), "my-skill");
     await mkdir(skill1, { recursive: true });
@@ -166,7 +166,7 @@ describe("save command", () => {
 
     await save();
 
-    expect(await getActiveProfileName(getActiveProfileFilePath())).toBe("work");
+    expect(await getActiveProfileName()).toBe("work");
     const profile = await readProfile(getProfilePath("work"));
     expect(profile.skills).toHaveLength(1);
     expect(profile.skills[0].skillName).toBe("my-skill");
