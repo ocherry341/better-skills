@@ -1,9 +1,16 @@
 import { describe, test, expect, beforeEach } from "bun:test";
 import { $ } from "bun";
-import { mkdir, writeFile } from "fs/promises";
+import { mkdir, mkdtemp, writeFile } from "fs/promises";
+import { tmpdir } from "os";
 import { join } from "path";
 import { ls, lsAll, type LsEntry, type LsAllEntry } from "../src/commands/ls.js";
 import { cleanTestHome, getGlobalSkillsPath, getProjectSkillsPath, getRegistryPath, getBskDir } from "../src/utils/paths.js";
+
+function projectSkillsPath(): string {
+  const path = getProjectSkillsPath();
+  if (!path) throw new Error("Expected project skills path in test mode");
+  return path;
+}
 
 const cli = join(import.meta.dir, "../src/cli.ts");
 
@@ -28,8 +35,8 @@ describe("ls", () => {
   });
 
   test("shows skill only in project", async () => {
-    await mkdir(join(getProjectSkillsPath(), "local-skill"), { recursive: true });
-    await writeFile(join(getProjectSkillsPath(), "local-skill", "SKILL.md"), "---\nname: local-skill\n---\n");
+    await mkdir(join(projectSkillsPath(), "local-skill"), { recursive: true });
+    await writeFile(join(projectSkillsPath(), "local-skill", "SKILL.md"), "---\nname: local-skill\n---\n");
 
     const entries = await ls();
     expect(entries).toEqual([
@@ -40,8 +47,8 @@ describe("ls", () => {
   test("shows skill in both global and project", async () => {
     await mkdir(join(getGlobalSkillsPath(), "shared-skill"), { recursive: true });
     await writeFile(join(getGlobalSkillsPath(), "shared-skill", "SKILL.md"), "---\nname: shared-skill\n---\n");
-    await mkdir(join(getProjectSkillsPath(), "shared-skill"), { recursive: true });
-    await writeFile(join(getProjectSkillsPath(), "shared-skill", "SKILL.md"), "---\nname: shared-skill\n---\n");
+    await mkdir(join(projectSkillsPath(), "shared-skill"), { recursive: true });
+    await writeFile(join(projectSkillsPath(), "shared-skill", "SKILL.md"), "---\nname: shared-skill\n---\n");
 
     const entries = await ls();
     expect(entries).toEqual([
@@ -52,10 +59,35 @@ describe("ls", () => {
   test("merges and sorts skills from both sources", async () => {
     await mkdir(join(getGlobalSkillsPath(), "zeta"), { recursive: true });
     await mkdir(join(getGlobalSkillsPath(), "alpha"), { recursive: true });
-    await mkdir(join(getProjectSkillsPath(), "beta"), { recursive: true });
+    await mkdir(join(projectSkillsPath(), "beta"), { recursive: true });
 
     const entries = await ls();
     expect(entries.map((e) => e.name)).toEqual(["alpha", "beta", "zeta"]);
+  });
+
+  test("when cwd is home outside test mode, global skills are not misclassified as project skills", async () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    const originalHome = process.env.HOME;
+    const originalCwd = process.cwd();
+    const fakeHome = await mkdtemp(join(tmpdir(), "bsk-home-ls-"));
+
+    try {
+      process.env.NODE_ENV = "production";
+      process.env.HOME = fakeHome;
+      process.chdir(fakeHome);
+
+      await mkdir(join(fakeHome, ".agents", "skills", "my-skill"), { recursive: true });
+      await writeFile(join(fakeHome, ".agents", "skills", "my-skill", "SKILL.md"), "---\nname: my-skill\n---\n");
+
+      const entries = await ls();
+      expect(entries).toEqual([
+        { name: "my-skill", global: true, project: false },
+      ]);
+    } finally {
+      process.chdir(originalCwd);
+      process.env.NODE_ENV = originalNodeEnv;
+      process.env.HOME = originalHome;
+    }
   });
 });
 

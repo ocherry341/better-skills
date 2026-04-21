@@ -22,7 +22,7 @@ import {
   getProfilesPath,
   getGlobalSkillsPath,
   getStorePath,
-  getProjectSkillsPath,
+  getSkillsPath,
 } from "../utils/paths.js";
 
 export interface ProfileCreateInternalOptions {
@@ -422,6 +422,7 @@ export async function profileApply(
 ): Promise<void> {
   const filePath = join(getProfilesPath(), `${name}.json`);
   const profile = await readProfile(filePath);
+  const projectSkillsDir = getSkillsPath(false);
 
   if (profile.skills.length === 0) {
     console.log(`Profile '${name}' has no skills to apply.`);
@@ -429,7 +430,6 @@ export async function profileApply(
   }
 
   const registry = await readRegistry();
-  const projectSkillsDir = getProjectSkillsPath();
 
   if (opts.replace) {
     await rm(projectSkillsDir, { recursive: true, force: true });

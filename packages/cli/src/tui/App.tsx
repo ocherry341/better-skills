@@ -573,9 +573,19 @@ export function App({ version }: AppProps) {
                   showNotification("Skill has no linked directory", "error");
                   return;
                 }
+
+                const projectSkillsPath = getProjectSkillsPath();
                 const dir = skill.global
                   ? join(getGlobalSkillsPath(), skill.name)
-                  : join(getProjectSkillsPath(), skill.name);
+                  : projectSkillsPath
+                    ? join(projectSkillsPath, skill.name)
+                    : null;
+
+                if (!dir) {
+                  showNotification("No project context in current directory.", "error");
+                  return;
+                }
+
                 setActionMode({ type: "editing" });
                 openInEditor(dir)
                   .catch((err) => {

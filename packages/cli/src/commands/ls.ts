@@ -33,7 +33,7 @@ export async function ls(): Promise<LsEntry[]> {
   const projectDir = getProjectSkillsPath();
 
   const globalNames = await listDirNames(globalDir);
-  const projectNames = await listDirNames(projectDir);
+  const projectNames = projectDir ? await listDirNames(projectDir) : new Set<string>();
 
   const allNames = new Set([...globalNames, ...projectNames]);
   if (allNames.size === 0) return [];

@@ -5,7 +5,7 @@ import { hashDirectory } from "../core/hasher.js";
 import * as store from "../core/store.js";
 import { verifiedLinkSkill } from "../core/store.js";
 import { registerSkill } from "../core/registry.js";
-import { getGlobalSkillsPath, getProjectSkillsPath } from "../utils/paths.js";
+import { getGlobalSkillsPath, getSkillsPath } from "../utils/paths.js";
 import { addSkillToProfile } from "./add.js";
 
 export interface MvToProjectOptions {
@@ -17,7 +17,7 @@ export async function mvToProject(
   options: MvToProjectOptions = {}
 ): Promise<void> {
   const globalDir = getGlobalSkillsPath();
-  const projectDir = getProjectSkillsPath();
+  const projectDir = getSkillsPath(false);
   const sourceDir = join(globalDir, name);
   const targetDir = join(projectDir, name);
 
@@ -51,7 +51,7 @@ export async function mvToGlobal(
   name: string,
   options: MvToGlobalOptions = {}
 ): Promise<void> {
-  const projectDir = getProjectSkillsPath();
+  const projectDir = getSkillsPath(false);
   const globalDir = getGlobalSkillsPath();
   const sourceDir = join(projectDir, name);
   const targetDir = join(globalDir, name);

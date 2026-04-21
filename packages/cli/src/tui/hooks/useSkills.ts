@@ -37,6 +37,7 @@ export function useSkills(externalRefreshKey = 0, showAll = false): UseSkillsRes
         const entries = await ls();
         const registry = await readRegistry();
 
+        const projectSkillsPath = getProjectSkillsPath();
         const details: SkillDetail[] = await Promise.all(
           entries.map(async (entry) => {
             const latest = getLatestVersion(registry, entry.name);
@@ -44,11 +45,15 @@ export function useSkills(externalRefreshKey = 0, showAll = false): UseSkillsRes
 
             const dir = entry.global
               ? join(getGlobalSkillsPath(), entry.name)
-              : join(getProjectSkillsPath(), entry.name);
-            try {
-              skillMdContent = await readFile(join(dir, "SKILL.md"), "utf-8");
-            } catch {
-              // No SKILL.md
+              : projectSkillsPath
+                ? join(projectSkillsPath, entry.name)
+                : null;
+            if (dir) {
+              try {
+                skillMdContent = await readFile(join(dir, "SKILL.md"), "utf-8");
+              } catch {
+                // No SKILL.md
+              }
             }
 
             return {

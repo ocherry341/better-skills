@@ -21,6 +21,9 @@ export interface AddOptions {
  * Add a skill: Resolve → Fetch → Hash → Store → Link
  */
 export async function add(source: string, options: AddOptions = {}): Promise<void> {
+  // Validate target context before fetching, hashing, or storing anything.
+  getSkillsPath(options.global ?? false);
+
   // 1. Resolve source
   console.log(`Resolving ${source}...`);
   const descriptor = resolve(source);

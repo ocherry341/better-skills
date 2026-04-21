@@ -1,12 +1,13 @@
 import { describe, test, expect, beforeEach } from "bun:test";
-import { mkdir, readdir, writeFile, readFile } from "fs/promises";
+import { mkdir, mkdtemp, readdir, stat, writeFile, readFile } from "fs/promises";
+import { tmpdir } from "os";
 import { join } from "path";
 import { hashDirectory } from "../src/core/hasher.js";
 import * as store from "../src/core/store.js";
 import { linkSkill, cpRecursive } from "../src/core/linker.js";
 import { registerSkill, isManaged, readRegistry } from "../src/core/registry.js";
 import { profileUse } from "../src/commands/profile.js";
-import { addSkillToProfile } from "../src/commands/add.js";
+import { add, addSkillToProfile } from "../src/commands/add.js";
 import { type Profile, writeProfile, readProfile, getActiveProfileName, setActiveProfileName } from "../src/core/profile.js";
 import { cleanTestHome, getGlobalSkillsPath, getStorePath, getProfilesPath, getProfilePath, home } from "../src/utils/paths.js";
 
@@ -117,6 +118,32 @@ describe("add -g conflict detection", () => {
     const entries = await readdir(unmanagedDir);
     expect(entries).not.toContain("README.md");
     expect(entries).toContain("SKILL.md");
+  });
+});
+
+describe("add project context validation", () => {
+  test("rejects project add from home before creating store data", async () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    const originalHome = process.env.HOME;
+    const originalCwd = process.cwd();
+    const fakeHome = await mkdtemp(join(tmpdir(), "bsk-home-add-"));
+    const sourceDir = join(fakeHome, "source-skill");
+
+    try {
+      process.env.NODE_ENV = "production";
+      process.env.HOME = fakeHome;
+      process.chdir(fakeHome);
+
+      await mkdir(sourceDir, { recursive: true });
+      await writeFile(join(sourceDir, "SKILL.md"), "---\nname: source-skill\n---\n# Skill");
+
+      await expect(add(sourceDir, {})).rejects.toThrow("No project context in current directory.");
+      await expect(stat(join(fakeHome, ".better-skills", "store"))).rejects.toThrow();
+    } finally {
+      process.chdir(originalCwd);
+      process.env.NODE_ENV = originalNodeEnv;
+      process.env.HOME = originalHome;
+    }
   });
 });
 

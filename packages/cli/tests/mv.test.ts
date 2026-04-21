@@ -1,9 +1,16 @@
 import { describe, test, expect, beforeEach } from "bun:test";
-import { mkdir, writeFile, readFile, stat } from "fs/promises";
+import { mkdir, mkdtemp, writeFile, readFile, stat } from "fs/promises";
+import { tmpdir } from "os";
 import { join } from "path";
 import { mvToProject, mvToGlobal } from "../src/commands/mv.js";
 import { readRegistry } from "../src/core/registry.js";
 import { cleanTestHome, getGlobalSkillsPath, getProjectSkillsPath, getStorePath } from "../src/utils/paths.js";
+
+function projectSkillsPath(): string {
+  const path = getProjectSkillsPath();
+  if (!path) throw new Error("Expected project skills path in test mode");
+  return path;
+}
 
 describe("mv to project", () => {
   beforeEach(async () => {
@@ -19,7 +26,7 @@ describe("mv to project", () => {
     await mvToProject("my-skill");
 
     // Project copy exists
-    const content = await readFile(join(getProjectSkillsPath(), "my-skill", "SKILL.md"), "utf-8");
+    const content = await readFile(join(projectSkillsPath(), "my-skill", "SKILL.md"), "utf-8");
     expect(content).toBe("# My Skill");
 
     // Global copy still exists
@@ -38,8 +45,8 @@ describe("mv to project", () => {
     await mkdir(globalSkill, { recursive: true });
     await writeFile(join(globalSkill, "SKILL.md"), "# Global");
 
-    await mkdir(join(getProjectSkillsPath(), "my-skill"), { recursive: true });
-    await writeFile(join(getProjectSkillsPath(), "my-skill", "SKILL.md"), "# Project");
+    await mkdir(join(projectSkillsPath(), "my-skill"), { recursive: true });
+    await writeFile(join(projectSkillsPath(), "my-skill", "SKILL.md"), "# Project");
 
     expect(
       mvToProject("my-skill")
@@ -51,14 +58,14 @@ describe("mv to project", () => {
     await mkdir(globalSkill, { recursive: true });
     await writeFile(join(globalSkill, "SKILL.md"), "# Global Version");
 
-    await mkdir(join(getProjectSkillsPath(), "my-skill"), { recursive: true });
-    await writeFile(join(getProjectSkillsPath(), "my-skill", "SKILL.md"), "# Project Version");
+    await mkdir(join(projectSkillsPath(), "my-skill"), { recursive: true });
+    await writeFile(join(projectSkillsPath(), "my-skill", "SKILL.md"), "# Project Version");
 
     await mvToProject("my-skill", {
       force: true,
     });
 
-    const content = await readFile(join(getProjectSkillsPath(), "my-skill", "SKILL.md"), "utf-8");
+    const content = await readFile(join(projectSkillsPath(), "my-skill", "SKILL.md"), "utf-8");
     expect(content).toBe("# Global Version");
   });
 
@@ -70,8 +77,33 @@ describe("mv to project", () => {
     // projectSkillsDir does not exist yet
     await mvToProject("my-skill");
 
-    const content = await readFile(join(getProjectSkillsPath(), "my-skill", "SKILL.md"), "utf-8");
+    const content = await readFile(join(projectSkillsPath(), "my-skill", "SKILL.md"), "utf-8");
     expect(content).toBe("# Skill");
+  });
+
+  test("rejects moving to project when cwd is home outside test mode", async () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    const originalHome = process.env.HOME;
+    const originalCwd = process.cwd();
+    const fakeHome = await mkdtemp(join(tmpdir(), "bsk-home-mv-project-"));
+
+    try {
+      process.env.NODE_ENV = "production";
+      process.env.HOME = fakeHome;
+      process.chdir(fakeHome);
+
+      const globalSkill = join(fakeHome, ".agents", "skills", "my-skill");
+      await mkdir(globalSkill, { recursive: true });
+      await writeFile(join(globalSkill, "SKILL.md"), "# Skill");
+
+      await expect(mvToProject("my-skill")).rejects.toThrow(
+        "No project context in current directory."
+      );
+    } finally {
+      process.chdir(originalCwd);
+      process.env.NODE_ENV = originalNodeEnv;
+      process.env.HOME = originalHome;
+    }
   });
 });
 
@@ -79,12 +111,12 @@ describe("mv to global", () => {
   beforeEach(async () => {
     await cleanTestHome();
     await mkdir(getGlobalSkillsPath(), { recursive: true });
-    await mkdir(getProjectSkillsPath(), { recursive: true });
+    await mkdir(projectSkillsPath(), { recursive: true });
     await mkdir(getStorePath(), { recursive: true });
   });
 
   test("moves project skill to global: store, register, link, remove project copy", async () => {
-    const projectSkill = join(getProjectSkillsPath(), "my-skill");
+    const projectSkill = join(projectSkillsPath(), "my-skill");
     await mkdir(projectSkill, { recursive: true });
     await writeFile(join(projectSkill, "SKILL.md"), "# My Skill");
 
@@ -111,7 +143,7 @@ describe("mv to global", () => {
   });
 
   test("errors when skill already exists in global without --force", async () => {
-    const projectSkill = join(getProjectSkillsPath(), "my-skill");
+    const projectSkill = join(projectSkillsPath(), "my-skill");
     await mkdir(projectSkill, { recursive: true });
     await writeFile(join(projectSkill, "SKILL.md"), "# Project");
 
@@ -125,7 +157,7 @@ describe("mv to global", () => {
   });
 
   test("overwrites global skill with --force", async () => {
-    const projectSkill = join(getProjectSkillsPath(), "my-skill");
+    const projectSkill = join(projectSkillsPath(), "my-skill");
     await mkdir(projectSkill, { recursive: true });
     await writeFile(join(projectSkill, "SKILL.md"), "# From Project");
 
@@ -142,5 +174,26 @@ describe("mv to global", () => {
 
     // Project copy removed
     await expect(stat(projectSkill)).rejects.toThrow();
+  });
+
+  test("rejects moving to global when cwd is home outside test mode", async () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    const originalHome = process.env.HOME;
+    const originalCwd = process.cwd();
+    const fakeHome = await mkdtemp(join(tmpdir(), "bsk-home-mv-global-"));
+
+    try {
+      process.env.NODE_ENV = "production";
+      process.env.HOME = fakeHome;
+      process.chdir(fakeHome);
+
+      await expect(mvToGlobal("my-skill")).rejects.toThrow(
+        "No project context in current directory."
+      );
+    } finally {
+      process.chdir(originalCwd);
+      process.env.NODE_ENV = originalNodeEnv;
+      process.env.HOME = originalHome;
+    }
   });
 });

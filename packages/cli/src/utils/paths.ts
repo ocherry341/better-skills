@@ -42,13 +42,30 @@ export function getGlobalSkillsPath(): string {
 }
 
 /** Project-local skills target directory */
-export function getProjectSkillsPath(): string {
+export function getProjectSkillsPath(): string | null {
+  if (process.env.NODE_ENV === "test") {
+    return join(home(), "project", ".agents", "skills");
+  }
+
+  if (resolve(process.cwd()) === resolve(home())) {
+    return null;
+  }
+
   return join(getProjectRoot(), ".agents", "skills");
 }
 
 /** Resolve the skills target path based on global flag */
 export function getSkillsPath(global: boolean): string {
-  return global ? getGlobalSkillsPath() : getProjectSkillsPath();
+  if (global) {
+    return getGlobalSkillsPath();
+  }
+
+  const projectPath = getProjectSkillsPath();
+  if (!projectPath) {
+    throw new Error("No project context in current directory.");
+  }
+
+  return projectPath;
 }
 
 /** Directory containing all profile JSON files */

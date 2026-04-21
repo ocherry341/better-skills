@@ -1,5 +1,6 @@
 import { describe, test, expect, beforeEach } from "bun:test";
-import { mkdir, writeFile, readdir, readFile } from "fs/promises";
+import { mkdir, mkdtemp, writeFile, readdir, readFile } from "fs/promises";
+import { tmpdir } from "os";
 import { join } from "path";
 import { profileApply } from "../src/commands/profile.js";
 import { type Profile, writeProfile } from "../src/core/profile.js";
@@ -7,6 +8,12 @@ import { registerSkill } from "../src/core/registry.js";
 import { hashDirectory } from "../src/core/hasher.js";
 import { cpRecursive } from "../src/core/linker.js";
 import { cleanTestHome, getProfilesPath, getStorePath, getProjectSkillsPath, getProfilePath, home } from "../src/utils/paths.js";
+
+function projectSkillsPath(): string {
+  const path = getProjectSkillsPath();
+  if (!path) throw new Error("Expected project skills path in test mode");
+  return path;
+}
 
 describe("profile apply", () => {
   beforeEach(async () => {
@@ -43,10 +50,10 @@ describe("profile apply", () => {
 
     await profileApply("dev", {});
 
-    const entries = (await readdir(getProjectSkillsPath())).sort();
+    const entries = (await readdir(projectSkillsPath())).sort();
     expect(entries).toEqual(["skill-a", "skill-b"]);
 
-    const contentA = await readFile(join(getProjectSkillsPath(), "skill-a", "SKILL.md"), "utf-8");
+    const contentA = await readFile(join(projectSkillsPath(), "skill-a", "SKILL.md"), "utf-8");
     expect(contentA).toContain("Skill A");
   });
 
@@ -54,8 +61,8 @@ describe("profile apply", () => {
     await setupSkill("skill-a", "# Skill A");
     await setupSkill("skill-b", "# Skill B");
 
-    await mkdir(join(getProjectSkillsPath(), "skill-a"), { recursive: true });
-    await writeFile(join(getProjectSkillsPath(), "skill-a", "SKILL.md"), "# Custom A");
+    await mkdir(join(projectSkillsPath(), "skill-a"), { recursive: true });
+    await writeFile(join(projectSkillsPath(), "skill-a", "SKILL.md"), "# Custom A");
 
     const profile: Profile = {
       name: "dev",
@@ -68,10 +75,10 @@ describe("profile apply", () => {
 
     await profileApply("dev", {});
 
-    const contentA = await readFile(join(getProjectSkillsPath(), "skill-a", "SKILL.md"), "utf-8");
+    const contentA = await readFile(join(projectSkillsPath(), "skill-a", "SKILL.md"), "utf-8");
     expect(contentA).toBe("# Custom A");
 
-    const entries = (await readdir(getProjectSkillsPath())).sort();
+    const entries = (await readdir(projectSkillsPath())).sort();
     expect(entries).toEqual(["skill-a", "skill-b"]);
   });
 
@@ -79,8 +86,8 @@ describe("profile apply", () => {
     await setupSkill("skill-b", "# Skill B");
     await setupSkill("skill-c", "# Skill C");
 
-    await mkdir(join(getProjectSkillsPath(), "old-skill"), { recursive: true });
-    await writeFile(join(getProjectSkillsPath(), "old-skill", "SKILL.md"), "# Old");
+    await mkdir(join(projectSkillsPath(), "old-skill"), { recursive: true });
+    await writeFile(join(projectSkillsPath(), "old-skill", "SKILL.md"), "# Old");
 
     const profile: Profile = {
       name: "dev",
@@ -93,7 +100,7 @@ describe("profile apply", () => {
 
     await profileApply("dev", { replace: true });
 
-    const entries = (await readdir(getProjectSkillsPath())).sort();
+    const entries = (await readdir(projectSkillsPath())).sort();
     expect(entries).toEqual(["skill-b", "skill-c"]);
   });
 
@@ -103,7 +110,7 @@ describe("profile apply", () => {
 
     await profileApply("empty", {});
 
-    await expect(readdir(getProjectSkillsPath())).rejects.toThrow();
+    await expect(readdir(projectSkillsPath())).rejects.toThrow();
   });
 
   test("skips skills not found in registry", async () => {
@@ -120,7 +127,7 @@ describe("profile apply", () => {
 
     await profileApply("dev", {});
 
-    const entries = await readdir(getProjectSkillsPath());
+    const entries = await readdir(projectSkillsPath());
     expect(entries).toEqual(["skill-a"]);
   });
 
@@ -128,5 +135,59 @@ describe("profile apply", () => {
     expect(
       profileApply("nope", {})
     ).rejects.toThrow();
+  });
+
+  test("rejects applying a profile to project when cwd is home outside test mode", async () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    const originalHome = process.env.HOME;
+    const originalCwd = process.cwd();
+    const fakeHome = await mkdtemp(join(tmpdir(), "bsk-home-profile-apply-"));
+
+    try {
+      process.env.NODE_ENV = "production";
+      process.env.HOME = fakeHome;
+      process.chdir(fakeHome);
+
+      await mkdir(join(fakeHome, ".better-skills", "profiles"), { recursive: true });
+      await writeProfile(join(fakeHome, ".better-skills", "profiles", "dev.json"), {
+        name: "dev",
+        skills: [{ skillName: "skill-a", v: 1, source: "test/repo", addedAt: "2026-01-01T00:00:00.000Z" }],
+      });
+
+      await expect(profileApply("dev", {})).rejects.toThrow(
+        "No project context in current directory."
+      );
+    } finally {
+      process.chdir(originalCwd);
+      process.env.NODE_ENV = originalNodeEnv;
+      process.env.HOME = originalHome;
+    }
+  });
+
+  test("rejects empty profile apply when cwd is home outside test mode", async () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    const originalHome = process.env.HOME;
+    const originalCwd = process.cwd();
+    const fakeHome = await mkdtemp(join(tmpdir(), "bsk-home-profile-empty-"));
+
+    try {
+      process.env.NODE_ENV = "production";
+      process.env.HOME = fakeHome;
+      process.chdir(fakeHome);
+
+      await mkdir(join(fakeHome, ".better-skills", "profiles"), { recursive: true });
+      await writeProfile(join(fakeHome, ".better-skills", "profiles", "empty.json"), {
+        name: "empty",
+        skills: [],
+      });
+
+      await expect(profileApply("empty", {})).rejects.toThrow(
+        "No project context in current directory."
+      );
+    } finally {
+      process.chdir(originalCwd);
+      process.env.NODE_ENV = originalNodeEnv;
+      process.env.HOME = originalHome;
+    }
   });
 });
