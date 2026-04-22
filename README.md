@@ -4,6 +4,8 @@ A pnpm-inspired CLI for managing Agent skills with content-addressable storage.
 
 **better-skills** lets you add, version, and sync reusable AI agent skills across multiple clients (Claude, Cursor, Copilot, Gemini, and more) — with deduplication, profiles, and zero lock-in.
 
+![bsk demo](https://raw.githubusercontent.com/ocherry341/better-skills/assets/demo.gif)
+
 ## Features
 
 - **Content-addressable storage** — Skills are SHA-256 hashed and deduplicated in a global store
