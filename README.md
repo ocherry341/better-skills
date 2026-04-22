@@ -2,18 +2,16 @@
 
 A pnpm-inspired CLI for managing Agent skills with content-addressable storage.
 
-**better-skills** lets you add, version, and sync reusable AI agent skills across multiple clients (Claude, Cursor, Copilot, Gemini, and more) — with deduplication, profiles, and zero lock-in.
-
 ![bsk demo](https://raw.githubusercontent.com/ocherry341/better-skills/assets/demo.gif)
 
 ## Features
 
 - **Content-addressable storage** — Skills are SHA-256 hashed and deduplicated in a global store
-- **Multi-client support** — Sync skills to Claude, Cursor, OpenCode, Gemini, Copilot, Roo, Goose, and Amp simultaneously
 - **Profile management** — Create named skill collections, switch between them instantly
 - **Version tracking** — Every save creates a new version; reference any version by number
 - **Global & project scopes** — Install skills user-wide or per-project, move them freely between scopes
 - **Multiple sources** — Add skills from GitHub repos, git URLs, or local paths
+- **Multi-client support** — Sync skills to Claude, Cursor, OpenCode, Gemini, Copilot, Roo, Goose, and Amp simultaneously
 
 ## Installation
 
@@ -80,7 +78,6 @@ bsk rm <name>             # Remove a skill
 bsk ls [-a]               # List skills (-a for all managed)
 bsk save [name]           # Save new/changed skills to management
 bsk mv <skill> <scope>    # Move skill between global/project scope
-bsk tui                   # Launch interactive TUI (also: bare bsk)
 ```
 
 Options for `add` / `install`:
