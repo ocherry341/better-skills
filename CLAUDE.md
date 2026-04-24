@@ -23,6 +23,14 @@ bun test packages/cli/tests/resolver.test.ts
 
 Tests use Bun's built-in test runner (`bun:test`). The test command filters to the `better-skills` workspace package.
 
+### Path safety principles
+
+`packages/cli/src/utils/paths.ts` is the single entry point for managed paths. It redirects home/project/global paths under `NODE_ENV=test` so tests cannot touch real user files such as `~/.agents` or `~/.better-skills`.
+
+- All application and test paths must be built from `paths.ts`; do not construct managed paths directly in code or tests.
+- Do not bypass the `NODE_ENV=test` path isolation logic.
+- Tests must not modify `process.env.NODE_ENV`; use pure path helpers for production path behavior.
+
 ## Architecture
 
 **better-skills** (`bsk`) is a pnpm-inspired CLI for managing Agent skills (`.agents/skills/` directories) with content-addressable storage. Uses ink (React-based terminal UI) for the TUI interface.
