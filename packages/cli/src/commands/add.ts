@@ -4,7 +4,7 @@ import { hashDirectory } from "../core/hasher.js";
 import * as store from "../core/store.js";
 import { verifiedLinkSkill } from "../core/store.js";
 import { getSkillsPath, getProfilesPath } from "../utils/paths.js";
-import { readSkillMd } from "../utils/skill-md.js";
+import { hasSkillMd, readSkillMd } from "../utils/skill-md.js";
 import { readProfile, writeProfile, getActiveProfileName, setActiveProfileName } from "../core/profile.js";
 import { registerSkill, isManaged } from "../core/registry.js";
 import { stat } from "fs/promises";
@@ -15,6 +15,7 @@ export interface AddOptions {
   hardlink?: boolean;
   name?: string;
   force?: boolean;
+  skill?: string[];
 }
 
 /**
@@ -33,11 +34,26 @@ export async function add(source: string, options: AddOptions = {}): Promise<voi
   const result = await fetchAll(descriptor);
 
   try {
-    const skillDirs = result.skills;
+    let skillDirs = result.skills;
 
     if (skillDirs.length === 0) {
       console.log("No skills found (no SKILL.md files detected).");
       return;
+    }
+
+    if (options.skill && options.skill.length > 0) {
+      skillDirs = await filterValidSkillDirs(skillDirs);
+
+      if (skillDirs.length === 0) {
+        console.log("No skills found (no SKILL.md files detected).");
+        return;
+      }
+
+      skillDirs = await selectSkillDirs(skillDirs, options.skill);
+    }
+
+    if (options.name && skillDirs.length > 1) {
+      throw new Error("--name can only be used when installing a single skill.");
     }
 
     for (const skillDir of skillDirs) {
@@ -46,6 +62,73 @@ export async function add(source: string, options: AddOptions = {}): Promise<voi
   } finally {
     await result.cleanup();
   }
+}
+
+async function filterValidSkillDirs(skillDirs: string[]): Promise<string[]> {
+  const valid: string[] = [];
+
+  for (const dir of skillDirs) {
+    if (await hasSkillMd(dir)) {
+      valid.push(dir);
+    }
+  }
+
+  return valid;
+}
+
+async function selectSkillDirs(skillDirs: string[], requestedSkills?: string[]): Promise<string[]> {
+  if (!requestedSkills || requestedSkills.length === 0 || requestedSkills.includes("*")) {
+    return skillDirs;
+  }
+
+  const selected = await filterSkillDirsByName(skillDirs, requestedSkills);
+  if (selected.length > 0) {
+    return selected;
+  }
+
+  const available = (await getSkillDisplayNames(skillDirs)).sort((a, b) =>
+    a.localeCompare(b)
+  );
+  const availableMessage = available.length > 0
+    ? `\nAvailable skills:\n${available.map((name) => `  - ${name}`).join("\n")}`
+    : "";
+
+  throw new Error(
+    `No matching skills found for: ${requestedSkills.join(", ")}${availableMessage}`
+  );
+}
+
+async function filterSkillDirsByName(skillDirs: string[], names: string[]): Promise<string[]> {
+  const normalized = names.map((name) => name.toLowerCase());
+  const matched: string[] = [];
+
+  for (const dir of skillDirs) {
+    try {
+      const meta = await readSkillMd(dir);
+      if (normalized.includes(meta.name.toLowerCase())) {
+        matched.push(dir);
+      }
+    } catch {
+      // Ignore invalid candidates during named filtering.
+    }
+  }
+
+  return matched;
+}
+
+async function getSkillDisplayNames(skillDirs: string[]): Promise<string[]> {
+  const names: string[] = [];
+
+  for (const dir of skillDirs) {
+    try {
+      const meta = await readSkillMd(dir);
+      names.push(meta.name);
+    } catch {
+      names.push(basename(dir));
+    }
+  }
+
+  return names;
 }
 
 async function addSingleSkill(
