@@ -131,6 +131,31 @@ async function getSkillDisplayNames(skillDirs: string[]): Promise<string[]> {
   return names;
 }
 
+export async function listAddableSkills(source: string): Promise<string[]> {
+  const descriptor = resolve(source);
+  const result = await fetchAll(descriptor);
+
+  try {
+    const names: string[] = [];
+
+    for (const dir of result.skills) {
+      try {
+        if (await hasSkillMd(dir)) {
+          const meta = await readSkillMd(dir);
+          names.push(meta.name);
+        }
+      } catch {
+        // Ignore malformed SKILL.md files. The TUI should not show
+        // candidates that add(source, { skill }) cannot install by name.
+      }
+    }
+
+    return names.sort((a, b) => a.localeCompare(b));
+  } finally {
+    await result.cleanup();
+  }
+}
+
 async function addSingleSkill(
   skillDir: string,
   descriptor: SourceDescriptor,

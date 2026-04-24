@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import { $ } from "bun";
 import { mkdir, readdir, writeFile } from "fs/promises";
 import { join } from "path";
-import { add } from "../src/commands/add.js";
+import { add, listAddableSkills } from "../src/commands/add.js";
 import {
   PROJECT_SKILLS_SUBDIR,
   cleanTestHome,
@@ -81,6 +81,37 @@ async function installedSkillNames(skillsPath = getProjectSkillsPath()): Promise
 describe("add --skill option", () => {
   beforeEach(async () => {
     await cleanTestHome();
+  });
+
+  test("listAddableSkills returns sorted discovered skill names", async () => {
+    const source = await createMultiSkillSource();
+
+    await expect(listAddableSkills(source)).resolves.toEqual([
+      "Convex Best Practices",
+      "skill-one",
+      "skill-two",
+    ]);
+  });
+
+  test("listAddableSkills returns empty array for source without SKILL.md", async () => {
+    const source = join(home(), "not-a-skill-source-for-list");
+    await mkdir(source, { recursive: true });
+    await writeFile(join(source, "README.md"), "# Not a skill\n");
+
+    await expect(listAddableSkills(source)).resolves.toEqual([]);
+  });
+
+  test("listAddableSkills ignores invalid SKILL.md candidates", async () => {
+    const source = await createMultiSkillSource();
+    const malformedDir = join(source, "malformed");
+    await mkdir(malformedDir, { recursive: true });
+    await writeFile(join(malformedDir, "SKILL.md"), "---\ndescription: Broken\n---\n# Broken\n");
+
+    await expect(listAddableSkills(source)).resolves.toEqual([
+      "Convex Best Practices",
+      "skill-one",
+      "skill-two",
+    ]);
   });
 
   test("single skill selection installs only the named skill", async () => {

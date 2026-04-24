@@ -7,6 +7,7 @@ import { Notification } from "./Notification.js";
 import type { NotificationState } from "../hooks/useNotification.js";
 import { useSkills, type SkillDetail } from "../hooks/useSkills.js";
 import { type ActionMode } from "../App.js";
+import { SkillSelectModal } from "./SkillSelectModal.js";
 
 interface SkillsViewProps {
   focusPane: "left" | "right";
@@ -23,6 +24,7 @@ interface SkillsViewProps {
   refreshKey?: number;
   showAll?: boolean;
   notification?: NotificationState | null;
+  modalListIndex?: number;
 }
 
 export function SkillsView({
@@ -40,6 +42,7 @@ export function SkillsView({
   refreshKey = 0,
   showAll = false,
   notification = null,
+  modalListIndex = 0,
 }: SkillsViewProps) {
   const { skills, loading } = useSkills(refreshKey, showAll);
 
@@ -159,9 +162,31 @@ export function SkillsView({
           </Text>
         </Box>
       )}
+      {actionMode?.type === "addSkillMode" && (
+        <Box paddingX={1}>
+          <Text bold color="blue">
+            {actionMode.loading
+              ? `Discovering skills from "${actionMode.source}"... Esc to cancel`
+              : `Install from "${actionMode.source}": (a)ll or (s)elect skills?  Esc to cancel`}
+          </Text>
+        </Box>
+      )}
+      {actionMode?.type === "addSkillSelect" && (
+        <SkillSelectModal
+          source={actionMode.source}
+          skills={actionMode.skills}
+          selectedSkills={actionMode.selectedSkills}
+          cursorIndex={modalListIndex}
+          error={actionMode.error}
+        />
+      )}
       {actionMode?.type === "addScope" && (
         <Box paddingX={1}>
-          <Text bold color="blue">Add "{actionMode.source}" to (g)lobal or (p)roject?  Esc to cancel</Text>
+          <Text bold color="blue">
+            {actionMode.skill?.length
+              ? `Add ${actionMode.skill.length} selected skill${actionMode.skill.length === 1 ? "" : "s"} from "${actionMode.source}" to (g)lobal or (p)roject?  Esc to cancel`
+              : `Add "${actionMode.source}" to (g)lobal or (p)roject?  Esc to cancel`}
+          </Text>
         </Box>
       )}
       <Box flexGrow={1}>

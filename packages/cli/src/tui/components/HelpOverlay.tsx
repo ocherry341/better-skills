@@ -18,7 +18,7 @@ const GLOBAL_BINDINGS: Binding[] = [
 
 const TAB_BINDINGS: Record<TabName, Binding[]> = {
   Skills: [
-    { keys: "a", action: "Add skill" },
+    { keys: "a", action: "Add skill source, then choose all or select skills" },
     { keys: "e", action: "Edit skill in $EDITOR" },
     { keys: "d", action: "Delete skill" },
     { keys: "m", action: "Move skill (global/project)" },

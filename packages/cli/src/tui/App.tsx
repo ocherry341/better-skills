@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import { Box, useApp, useInput } from "ink";
 import { join } from "node:path";
 import { useKeyboard } from "./hooks/useKeyboard.js";
@@ -23,7 +23,15 @@ export type ActionMode =
   | { type: "confirmDeleteScope"; skillName: string }
   | { type: "confirmMove"; skillName: string; isGlobal: boolean }
   | { type: "addInput" }
-  | { type: "addScope"; source: string }
+  | { type: "addSkillMode"; source: string; loading?: boolean; requestId?: number }
+  | {
+    type: "addSkillSelect";
+    source: string;
+    skills: string[];
+    selectedSkills: string[];
+    error?: string;
+  }
+  | { type: "addScope"; source: string; skill?: string[] }
   | { type: "help" }
   | { type: "profileCreate" }
   | { type: "profileDelete"; profileName: string }
@@ -53,6 +61,7 @@ export function App({ version }: AppProps) {
   const [profileInput, setProfileInput] = useState("");
   const [modalListIndex, setModalListIndex] = useState(0);
   const { notification, show: showNotification, clear: clearNotification } = useNotification();
+  const discoveryRequestId = useRef(0);
 
   const isModal = actionMode !== null;
   const isSearch = actionMode?.type === "search";
@@ -195,7 +204,7 @@ export function App({ version }: AppProps) {
       if (key.return && addSource.trim()) {
         const source = addSource.trim();
         setAddSource("");
-        setActionMode({ type: "addScope", source });
+        setActionMode({ type: "addSkillMode", source });
         return;
       }
       if (key.backspace || key.delete) {
@@ -208,22 +217,143 @@ export function App({ version }: AppProps) {
       return;
     }
 
+    if (actionMode.type === "addSkillMode") {
+      if (key.escape) {
+        clearNotification();
+        setActionMode(null);
+        return;
+      }
+      if (actionMode.loading) {
+        return;
+      }
+      if (input === "a" || input === "A") {
+        setActionMode({ type: "addScope", source: actionMode.source });
+        return;
+      }
+      if (input === "s" || input === "S") {
+        const source = actionMode.source;
+        const requestId = ++discoveryRequestId.current;
+        setActionMode({ type: "addSkillMode", source, loading: true, requestId });
+        showNotification("Discovering skills...", "loading");
+
+        void (async () => {
+          try {
+            const { listAddableSkills } = await import("../commands/add.js");
+            const skills = await listAddableSkills(source);
+
+            setActionMode((current) => {
+              if (
+                current?.type !== "addSkillMode" ||
+                current.source !== source ||
+                current.requestId !== requestId
+              ) {
+                return current;
+              }
+
+              setModalListIndex(0);
+              showNotification("Skills discovered", "success");
+              return { type: "addSkillSelect", source, skills, selectedSkills: [] };
+            });
+          } catch (e) {
+            setActionMode((current) => {
+              if (
+                current?.type !== "addSkillMode" ||
+                current.source !== source ||
+                current.requestId !== requestId
+              ) {
+                return current;
+              }
+
+              showNotification(e instanceof Error ? e.message : String(e), "error");
+              return { type: "addSkillMode", source };
+            });
+          }
+        })();
+
+        return;
+      }
+      return;
+    }
+
+    if (actionMode.type === "addSkillSelect") {
+      if (key.escape) {
+        setActionMode({ type: "addSkillMode", source: actionMode.source });
+        setModalListIndex(0);
+        return;
+      }
+
+      if (key.return) {
+        if (actionMode.selectedSkills.length === 0) {
+          setActionMode({ ...actionMode, error: "Select at least one skill." });
+          return;
+        }
+
+        setActionMode({
+          type: "addScope",
+          source: actionMode.source,
+          skill: actionMode.selectedSkills,
+        });
+        setModalListIndex(0);
+        return;
+      }
+
+      if (actionMode.skills.length === 0) {
+        return;
+      }
+
+      if (input === "j" || key.downArrow) {
+        setModalListIndex((i) => Math.min(i + 1, actionMode.skills.length - 1));
+        return;
+      }
+
+      if (input === "k" || key.upArrow) {
+        setModalListIndex((i) => Math.max(0, i - 1));
+        return;
+      }
+
+      if (input === " ") {
+        const current = actionMode.skills[modalListIndex];
+        if (!current) return;
+
+        const selectedSkills = actionMode.selectedSkills.includes(current)
+          ? actionMode.selectedSkills.filter((s) => s !== current)
+          : [...actionMode.selectedSkills, current];
+
+        setActionMode({ ...actionMode, selectedSkills, error: undefined });
+        return;
+      }
+
+      if (input === "a" || input === "A") {
+        setActionMode({ ...actionMode, selectedSkills: [...actionMode.skills], error: undefined });
+        return;
+      }
+
+      if (input === "n" || input === "N") {
+        setActionMode({ ...actionMode, selectedSkills: [], error: undefined });
+        return;
+      }
+
+      return;
+    }
+
     if (actionMode.type === "addScope") {
       if (input === "g" || input === "G") {
         const source = actionMode.source;
+        const skill = actionMode.skill;
         setActionMode(null);
         runAction("Adding skill...", "Skill added", async () => {
           const { add } = await import("../commands/add.js");
-          await add(source, { global: true });
+          await add(source, { global: true, skill });
         }, () => { setSelectedIndex(0); refresh(); });
         return;
       }
       if (input === "p" || input === "P") {
         const source = actionMode.source;
+        const skill = actionMode.skill;
         setActionMode(null);
         runAction("Adding skill...", "Skill added", async () => {
           const { add } = await import("../commands/add.js");
-          await add(source, { global: false });
+          await add(source, { global: false, skill });
         }, () => { setSelectedIndex(0); refresh(); });
         return;
       }
@@ -550,6 +680,7 @@ export function App({ version }: AppProps) {
               searchMode={isSearch}
               actionMode={actionMode}
               notification={notification}
+              modalListIndex={modalListIndex}
               onDelete={(name, isGlobal, isProject) => {
                 if (isGlobal && isProject) {
                   setActionMode({ type: "confirmDeleteScope", skillName: name });
