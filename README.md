@@ -45,48 +45,6 @@ Installs a platform-specific binary to `~/.local/bin/`. Supports Linux (x64/arm6
 
 You can also download binaries directly from the [GitHub Releases](https://github.com/ocherry341/better-skills/releases) page.
 
-### Shell completion
-
-Generate shell completion scripts:
-
-```bash
-bsk completion bash
-bsk completion zsh
-bsk completion fish
-```
-
-#### Bash
-
-Use for the current shell:
-
-```bash
-source <(bsk completion bash)
-```
-
-Install permanently by adding it to `~/.bashrc`:
-
-```bash
-echo 'source <(bsk completion bash)' >> ~/.bashrc
-```
-
-#### Zsh
-
-Write the completion file to a directory in your `fpath`:
-
-```bash
-mkdir -p ~/.zsh/completions
-bsk completion zsh > ~/.zsh/completions/_bsk
-```
-
-Make sure `~/.zsh/completions` is in your `fpath` before `compinit` runs.
-
-#### Fish
-
-```bash
-mkdir -p ~/.config/fish/completions
-bsk completion fish > ~/.config/fish/completions/bsk.fish
-```
-
 ## Quick Start
 
 ```bash
@@ -282,6 +240,48 @@ Instructions for the AI agent...
 ### Deduplication
 
 Identical skills across projects share a single store entry. The SHA-256 hash is computed deterministically from file paths and contents, so the same skill always produces the same hash.
+
+## Shell completion
+
+Generate shell completion scripts:
+
+```bash
+bsk completion bash
+bsk completion zsh
+bsk completion fish
+```
+
+### Bash
+
+Use for the current shell:
+
+```bash
+source <(bsk completion bash)
+```
+
+Install permanently by adding it to `~/.bashrc`:
+
+```bash
+echo 'source <(bsk completion bash)' >> ~/.bashrc
+```
+
+### Zsh
+
+Write the completion file to a directory in your `fpath`:
+
+```bash
+mkdir -p ~/.zsh/completions
+bsk completion zsh > ~/.zsh/completions/_bsk
+```
+
+Make sure `~/.zsh/completions` is in your `fpath` before `compinit` runs.
+
+### Fish
+
+```bash
+mkdir -p ~/.config/fish/completions
+bsk completion fish > ~/.config/fish/completions/bsk.fish
+```
 
 ## Roadmap
 
