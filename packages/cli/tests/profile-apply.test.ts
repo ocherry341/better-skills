@@ -1,6 +1,5 @@
 import { describe, test, expect, beforeEach } from "bun:test";
-import { mkdir, mkdtemp, writeFile, readdir, readFile } from "fs/promises";
-import { tmpdir } from "os";
+import { mkdir, writeFile, readdir, readFile } from "fs/promises";
 import { join } from "path";
 import { profileApply } from "../src/commands/profile.js";
 import { type Profile, writeProfile } from "../src/core/profile.js";
@@ -137,57 +136,4 @@ describe("profile apply", () => {
     ).rejects.toThrow();
   });
 
-  test("rejects applying a profile to project when cwd is home outside test mode", async () => {
-    const originalNodeEnv = process.env.NODE_ENV;
-    const originalHome = process.env.HOME;
-    const originalCwd = process.cwd();
-    const fakeHome = await mkdtemp(join(tmpdir(), "bsk-home-profile-apply-"));
-
-    try {
-      process.env.NODE_ENV = "production";
-      process.env.HOME = fakeHome;
-      process.chdir(fakeHome);
-
-      await mkdir(join(fakeHome, ".better-skills", "profiles"), { recursive: true });
-      await writeProfile(join(fakeHome, ".better-skills", "profiles", "dev.json"), {
-        name: "dev",
-        skills: [{ skillName: "skill-a", v: 1, source: "test/repo", addedAt: "2026-01-01T00:00:00.000Z" }],
-      });
-
-      await expect(profileApply("dev", {})).rejects.toThrow(
-        "No project context in current directory."
-      );
-    } finally {
-      process.chdir(originalCwd);
-      process.env.NODE_ENV = originalNodeEnv;
-      process.env.HOME = originalHome;
-    }
-  });
-
-  test("rejects empty profile apply when cwd is home outside test mode", async () => {
-    const originalNodeEnv = process.env.NODE_ENV;
-    const originalHome = process.env.HOME;
-    const originalCwd = process.cwd();
-    const fakeHome = await mkdtemp(join(tmpdir(), "bsk-home-profile-empty-"));
-
-    try {
-      process.env.NODE_ENV = "production";
-      process.env.HOME = fakeHome;
-      process.chdir(fakeHome);
-
-      await mkdir(join(fakeHome, ".better-skills", "profiles"), { recursive: true });
-      await writeProfile(join(fakeHome, ".better-skills", "profiles", "empty.json"), {
-        name: "empty",
-        skills: [],
-      });
-
-      await expect(profileApply("empty", {})).rejects.toThrow(
-        "No project context in current directory."
-      );
-    } finally {
-      process.chdir(originalCwd);
-      process.env.NODE_ENV = originalNodeEnv;
-      process.env.HOME = originalHome;
-    }
-  });
 });

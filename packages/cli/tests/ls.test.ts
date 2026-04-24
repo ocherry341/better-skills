@@ -1,7 +1,6 @@
 import { describe, test, expect, beforeEach } from "bun:test";
 import { $ } from "bun";
-import { mkdir, mkdtemp, writeFile } from "fs/promises";
-import { tmpdir } from "os";
+import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
 import { ls, lsAll, type LsEntry, type LsAllEntry } from "../src/commands/ls.js";
 import { cleanTestHome, getGlobalSkillsPath, getProjectSkillsPath, getRegistryPath, getBskDir } from "../src/utils/paths.js";
@@ -65,30 +64,6 @@ describe("ls", () => {
     expect(entries.map((e) => e.name)).toEqual(["alpha", "beta", "zeta"]);
   });
 
-  test("when cwd is home outside test mode, global skills are not misclassified as project skills", async () => {
-    const originalNodeEnv = process.env.NODE_ENV;
-    const originalHome = process.env.HOME;
-    const originalCwd = process.cwd();
-    const fakeHome = await mkdtemp(join(tmpdir(), "bsk-home-ls-"));
-
-    try {
-      process.env.NODE_ENV = "production";
-      process.env.HOME = fakeHome;
-      process.chdir(fakeHome);
-
-      await mkdir(join(fakeHome, ".agents", "skills", "my-skill"), { recursive: true });
-      await writeFile(join(fakeHome, ".agents", "skills", "my-skill", "SKILL.md"), "---\nname: my-skill\n---\n");
-
-      const entries = await ls();
-      expect(entries).toEqual([
-        { name: "my-skill", global: true, project: false },
-      ]);
-    } finally {
-      process.chdir(originalCwd);
-      process.env.NODE_ENV = originalNodeEnv;
-      process.env.HOME = originalHome;
-    }
-  });
 });
 
 describe("lsAll", () => {

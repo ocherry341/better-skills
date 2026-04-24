@@ -41,17 +41,32 @@ export function getGlobalSkillsPath(): string {
   return join(home(), ".agents", "skills");
 }
 
-/** Project-local skills target directory */
-export function getProjectSkillsPath(): string | null {
-  if (process.env.NODE_ENV === "test") {
-    return join(home(), "project", ".agents", "skills");
+export interface ProjectSkillsPathInput {
+  nodeEnv: string | undefined;
+  homeDir: string;
+  cwd: string;
+}
+
+/** Pure project-local skills path resolver for tests and production wrapper. */
+export function getProjectSkillsPathFor(input: ProjectSkillsPathInput): string | null {
+  if (input.nodeEnv === "test") {
+    return join(input.homeDir, "project", PROJECT_SKILLS_SUBDIR);
   }
 
-  if (resolve(process.cwd()) === resolve(home())) {
+  if (resolve(input.cwd) === resolve(input.homeDir)) {
     return null;
   }
 
-  return join(getProjectRoot(), ".agents", "skills");
+  return join(input.cwd, PROJECT_SKILLS_SUBDIR);
+}
+
+/** Project-local skills target directory */
+export function getProjectSkillsPath(): string | null {
+  return getProjectSkillsPathFor({
+    nodeEnv: process.env.NODE_ENV,
+    homeDir: home(),
+    cwd: getProjectRoot(),
+  });
 }
 
 /** Resolve the skills target path based on global flag */

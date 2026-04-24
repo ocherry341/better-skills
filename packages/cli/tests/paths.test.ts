@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach } from "bun:test";
 import { mkdtemp } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
-import { cleanTestHome, getProjectSkillsPath, home } from "../src/utils/paths.js";
+import { cleanTestHome, getProjectSkillsPath, getProjectSkillsPathFor, home } from "../src/utils/paths.js";
 
 describe("paths", () => {
   beforeEach(async () => {
@@ -21,21 +21,17 @@ describe("paths", () => {
   });
 
   test("returns null outside test mode when cwd is home", async () => {
-    const originalNodeEnv = process.env.NODE_ENV;
-    const originalHome = process.env.HOME;
-    const originalCwd = process.cwd();
     const fakeHome = await mkdtemp(join(tmpdir(), "bsk-home-paths-"));
 
-    try {
-      process.env.NODE_ENV = "production";
-      process.env.HOME = fakeHome;
-      process.chdir(fakeHome);
+    expect(getProjectSkillsPathFor({ nodeEnv: "production", homeDir: fakeHome, cwd: fakeHome })).toBeNull();
+  });
 
-      expect(getProjectSkillsPath()).toBeNull();
-    } finally {
-      process.chdir(originalCwd);
-      process.env.NODE_ENV = originalNodeEnv;
-      process.env.HOME = originalHome;
-    }
+  test("returns project skills path outside test mode when cwd is not home", async () => {
+    const fakeHome = await mkdtemp(join(tmpdir(), "bsk-home-paths-"));
+    const projectRoot = join(fakeHome, "work", "repo");
+
+    expect(getProjectSkillsPathFor({ nodeEnv: "production", homeDir: fakeHome, cwd: projectRoot })).toBe(
+      join(projectRoot, ".agents", "skills")
+    );
   });
 });

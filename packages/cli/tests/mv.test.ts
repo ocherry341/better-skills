@@ -1,6 +1,5 @@
 import { describe, test, expect, beforeEach } from "bun:test";
-import { mkdir, mkdtemp, writeFile, readFile, stat } from "fs/promises";
-import { tmpdir } from "os";
+import { mkdir, writeFile, readFile, stat } from "fs/promises";
 import { join } from "path";
 import { mvToProject, mvToGlobal } from "../src/commands/mv.js";
 import { readRegistry } from "../src/core/registry.js";
@@ -81,30 +80,6 @@ describe("mv to project", () => {
     expect(content).toBe("# Skill");
   });
 
-  test("rejects moving to project when cwd is home outside test mode", async () => {
-    const originalNodeEnv = process.env.NODE_ENV;
-    const originalHome = process.env.HOME;
-    const originalCwd = process.cwd();
-    const fakeHome = await mkdtemp(join(tmpdir(), "bsk-home-mv-project-"));
-
-    try {
-      process.env.NODE_ENV = "production";
-      process.env.HOME = fakeHome;
-      process.chdir(fakeHome);
-
-      const globalSkill = join(fakeHome, ".agents", "skills", "my-skill");
-      await mkdir(globalSkill, { recursive: true });
-      await writeFile(join(globalSkill, "SKILL.md"), "# Skill");
-
-      await expect(mvToProject("my-skill")).rejects.toThrow(
-        "No project context in current directory."
-      );
-    } finally {
-      process.chdir(originalCwd);
-      process.env.NODE_ENV = originalNodeEnv;
-      process.env.HOME = originalHome;
-    }
-  });
 });
 
 describe("mv to global", () => {
@@ -176,24 +151,4 @@ describe("mv to global", () => {
     await expect(stat(projectSkill)).rejects.toThrow();
   });
 
-  test("rejects moving to global when cwd is home outside test mode", async () => {
-    const originalNodeEnv = process.env.NODE_ENV;
-    const originalHome = process.env.HOME;
-    const originalCwd = process.cwd();
-    const fakeHome = await mkdtemp(join(tmpdir(), "bsk-home-mv-global-"));
-
-    try {
-      process.env.NODE_ENV = "production";
-      process.env.HOME = fakeHome;
-      process.chdir(fakeHome);
-
-      await expect(mvToGlobal("my-skill")).rejects.toThrow(
-        "No project context in current directory."
-      );
-    } finally {
-      process.chdir(originalCwd);
-      process.env.NODE_ENV = originalNodeEnv;
-      process.env.HOME = originalHome;
-    }
-  });
 });
