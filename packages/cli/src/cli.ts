@@ -49,6 +49,7 @@ program
   .option("--hardlink", "Use hard links instead of file copy")
   .option("-n, --name <name>", "Override the skill name")
   .option("-f, --force", "Overwrite unmanaged skills")
+  .option("-s, --skill <skills...>", "Install specific skills by name (use '*' for all)")
   .option("-y, --yes", "Skip confirmation prompts")
   .action(async (source: string, opts) => {
     await add(source, {
@@ -56,6 +57,7 @@ program
       hardlink: opts.hardlink,
       name: opts.name,
       force: opts.force,
+      skill: opts.skill,
     });
   });
 
@@ -67,6 +69,7 @@ program
   .option("--hardlink", "Use hard links instead of file copy")
   .option("-n, --name <name>", "Override the skill name")
   .option("-f, --force", "Overwrite unmanaged skills")
+  .option("-s, --skill <skills...>", "Install specific skills by name (use '*' for all)")
   .option("-y, --yes", "Skip confirmation prompts")
   .action(async (source: string, opts) => {
     await add(source, {
@@ -74,6 +77,7 @@ program
       hardlink: opts.hardlink,
       name: opts.name,
       force: opts.force,
+      skill: opts.skill,
     });
   });
 

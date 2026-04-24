@@ -83,11 +83,12 @@ bsk mv <skill> <scope>    # Move skill between global/project scope
 Options for `add` / `install`:
 
 ```bash
--g, --global        # Install to global skills directory
--n, --name <name>   # Override the skill name
--f, --force         # Overwrite unmanaged skills
--y, --yes           # Skip confirmation prompts
---hardlink           # Use hard links instead of file copy
+-g, --global              # Install to global skills directory
+-n, --name <name>         # Override the skill name
+-f, --force               # Overwrite unmanaged skills
+-s, --skill <skills...>   # Install specific skills by name; use '*' for all
+-y, --yes                 # Skip confirmation prompts
+--hardlink                # Use hard links instead of file copy
 ```
 
 ### Source Formats
@@ -100,6 +101,15 @@ bsk add https://github.com/owner/repo/tree/main/subdir  # Branch + path
 bsk add https://gitlab.com/owner/repo           # Any HTTPS git URL
 bsk add git@github.com:owner/repo.git           # Git SSH
 bsk add ./local/path                            # Local directory (also ../ and /abs)
+```
+
+### Installing Specific Skills
+
+```bash
+bsk add owner/repo --skill my-skill
+bsk add owner/repo --skill skill-a skill-b
+bsk add owner/repo --skill '*'
+bsk add ./local-repo --skill "Convex Best Practices"
 ```
 
 ### Profiles
