@@ -13,6 +13,16 @@ A pnpm-inspired CLI for managing Agent skills with content-addressable storage.
 - **Multiple sources** — Add skills from GitHub repos, git URLs, or local paths
 - **Multi-client support** — Sync skills to Claude, Cursor, OpenCode, Gemini, Copilot, Roo, Goose, and Amp simultaneously
 
+## Already Have Skills?
+
+Still managing your skills manually? Just one command to unlock the full power of `bsk`:
+
+```bash
+bsk save
+```
+
+Versioning, deduplication, profile switching — all yours, instantly.
+
 ## Installation
 
 ### npm / pnpm / bun
@@ -34,16 +44,6 @@ curl -fsSL https://raw.githubusercontent.com/ocherry341/better-skills/main/packa
 Installs a platform-specific binary to `~/.local/bin/`. Supports Linux (x64/arm64) and macOS (x64/arm64).
 
 You can also download binaries directly from the [GitHub Releases](https://github.com/ocherry341/better-skills/releases) page.
-
-## Already Have Skills?
-
-Still managing your skills manually? Just one command to unlock the full power of `bsk`:
-
-```bash
-bsk save
-```
-
-Versioning, deduplication, profile switching — all yours, instantly.
 
 ## Quick Start
 
