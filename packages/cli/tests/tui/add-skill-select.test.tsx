@@ -103,7 +103,7 @@ describe("TUI add skill selection", () => {
     stdin.write("\r");
     await flush(20);
     stdin.write("s");
-    await flush(100);
+    await flush(150);
 
     const frame = stripAnsi(lastFrame()!);
     expect(listAddableSkillsMock).toHaveBeenCalledWith("owner/repo");
@@ -130,7 +130,7 @@ describe("TUI add skill selection", () => {
     stdin.write("\r");
     await flush(20);
     stdin.write("p");
-    await flush(100);
+    await flush(180);
 
     expect(addMock).toHaveBeenCalledWith("owner/repo", expect.objectContaining({
       global: false,
@@ -353,6 +353,32 @@ describe("TUI add skill selection", () => {
     const frame = stripAnsi(lastFrame()!);
     expect(frame).toContain("No skills found in this source.");
     expect(addMock).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  test("select discovery ignores repeated trigger keys while loading", async () => {
+    const deferred = createDeferred<string[]>();
+    listAddableSkillsMock.mockImplementationOnce(() => deferred.promise);
+
+    const { stdin, unmount } = render(<App version="0.0.0" />);
+    await flush(50);
+
+    stdin.write("a");
+    await flush(20);
+    stdin.write("owner/repo");
+    await flush(20);
+    stdin.write("\r");
+    await flush(20);
+
+    stdin.write("s");
+    await flush(20);
+    stdin.write("ssss");
+    await flush(50);
+
+    expect(listAddableSkillsMock).toHaveBeenCalledTimes(1);
+
+    deferred.resolve(["skill-one"]);
+    await flush(100);
     unmount();
   });
 });

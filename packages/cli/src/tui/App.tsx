@@ -62,6 +62,7 @@ export function App({ version }: AppProps) {
   const [modalListIndex, setModalListIndex] = useState(0);
   const { notification, show: showNotification, clear: clearNotification } = useNotification();
   const discoveryRequestId = useRef(0);
+  const discoveryInFlight = useRef(false);
 
   const isModal = actionMode !== null;
   const isSearch = actionMode?.type === "search";
@@ -219,11 +220,12 @@ export function App({ version }: AppProps) {
 
     if (actionMode.type === "addSkillMode") {
       if (key.escape) {
+        discoveryInFlight.current = false;
         clearNotification();
         setActionMode(null);
         return;
       }
-      if (actionMode.loading) {
+      if (actionMode.loading || discoveryInFlight.current) {
         return;
       }
       if (input === "a" || input === "A") {
@@ -231,6 +233,7 @@ export function App({ version }: AppProps) {
         return;
       }
       if (input === "s" || input === "S") {
+        discoveryInFlight.current = true;
         const source = actionMode.source;
         const requestId = ++discoveryRequestId.current;
         setActionMode({ type: "addSkillMode", source, loading: true, requestId });
@@ -252,6 +255,7 @@ export function App({ version }: AppProps) {
 
               setModalListIndex(0);
               showNotification("Skills discovered", "success");
+              discoveryInFlight.current = false;
               return { type: "addSkillSelect", source, skills, selectedSkills: [] };
             });
           } catch (e) {
@@ -264,6 +268,7 @@ export function App({ version }: AppProps) {
                 return current;
               }
 
+              discoveryInFlight.current = false;
               showNotification(e instanceof Error ? e.message : String(e), "error");
               return { type: "addSkillMode", source };
             });
